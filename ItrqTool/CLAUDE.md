@@ -352,7 +352,7 @@ public sealed class MyExcelTask : IWorkflowTask
 
 ## Presentation layer conventions
 
-- Framework: WPF on .NET 8. Target `net8.0-windows`.
+- Framework: WPF on .NET 10. Target `net10.0-windows`.
 - Pattern: MVVM using CommunityToolkit.Mvvm source generators.
 - Use `[ObservableProperty]` for bindable properties. Use `[RelayCommand]` for commands.
 - ViewModels are in `ItrqTool.Presentation/ViewModels/`.
