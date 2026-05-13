@@ -15,5 +15,9 @@ public sealed class WorkflowSessionFactory
     }
 
     public WorkflowSession Create(WorkflowDefinition workflow)
-        => new(workflow, _taskRegistry, _logger);
+    {
+        var workingDirectory = Path.Combine(
+            Path.GetTempPath(), "ItrqTool", $"run_{DateTime.UtcNow:yyyyMMddHHmmssfff}");
+        return new WorkflowSession(workflow, _taskRegistry, workingDirectory, _logger);
+    }
 }

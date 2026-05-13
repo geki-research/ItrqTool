@@ -65,6 +65,11 @@ ItrqTool.sln
     ├── ItrqTool.Architecture.Tests/  References: all src projects, NetArchTest.Rules, FluentAssertions
     ├── ItrqTool.Domain.Tests/        References: ItrqTool.Domain
     ├── ItrqTool.Application.Tests/   References: ItrqTool.Application, ItrqTool.Domain, NSubstitute
+    ├── ItrqTool.Infrastructure.Tests/ References: ItrqTool.Infrastructure,
+    │                                              ItrqTool.Domain
+    ├── ItrqTool.Integration.Tests/   References: ItrqTool.Presentation
+    │                                             (and transitively all src projects)
+    │                                             TFM: net10.0-windows
     └── ItrqTool.Tasks.Tests/         References: ItrqTool.Tasks, ItrqTool.Domain, NSubstitute
 ```
 
@@ -168,6 +173,20 @@ public record ExcelCellValue(object? Value, Type? ClrType)
 {
     public T? As<T>() => Value is T v ? v : default;
 }
+
+// ── Workflow loading ───────────────────────────────────────────────────────────
+
+public interface IWorkflowLoader
+{
+    WorkflowLoadResult LoadAll();
+}
+
+public record WorkflowLoadResult(
+    IReadOnlyList<WorkflowDefinition> Workflows,
+    IReadOnlyList<WorkflowLoadFailure> Failures
+);
+
+public record WorkflowLoadFailure(string FilePath, string ErrorMessage);
 ```
 
 ---
@@ -397,6 +416,14 @@ public record TaskMessageViewModel(
 The user can click any completed task row to set `SelectedResult` to that task's
 historical result. Clicking a pending or ready task sets `SelectedResult` to null.
 
+The DI registrations are extracted into a static method
+`CompositionRoot.AddItrqToolServices(this IServiceCollection services,
+string workflowsDirectoryPath)` in `ItrqTool.Presentation`. `App.OnStartup`
+calls this method with `Path.Combine(AppContext.BaseDirectory, "workflows")`.
+Integration tests call the same method with a per-test temp directory.
+Treat `AddItrqToolServices` as the single source of truth for the
+production object graph — never duplicate registrations elsewhere.
+
 ---
 
 ## Testing requirements
@@ -416,11 +443,28 @@ Use `NetArchTest.Rules` with `FluentAssertions`.
   output path placement in working directory, hard stop on `Succeeded = false`,
   cancellation propagation, `Completed` state after last task succeeds.
 
+### Infrastructure tests (`ItrqTool.Infrastructure.Tests`)
+- `JsonWorkflowLoader`: empty directory, valid file with empty task list,
+  valid file with tasks, malformed JSON, missing required field, workflow
+  with cycle, workflow with missing reference, mix of valid and invalid
+  files, non-JSON files ignored, directory does not exist (throws
+  DirectoryNotFoundException).
+
 ### Task tests (`ItrqTool.Tasks.Tests`)
 Each task implementation must have:
 - A success path test with a representative input file (use temp files).
 - A failure path test (malformed input, missing expected column, etc.).
 - A cancellation test verifying `OperationCanceledException` propagates.
+
+### Integration tests (`ItrqTool.Integration.Tests`)
+- Full end-to-end execution: writes `smoketest.json` into a temp workflows
+  directory, calls `CompositionRoot.AddItrqToolServices`, builds the
+  ServiceProvider, resolves `IWorkflowLoader` and `WorkflowSessionFactory`,
+  loads the workflow, runs every task through to `Completed`, asserts
+  every declared output file exists and the recorded `TaskResult`s are
+  all `Succeeded`.
+- DI smoke: asserts every `IWorkflowTask` discovered by Scrutor is
+  resolvable through `ITaskRegistry.FindTask(task.TaskType)`.
 
 ---
 

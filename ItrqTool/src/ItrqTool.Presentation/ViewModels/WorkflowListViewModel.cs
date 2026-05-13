@@ -16,5 +16,5 @@ public partial class WorkflowListViewModel : ObservableObject
         => _loader = loader;
 
     public void LoadWorkflows()
-        => Workflows = new ObservableCollection<WorkflowDefinition>(_loader.LoadAll());
+        => Workflows = new ObservableCollection<WorkflowDefinition>(_loader.LoadAll().Workflows);
 }

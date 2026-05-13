@@ -2,11 +2,7 @@ using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using AppLayer = ItrqTool.Application;
-using ItrqTool.Domain;
-using ItrqTool.Infrastructure;
 using ItrqTool.Presentation.ViewModels;
-using ItrqTool.Tasks;
 
 namespace ItrqTool.Presentation;
 
@@ -19,24 +15,10 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
 
         var services = new ServiceCollection();
-
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information));
 
-        var workflowsDir = Path.Combine(AppContext.BaseDirectory, "workflows");
-        services.AddSingleton<IExcelReader, ClosedXmlExcelReader>();
-        services.AddSingleton<IWorkflowLoader>(_ => new JsonWorkflowLoader(workflowsDir));
-
-        services.AddSingleton<AppLayer.WorkflowSessionFactory>();
-        services.AddSingleton<AppLayer.ITaskRegistry, AppLayer.DependencyInjectionTaskRegistry>();
-
-        services.Scan(scan => scan
-            .FromAssemblyOf<IWorkflowTaskMarker>()
-            .AddClasses(c => c.AssignableTo<IWorkflowTask>())
-            .AsImplementedInterfaces()
-            .WithTransientLifetime());
-
-        services.AddTransient<WorkflowRunViewModel>();
-        services.AddTransient<WorkflowListViewModel>();
+        var workflowsPath = Path.Combine(AppContext.BaseDirectory, "workflows");
+        services.AddItrqToolServices(workflowsPath);
 
         _services = services.BuildServiceProvider();
 

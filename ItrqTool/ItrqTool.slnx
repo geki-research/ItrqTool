@@ -12,5 +12,7 @@
   <Project Path="tests\ItrqTool.Architecture.Tests\ItrqTool.Architecture.Tests.csproj" />
   <Project Path="tests\ItrqTool.Domain.Tests\ItrqTool.Domain.Tests.csproj" />
   <Project Path="tests\ItrqTool.Application.Tests\ItrqTool.Application.Tests.csproj" />
+  <Project Path="tests\ItrqTool.Infrastructure.Tests\ItrqTool.Infrastructure.Tests.csproj" />
+  <Project Path="tests\ItrqTool.Integration.Tests\ItrqTool.Integration.Tests.csproj" />
   <Project Path="tests\ItrqTool.Tasks.Tests\ItrqTool.Tasks.Tests.csproj" />
 </Solution>
