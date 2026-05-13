@@ -1,0 +1,7 @@
+<Window x:Class="ItrqTool.Presentation.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ItrqTool" Height="600" Width="900">
+    <Grid>
+    </Grid>
+</Window>

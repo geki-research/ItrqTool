@@ -1,0 +1,16 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+  </Configurations>
+  <Project Path="src\ItrqTool.Domain\ItrqTool.Domain.csproj" />
+  <Project Path="src\ItrqTool.Application\ItrqTool.Application.csproj" />
+  <Project Path="src\ItrqTool.Infrastructure\ItrqTool.Infrastructure.csproj" />
+  <Project Path="src\ItrqTool.Tasks\ItrqTool.Tasks.csproj" />
+  <Project Path="src\ItrqTool.Presentation\ItrqTool.Presentation.csproj" />
+  <Project Path="tests\ItrqTool.Architecture.Tests\ItrqTool.Architecture.Tests.csproj" />
+  <Project Path="tests\ItrqTool.Domain.Tests\ItrqTool.Domain.Tests.csproj" />
+  <Project Path="tests\ItrqTool.Application.Tests\ItrqTool.Application.Tests.csproj" />
+  <Project Path="tests\ItrqTool.Tasks.Tests\ItrqTool.Tasks.Tests.csproj" />
+</Solution>

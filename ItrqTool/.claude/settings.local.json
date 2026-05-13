@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(dotnet *)",
+      "Bash(sed -i 's/<TargetFramework>net8.0-windows<\\\\/TargetFramework>/<TargetFramework>net10.0-windows<\\\\/TargetFramework>/g' C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/src/ItrqTool.Presentation/ItrqTool.Presentation.csproj C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/tests/ItrqTool.Architecture.Tests/ItrqTool.Architecture.Tests.csproj)",
+      "Bash(sed -i 's/<TargetFramework>net8.0<\\\\/TargetFramework>/<TargetFramework>net10.0<\\\\/TargetFramework>/g' C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/src/ItrqTool.Domain/ItrqTool.Domain.csproj C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/src/ItrqTool.Application/ItrqTool.Application.csproj C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/src/ItrqTool.Infrastructure/ItrqTool.Infrastructure.csproj C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/src/ItrqTool.Tasks/ItrqTool.Tasks.csproj C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/tests/ItrqTool.Domain.Tests/ItrqTool.Domain.Tests.csproj C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/tests/ItrqTool.Application.Tests/ItrqTool.Application.Tests.csproj C:/Users/Gernot/source/repos/ItrqTool/ItrqTool/tests/ItrqTool.Tasks.Tests/ItrqTool.Tasks.Tests.csproj)",
+      "Bash(mv src/YourApp.Domain/YourApp.Domain.csproj src/YourApp.Domain/ItrqTool.Domain.csproj)",
+      "Bash(mv src/YourApp.Application/YourApp.Application.csproj src/YourApp.Application/ItrqTool.Application.csproj)",
+      "Bash(mv src/YourApp.Infrastructure/YourApp.Infrastructure.csproj src/YourApp.Infrastructure/ItrqTool.Infrastructure.csproj)",
+      "Bash(mv src/YourApp.Tasks/YourApp.Tasks.csproj src/YourApp.Tasks/ItrqTool.Tasks.csproj)",
+      "Bash(mv src/YourApp.Presentation/YourApp.Presentation.csproj src/YourApp.Presentation/ItrqTool.Presentation.csproj)",
+      "Bash(mv src/YourApp.Domain src/ItrqTool.Domain)",
+      "Bash(mv src/YourApp.Application src/ItrqTool.Application)",
+      "Bash(mv src/YourApp.Infrastructure src/ItrqTool.Infrastructure)",
+      "Bash(mv src/YourApp.Tasks src/ItrqTool.Tasks)",
+      "Bash(mv src/YourApp.Presentation src/ItrqTool.Presentation)",
+      "Bash(xargs -0 sed -i 's/YourApp/ItrqTool/g')",
+      "Bash(git add *)",
+      "Bash(git rm *)"
+    ]
+  }
+}

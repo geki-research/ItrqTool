@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ItrqTool.Domain\ItrqTool.Domain.csproj" />
+    <ProjectReference Include="..\..\src\ItrqTool.Application\ItrqTool.Application.csproj" />
+    <ProjectReference Include="..\..\src\ItrqTool.Infrastructure\ItrqTool.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\ItrqTool.Tasks\ItrqTool.Tasks.csproj" />
+    <ProjectReference Include="..\..\src\ItrqTool.Presentation\ItrqTool.Presentation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="FluentAssertions" Version="6.12.2" />
+    <PackageReference Include="NetArchTest.Rules" Version="1.3.2" />
+  </ItemGroup>
+</Project>
