@@ -5,7 +5,7 @@ namespace ItrqTool.Presentation.Views;
 
 public partial class MainWindow : Window
 {
-    public MainWindow(WorkflowListViewModel viewModel)
+    public MainWindow(ShellViewModel viewModel)
     {
         InitializeComponent();
         DataContext = viewModel;

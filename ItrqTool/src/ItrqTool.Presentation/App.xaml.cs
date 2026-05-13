@@ -1,8 +1,9 @@
 using System.IO;
 using System.Windows;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using ItrqTool.Presentation.ViewModels;
+using ItrqTool.Presentation.Views;
 
 namespace ItrqTool.Presentation;
 
@@ -14,15 +15,28 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
-        var services = new ServiceCollection();
-        services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information));
+        var config = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+            .Build();
 
         var workflowsPath = Path.Combine(AppContext.BaseDirectory, "workflows");
-        services.AddItrqToolServices(workflowsPath);
+
+        var configuredRoot = config["ItrqTool:WorkflowDataRoot"];
+        var workflowDataRoot = Environment.ExpandEnvironmentVariables(
+            string.IsNullOrWhiteSpace(configuredRoot)
+                ? @"%USERPROFILE%\Documents\ItrqTool"
+                : configuredRoot);
+
+        Directory.CreateDirectory(workflowDataRoot);
+
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information));
+        services.AddItrqToolServices(workflowsPath, workflowDataRoot);
 
         _services = services.BuildServiceProvider();
 
-        var mainWindow = new Views.MainWindow(_services.GetRequiredService<WorkflowListViewModel>());
+        var mainWindow = _services.GetRequiredService<MainWindow>();
         mainWindow.Show();
     }
 

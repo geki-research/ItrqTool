@@ -20,6 +20,9 @@
     <PackageReference Include="Scrutor" Version="4.2.2" />
   </ItemGroup>
   <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="..\..\workflows\**\*.json" CopyToOutputDirectory="PreserveNewest">
       <Link>workflows\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </None>

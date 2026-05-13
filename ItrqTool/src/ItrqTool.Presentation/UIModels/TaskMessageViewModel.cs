@@ -1,9 +1,7 @@
-using ItrqTool.Domain;
-
 namespace ItrqTool.Presentation.UIModels;
 
 public record TaskMessageViewModel(
-    MessageSeverity Severity,
+    TaskMessageSeverity Severity,
     string Text,
     string Timestamp
 );

@@ -41,9 +41,11 @@ These rules must never be broken, even when breaking them would be locally conve
    workflow JSON definition.** They are the coupling point. If they diverge, the task will
    not be found at runtime.
 
-5. **No domain types in the Presentation layer.**
-   ViewModels bind to dedicated UI model records (`TaskRowItem`, `TaskResultViewModel`, etc.),
-   never directly to `TaskNode`, `TaskResult`, `WorkflowDefinition`, or any other domain type.
+5. **Domain types in Presentation — bindable boundary rule.**
+   Domain types must NOT appear in the public/bindable surface of view models or in XAML
+   binding paths. They MAY flow through Presentation as private implementation details:
+   held in private fields, passed between view models during navigation, used during
+   conversion to UI types. The bindable boundary is the rule, not the import statement.
 
 6. **Architecture tests must stay green at all times.**
    Run `dotnet test ItrqTool.Architecture.Tests` before considering any task complete.
@@ -254,13 +256,27 @@ WorkflowSessionStatus values:
 
 **Execution sequence (per task):**
 1. Resolve `InputPaths` from the completed tasks' recorded `OutputPaths`.
-2. Resolve `OutputPaths` into the run's working directory (`%TEMP%\ItrqTool\run_{timestamp}`).
+2. Resolve `OutputPaths` into the workflow's working directory (`<workflowDataRoot>/<workflow.Id>`).
 3. Call `task.ExecuteAsync(context, ct)`.
 4. If `result.Succeeded` is false → set status to `Failed`, stop.
 5. Record the result. Advance `CurrentIndex`. Set status to `AwaitingReview` or `Completed`.
 
-Each run gets its own isolated working directory. Files from previous runs are never
-deleted automatically — they remain for diagnostic purposes.
+Each workflow has a dedicated, persistent working directory at
+`<workflowDataRoot>/<workflow.Id>`. The root is configured in
+appsettings.json under `"ItrqTool:WorkflowDataRoot"` and supports
+Windows environment-variable expansion (`%USERPROFILE%`, `%LOCALAPPDATA%`,
+etc.). Default if the key is missing or empty: `%USERPROFILE%\Documents\ItrqTool`.
+
+Files persist between tasks within a session, allowing the user to
+manually edit intermediate files between steps. On the first task
+execution of a new session, WorkflowSession wipes the working
+directory's contents before running the task — stale files from a
+previous run never bleed into a new one. Subsequent task executions
+within the same session do NOT wipe.
+
+The application does NOT clean up working directories on close or
+startup. Users grab their deliverables from the workflow's folder
+whenever they choose.
 
 ---
 
@@ -380,6 +396,9 @@ public sealed class MyExcelTask : IWorkflowTask
 **UI model records** (never expose domain types to the view layer):
 
 ```csharp
+// Bindable surrogate for WorkflowDefinition in list views
+public record WorkflowListItem(string Id, string Name);
+
 // One row in the task list panel
 public record TaskRowItem(
     string TaskId,
@@ -398,10 +417,13 @@ public record TaskResultViewModel(
     IReadOnlyList<TaskMessageViewModel> Messages
 );
 
+// Presentation-side mirror of ItrqTool.Domain.MessageSeverity — keeps Domain out of XAML bindings
+public enum TaskMessageSeverity { Info, Warning, Error }
+
 public record TaskMessageViewModel(
-    MessageSeverity Severity,   // Info, Warning, Error
+    TaskMessageSeverity Severity,   // Info, Warning, Error
     string Text,
-    string Timestamp            // formatted for display
+    string Timestamp                // formatted for display
 );
 ```
 
@@ -418,11 +440,30 @@ historical result. Clicking a pending or ready task sets `SelectedResult` to nul
 
 The DI registrations are extracted into a static method
 `CompositionRoot.AddItrqToolServices(this IServiceCollection services,
-string workflowsDirectoryPath)` in `ItrqTool.Presentation`. `App.OnStartup`
-calls this method with `Path.Combine(AppContext.BaseDirectory, "workflows")`.
-Integration tests call the same method with a per-test temp directory.
+string workflowsDirectoryPath, string workflowDataRoot)`
+in `ItrqTool.Presentation`. App.OnStartup builds IConfiguration from
+appsettings.json, resolves the workflow data root with
+`Environment.ExpandEnvironmentVariables`, creates the directory if
+missing, and passes both paths to `AddItrqToolServices`.
+Integration tests call the same method with per-test temp directories.
 Treat `AddItrqToolServices` as the single source of truth for the
 production object graph — never duplicate registrations elsewhere.
+
+**Navigation and shell:**
+
+The application uses a shell pattern. `ShellViewModel` is registered as a singleton and
+is the DataContext of `MainWindow`. It exposes a single bindable property `CurrentViewModel`
+(typed as `ObservableObject`). `MainWindow.xaml` hosts a `ContentControl` bound to
+`CurrentViewModel`, with `<DataTemplate>`s in `<Window.Resources>` mapping each child VM
+type to its `UserControl`.
+
+Navigation is event-based. `WorkflowListViewModel` raises `WorkflowSelected(WorkflowDefinition)`;
+`WorkflowRunViewModel` raises `BackRequested()`. `ShellViewModel` subscribes to both in its
+constructor and updates `CurrentViewModel` accordingly. No messenger or navigation service.
+
+On entering the list view, the shell calls `WorkflowListViewModel.Load()` so the list
+reflects the current state of disk. On entering the run view, the shell calls
+`WorkflowRunViewModel.InitializeFor(definition)`.
 
 ---
 
@@ -441,7 +482,8 @@ Use `NetArchTest.Rules` with `FluentAssertions`.
 ### Application tests (`ItrqTool.Application.Tests`)
 - `WorkflowSession`: all status transitions, input path resolution from upstream outputs,
   output path placement in working directory, hard stop on `Succeeded = false`,
-  cancellation propagation, `Completed` state after last task succeeds.
+  cancellation propagation, `Completed` state after last task succeeds,
+  wipe-on-first-execution (pre-populated stale files deleted before first task's output written).
 
 ### Infrastructure tests (`ItrqTool.Infrastructure.Tests`)
 - `JsonWorkflowLoader`: empty directory, valid file with empty task list,
