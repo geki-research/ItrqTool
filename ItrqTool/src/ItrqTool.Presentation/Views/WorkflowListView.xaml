@@ -1,15 +1,69 @@
 <UserControl x:Class="ItrqTool.Presentation.Views.WorkflowListView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
     <DockPanel Margin="16">
-        <TextBlock DockPanel.Dock="Top" Text="Workflows" FontSize="20" FontWeight="Bold" Margin="0,0,0,12"/>
-        <Button DockPanel.Dock="Bottom"
-                Content="Open"
-                HorizontalAlignment="Left"
-                Margin="0,12,0,0"
-                Command="{Binding SelectCurrentCommand}"/>
+        <TextBlock DockPanel.Dock="Top" Text="Workflows"
+                   FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+        <!-- Load failure banner -->
+        <Border DockPanel.Dock="Top"
+                Visibility="{Binding HasFailures, Converter={StaticResource BoolToVis}}"
+                Background="#FFF6E5"
+                BorderBrush="#E0A100"
+                BorderThickness="1"
+                Padding="12,8"
+                Margin="0,0,0,12">
+            <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Content="Details"
+                        Command="{Binding ToggleFailureDetailsCommand}"
+                        Padding="10,2"
+                        MinWidth="80"/>
+                <TextBlock Text="{Binding FailureSummary}"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Failure details (expanded list) -->
+        <Border DockPanel.Dock="Top"
+                Visibility="{Binding ShowFailureDetails, Converter={StaticResource BoolToVis}}"
+                Background="#FFFCF2"
+                BorderBrush="#E0A100"
+                BorderThickness="1,0,1,1"
+                Padding="12,8"
+                Margin="0,-12,0,12">
+            <ItemsControl ItemsSource="{Binding Failures}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding FileName}"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding ErrorMessage}"
+                                       TextWrapping="Wrap"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <Button DockPanel.Dock="Bottom" Content="Open"
+                Command="{Binding SelectCurrentCommand}"
+                HorizontalAlignment="Right" Padding="16,6"
+                IsDefault="True"/>
+
         <ListBox ItemsSource="{Binding Workflows}"
-                 SelectedItem="{Binding SelectedWorkflow}"
+                 SelectedItem="{Binding SelectedWorkflow, Mode=TwoWay}"
                  DisplayMemberPath="Name"/>
     </DockPanel>
 </UserControl>

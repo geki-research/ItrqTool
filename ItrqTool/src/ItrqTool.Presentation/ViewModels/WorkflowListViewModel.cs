@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ItrqTool.Domain;
@@ -17,6 +18,18 @@ public partial class WorkflowListViewModel : ObservableObject
     [ObservableProperty]
     private WorkflowListItem? _selectedWorkflow;
 
+    [ObservableProperty]
+    private ObservableCollection<WorkflowLoadFailureItem> _failures = new();
+
+    [ObservableProperty]
+    private bool _hasFailures;
+
+    [ObservableProperty]
+    private bool _showFailureDetails;
+
+    [ObservableProperty]
+    private string _failureSummary = string.Empty;
+
     public event Action<WorkflowDefinition>? WorkflowSelected;
 
     public WorkflowListViewModel(IWorkflowLoader loader) => _loader = loader;
@@ -29,6 +42,22 @@ public partial class WorkflowListViewModel : ObservableObject
             _definitionsById[wf.Id] = wf;
         Workflows = new ObservableCollection<WorkflowListItem>(
             result.Workflows.Select(wf => new WorkflowListItem(wf.Id, wf.Name)));
+
+        Failures.Clear();
+        foreach (var failure in result.Failures)
+        {
+            Failures.Add(new WorkflowLoadFailureItem(
+                Path.GetFileName(failure.FilePath),
+                failure.ErrorMessage));
+        }
+        HasFailures = Failures.Count > 0;
+        FailureSummary = Failures.Count switch
+        {
+            0 => string.Empty,
+            1 => "1 workflow file failed to load.",
+            _ => $"{Failures.Count} workflow files failed to load."
+        };
+        ShowFailureDetails = false;
     }
 
     [RelayCommand(CanExecute = nameof(CanSelect))]
@@ -40,6 +69,9 @@ public partial class WorkflowListViewModel : ObservableObject
     }
 
     private bool CanSelect() => SelectedWorkflow is not null;
+
+    [RelayCommand]
+    private void ToggleFailureDetails() => ShowFailureDetails = !ShowFailureDetails;
 
     partial void OnSelectedWorkflowChanged(WorkflowListItem? value)
         => SelectCurrentCommand.NotifyCanExecuteChanged();

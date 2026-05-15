@@ -399,6 +399,10 @@ public sealed class MyExcelTask : IWorkflowTask
 // Bindable surrogate for WorkflowDefinition in list views
 public record WorkflowListItem(string Id, string Name);
 
+// Bindable projection of a WorkflowLoadFailure for the list-view banner
+public record WorkflowLoadFailureItem(string FileName, string ErrorMessage);
+// FileName is the file name only (no directory path); ErrorMessage forwarded verbatim.
+
 // One row in the task list panel
 public record TaskRowItem(
     string TaskId,
@@ -428,12 +432,37 @@ public record TaskMessageViewModel(
 ```
 
 **WorkflowRunViewModel responsibilities:**
-- Hold the `WorkflowSession` instance across user interactions.
-- Expose `ObservableCollection<TaskRowItem>` for the task list.
-- Expose `TaskResultViewModel?` for the result panel (null = no result selected).
-- Expose `string? RunButtonLabel` and `bool CanRun` derived from session status.
-- The `RunTaskCommand` calls `session.RunCurrentTaskAsync()`, then calls
-  `RefreshFromSession()` to sync all observable collections.
+
+`WorkflowRunViewModel` owns the `WorkflowSession` lifecycle for one selected workflow.
+On `InitializeFor(definition)`, it asks the `WorkflowSessionFactory` for a session, then
+projects the session's topological order into the bindable `Tasks` collection (one
+`TaskRowItem` per node).
+
+Each `TaskRowItem` reflects a per-row status derived from the session:
+- `i < session.CurrentIndex` → `Completed`
+- `i == session.CurrentIndex`, Status = Running → `Running`
+- `i == session.CurrentIndex`, Status = Failed → `Failed`
+- `i == session.CurrentIndex`, Status = ReadyToRun/AwaitingReview → `Ready`
+- `i > session.CurrentIndex` → `Pending`
+
+`RunTaskCommand` awaits `session.RunCurrentTaskAsync(CancellationToken.None)`, then
+rebuilds `Tasks` from the new session state, sets `SelectedResult` to the just-completed
+task's result, and sets `SelectedTask` to that row.
+
+`SelectedTask` is two-way bound to the ListBox SelectedItem. When the user clicks a
+different row, `SelectedResult` is updated to that row's historical `TaskResult` (via
+`session.GetResult(index)`) — or null if the row has not yet been run.
+
+`RunButtonLabel` mirrors `session.Status`:
+- `ReadyToRun` → `"Run first task"`
+- `AwaitingReview` → `"Run next task"`
+- `Running` → `"Running…"`
+- `Completed` → `"Workflow completed"`
+- `Failed` → `"Workflow failed"`
+
+Empty workflows (no tasks): `RunButtonLabel = "No tasks to run"`, `CanRun = false`.
+
+`BackCommand` is disabled while `session.Status == Running`.
 
 The user can click any completed task row to set `SelectedResult` to that task's
 historical result. Clicking a pending or ready task sets `SelectedResult` to null.
@@ -464,6 +493,14 @@ constructor and updates `CurrentViewModel` accordingly. No messenger or navigati
 On entering the list view, the shell calls `WorkflowListViewModel.Load()` so the list
 reflects the current state of disk. On entering the run view, the shell calls
 `WorkflowRunViewModel.InitializeFor(definition)`.
+
+**WorkflowListViewModel** exposes loaded workflows AND load failures from
+`IWorkflowLoader.LoadAll()`. Failures are projected into bindable
+`WorkflowLoadFailureItem` records (file name only, error message verbatim from
+`WorkflowLoadFailure.ErrorMessage`). The list view shows a banner above the workflow
+list whenever `Failures.Count > 0`; the banner is collapsible via `ShowFailureDetails`
+(toggled by `ToggleFailureDetailsCommand`). `ShowFailureDetails` resets to false on
+every `Load()` call.
 
 ---
 
