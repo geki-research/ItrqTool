@@ -464,6 +464,14 @@ Empty workflows (no tasks): `RunButtonLabel = "No tasks to run"`, `CanRun = fals
 
 `BackCommand` is disabled while `session.Status == Running`.
 
+`OpenWorkingFolderCommand` launches the workflow's working directory in Windows Explorer
+(via `explorer.exe <path>`). It is enabled iff a session has been initialized (`_session
+is not null`). If the directory does not yet exist on disk (no task has run, so the lazy
+wipe-or-create hasn't fired), the command creates it before launching Explorer — opening
+an empty folder is a reasonable affordance and lets the user drop files there manually
+before a task that consumes them. Explorer launch failures are caught and swallowed
+non-fatally.
+
 The user can click any completed task row to set `SelectedResult` to that task's
 historical result. Clicking a pending or ready task sets `SelectedResult` to null.
 

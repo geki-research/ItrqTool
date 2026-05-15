@@ -2,14 +2,106 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel Margin="16">
-        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-            <Button DockPanel.Dock="Left"
-                    Content="← Back"
-                    Margin="0,0,12,0"
-                    Command="{Binding BackCommand}"/>
-            <TextBlock Text="{Binding WorkflowName}" FontSize="20" FontWeight="Bold"
-                       VerticalAlignment="Center"/>
+
+        <!-- Header -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12" LastChildFill="False">
+            <Button Content="← Back"
+                    Command="{Binding BackCommand}"
+                    Padding="12,4"
+                    DockPanel.Dock="Left"/>
+            <TextBlock Text="{Binding WorkflowName}"
+                       FontSize="20" FontWeight="SemiBold"
+                       Margin="12,0,0,0"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left"/>
+            <Button Content="Open working folder"
+                    Command="{Binding OpenWorkingFolderCommand}"
+                    Padding="12,4"
+                    DockPanel.Dock="Right"/>
         </DockPanel>
-        <TextBlock Text="Workflow tasks will appear here." Foreground="Gray"/>
+
+        <!-- Run button (bottom) -->
+        <Button DockPanel.Dock="Bottom"
+                Content="{Binding RunButtonLabel}"
+                Command="{Binding RunTaskCommand}"
+                IsEnabled="{Binding CanRun}"
+                IsDefault="True"
+                HorizontalAlignment="Right"
+                Padding="20,8"
+                Margin="0,12,0,0"/>
+
+        <!-- Main content: tasks (left) + result panel (right) -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <ListBox Grid.Column="0"
+                     ItemsSource="{Binding Tasks}"
+                     SelectedItem="{Binding SelectedTask, Mode=TwoWay}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="90"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Status}"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding DisplayName}"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding Duration}"
+                                       Foreground="Gray"
+                                       Margin="8,0,0,0"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <ContentControl Grid.Column="1"
+                            Content="{Binding SelectedResult}"
+                            Margin="16,0,0,0">
+                <ContentControl.ContentTemplate>
+                    <DataTemplate>
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="{Binding TaskName}"
+                                       FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="{Binding Duration}"
+                                       Foreground="Gray"
+                                       Margin="0,4,0,12"/>
+                            <ItemsControl ItemsSource="{Binding Messages}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="70"/>
+                                                <ColumnDefinition Width="70"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding Severity}"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Timestamp}"
+                                                       Foreground="Gray"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding Text}"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </DockPanel>
+                    </DataTemplate>
+                </ContentControl.ContentTemplate>
+            </ContentControl>
+        </Grid>
     </DockPanel>
 </UserControl>
