@@ -8,6 +8,8 @@ namespace ItrqTool.Tasks.Tests;
 
 public sealed class NoOpTaskTests
 {
+    private static NoOpTask MakeTask() => new(NullLogger<NoOpTask>.Instance);
+
     private static string TestWorkDir() =>
         Path.Combine(Path.GetTempPath(), "ItrqTool-tasks-tests", Guid.NewGuid().ToString("N"));
 
@@ -29,13 +31,15 @@ public sealed class NoOpTaskTests
                 Logger: NullLogger.Instance,
                 WorkingDirectory: workDir);
 
-            var result = await new NoOpTask().ExecuteAsync(context, CancellationToken.None);
+            var result = await MakeTask().ExecuteAsync(context, CancellationToken.None);
 
             result.Succeeded.Should().BeTrue();
             File.Exists(out1).Should().BeTrue();
             File.Exists(out2).Should().BeTrue();
             new FileInfo(out1).Length.Should().Be(0);
             new FileInfo(out2).Length.Should().Be(0);
+            result.Messages.Count.Should().Be(1);
+            result.Messages[0].Text.Should().Contain("NoOp completed");
         }
         finally
         {
@@ -65,7 +69,7 @@ public sealed class NoOpTaskTests
                 Logger: NullLogger.Instance,
                 WorkingDirectory: workDir);
 
-            var result = await new NoOpTask().ExecuteAsync(context, CancellationToken.None);
+            var result = await MakeTask().ExecuteAsync(context, CancellationToken.None);
 
             result.Succeeded.Should().BeFalse();
             result.Messages.Should().Contain(m => m.Severity == MessageSeverity.Error);
@@ -97,7 +101,7 @@ public sealed class NoOpTaskTests
             var cts = new CancellationTokenSource();
             cts.Cancel();
 
-            var act = async () => await new NoOpTask().ExecuteAsync(context, cts.Token);
+            var act = async () => await MakeTask().ExecuteAsync(context, cts.Token);
 
             await act.Should().ThrowAsync<OperationCanceledException>();
         }

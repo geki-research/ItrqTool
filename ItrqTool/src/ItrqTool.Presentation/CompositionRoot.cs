@@ -1,27 +1,40 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using ItrqTool.Application;
 using ItrqTool.Domain;
 using ItrqTool.Infrastructure;
+using ItrqTool.Presentation.Logging;
 using ItrqTool.Presentation.ViewModels;
 using ItrqTool.Presentation.Views;
 using ItrqTool.Tasks;
+using Serilog;
 
 namespace ItrqTool.Presentation;
 
 public static class CompositionRoot
 {
+    // Primary two-param overload — used by App.xaml.cs (workflowDataRoot reserved for future use).
     public static IServiceCollection AddItrqToolServices(
         this IServiceCollection services,
         string workflowsDirectoryPath,
         string workflowDataRoot)
+        => services.AddItrqToolServices(workflowsDirectoryPath);
+
+    // Single-param overload — used by integration tests.
+    public static IServiceCollection AddItrqToolServices(
+        this IServiceCollection services,
+        string workflowsDirectoryPath)
     {
-        // TryAdd so production code can pre-register Serilog before calling this method
-        // and tests get NullLogger without any extra setup.
-        services.TryAddSingleton<ILoggerFactory, NullLoggerFactory>();
-        services.TryAddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+        services.AddLogging(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Information);
+            builder.AddSerilog(Log.Logger, dispose: false);
+        });
+
+        services.AddSingleton<IUiLogSink>(_ =>
+            new UiLogSink(System.Windows.Application.Current?.Dispatcher));
+        services.AddSingleton<ILoggerProvider>(sp =>
+            new UiLogSinkProvider(sp.GetRequiredService<IUiLogSink>()));
 
         services.AddSingleton<IExcelReader, ClosedXmlExcelReader>();
         services.AddSingleton<IWorkflowLoader>(sp =>
@@ -36,12 +49,7 @@ public static class CompositionRoot
             .WithTransientLifetime());
 
         services.AddSingleton<ITaskRegistry, DependencyInjectionTaskRegistry>();
-
-        services.AddSingleton<WorkflowSessionFactory>(sp =>
-            new WorkflowSessionFactory(
-                workflowDataRoot,
-                sp.GetRequiredService<ITaskRegistry>(),
-                sp.GetRequiredService<ILogger<WorkflowSession>>()));
+        services.AddSingleton<WorkflowSessionFactory>();
 
         services.AddSingleton<WorkflowListViewModel>();
         services.AddSingleton<WorkflowRunViewModel>();

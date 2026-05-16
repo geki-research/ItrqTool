@@ -2,8 +2,8 @@ using System.IO;
 using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using ItrqTool.Presentation.Views;
+using Serilog;
 
 namespace ItrqTool.Presentation;
 
@@ -27,11 +27,36 @@ public partial class App : System.Windows.Application
             string.IsNullOrWhiteSpace(configuredRoot)
                 ? @"%USERPROFILE%\Documents\ItrqTool"
                 : configuredRoot);
-
         Directory.CreateDirectory(workflowDataRoot);
 
+        var configuredLogs = config["ItrqTool:LogsDirectory"];
+        var logsDirectory = Environment.ExpandEnvironmentVariables(
+            string.IsNullOrWhiteSpace(configuredLogs)
+                ? @"%USERPROFILE%\Documents\ItrqTool\logs"
+                : configuredLogs);
+
+        try
+        {
+            Directory.CreateDirectory(logsDirectory);
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .Enrich.FromLogContext()
+                .WriteTo.File(
+                    Path.Combine(logsDirectory, "itrqtool-.log"),
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 14,
+                    outputTemplate:
+                        "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
+                    flushToDiskInterval: TimeSpan.FromSeconds(1))
+                .CreateLogger();
+        }
+        catch
+        {
+            // file logging unavailable — app continues without it
+        }
+
         var services = new ServiceCollection();
-        services.AddLogging(b => b.SetMinimumLevel(LogLevel.Information));
         services.AddItrqToolServices(workflowsPath, workflowDataRoot);
 
         _services = services.BuildServiceProvider();
@@ -43,6 +68,7 @@ public partial class App : System.Windows.Application
     protected override void OnExit(ExitEventArgs e)
     {
         _services?.Dispose();
+        Log.CloseAndFlush();
         base.OnExit(e);
     }
 }

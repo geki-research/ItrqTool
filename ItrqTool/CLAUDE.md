@@ -90,8 +90,8 @@ They are copied to the output directory by the Presentation project's `.csproj`.
 | DI container | Microsoft.Extensions.DependencyInjection | Presentation |
 | DI assembly scanning | Scrutor | Presentation |
 | Configuration | Microsoft.Extensions.Configuration + Json | Presentation |
-| Logging | Serilog + Serilog.Sinks.File | Infrastructure |
-| Logging abstraction | Microsoft.Extensions.Logging | Domain, Application, Tasks |
+| Logging (file + UI) | Serilog + Serilog.Sinks.File + Serilog.Extensions.Logging | Presentation (providers), Infrastructure |
+| Logging abstraction | Microsoft.Extensions.Logging.Abstractions | Domain, Application, Tasks |
 | Excel reading | ClosedXML | Infrastructure only |
 | Testing framework | xUnit | all test projects |
 | Mocking | NSubstitute | Application.Tests, Tasks.Tests |
@@ -261,11 +261,16 @@ WorkflowSessionStatus values:
 4. If `result.Succeeded` is false → set status to `Failed`, stop.
 5. Record the result. Advance `CurrentIndex`. Set status to `AwaitingReview` or `Completed`.
 
-Each workflow has a dedicated, persistent working directory at
-`<workflowDataRoot>/<workflow.Id>`. The root is configured in
-appsettings.json under `"ItrqTool:WorkflowDataRoot"` and supports
-Windows environment-variable expansion (`%USERPROFILE%`, `%LOCALAPPDATA%`,
-etc.). Default if the key is missing or empty: `%USERPROFILE%\Documents\ItrqTool`.
+Each workflow has a dedicated working directory generated at session-creation
+time inside the system temp folder. The session's `WorkingDirectory` path is
+returned by `WorkflowSessionFactory.Create()`.
+
+`ItrqTool:WorkflowDataRoot` in appsettings.json is reserved for future use;
+it is passed to `AddItrqToolServices` but is not yet consumed by the factory.
+
+`ItrqTool:LogsDirectory` — directory where Serilog writes rolling daily files.
+Supports environment-variable expansion. Default if missing or empty:
+`%USERPROFILE%\Documents\ItrqTool\logs`.
 
 Files persist between tasks within a session, allowing the user to
 manually edit intermediate files between steps. On the first task
@@ -429,6 +434,16 @@ public record TaskMessageViewModel(
     string Text,
     string Timestamp                // formatted for display
 );
+
+// One row in the live in-app log panel
+// Category is the full source context ("ItrqTool.Tasks.NoOpTask");
+// ShortCategory is the last segment ("NoOpTask").
+public record LogEntry(
+    DateTimeOffset Timestamp,
+    LogLevel Level,
+    string Category,
+    string ShortCategory,
+    string Message);
 ```
 
 **WorkflowRunViewModel responsibilities:**
@@ -475,16 +490,21 @@ non-fatally.
 The user can click any completed task row to set `SelectedResult` to that task's
 historical result. Clicking a pending or ready task sets `SelectedResult` to null.
 
-The DI registrations are extracted into a static method
-`CompositionRoot.AddItrqToolServices(this IServiceCollection services,
-string workflowsDirectoryPath, string workflowDataRoot)`
-in `ItrqTool.Presentation`. App.OnStartup builds IConfiguration from
-appsettings.json, resolves the workflow data root with
-`Environment.ExpandEnvironmentVariables`, creates the directory if
-missing, and passes both paths to `AddItrqToolServices`.
-Integration tests call the same method with per-test temp directories.
-Treat `AddItrqToolServices` as the single source of truth for the
-production object graph — never duplicate registrations elsewhere.
+The DI registrations are extracted into static methods in `ItrqTool.Presentation`:
+
+```
+CompositionRoot.AddItrqToolServices(services, workflowsDirectoryPath, workflowDataRoot)
+    — production overload called by App.xaml.cs; workflowDataRoot reserved for future use.
+CompositionRoot.AddItrqToolServices(services, workflowsDirectoryPath)
+    — test-friendly single-param overload used by integration tests.
+```
+
+App.OnStartup builds IConfiguration from appsettings.json, resolves paths with
+`Environment.ExpandEnvironmentVariables`, configures `Log.Logger` (Serilog), and
+calls `AddItrqToolServices`. Integration tests call the single-param overload with
+a per-test temp workflows directory.
+Treat `AddItrqToolServices` as the single source of truth for the production object
+graph — never duplicate registrations elsewhere.
 
 **Navigation and shell:**
 
@@ -509,6 +529,36 @@ reflects the current state of disk. On entering the run view, the shell calls
 list whenever `Failures.Count > 0`; the banner is collapsible via `ShowFailureDetails`
 (toggled by `ToggleFailureDetailsCommand`). `ShowFailureDetails` resets to false on
 every `Load()` call.
+
+---
+
+## Logging
+
+Microsoft.Extensions.Logging is the standard logging API throughout the app — every
+layer logs through `ILogger<T>`. The composition root registers two providers:
+
+- **UiLogSinkProvider** (`ItrqTool.Presentation.Logging`) — pushes events into an
+  observable in-memory `UiLogSink` bound to the run-view log panel.
+- **Serilog** (`Presentation`) — writes a rolling daily file under
+  `%USERPROFILE%\Documents\ItrqTool\logs` by default; configurable via
+  `ItrqTool:LogsDirectory` in appsettings.json. Used for crash/postmortem forensics.
+
+Both providers receive every log event MEL dispatches. Minimum level: Information.
+Debug and Trace events are suppressed.
+
+The UI sink is cleared on every `WorkflowRunViewModel.InitializeFor`, so each
+workflow run starts with a fresh in-app log. The file log is NOT cleared — it
+accumulates over the day and rolls at midnight; 14 days of files are retained.
+
+File output template:
+```
+{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}
+```
+
+Tasks SHOULD inject `ILogger<TTask>` and use it for diagnostic progress messages
+(Information for normal steps, Warning for recoverable issues, Error for failures).
+`TaskResult.Messages` SHOULD be reserved for curated outcome summaries shown in the
+result panel after the task completes — typically 1–3 messages.
 
 ---
 
@@ -558,31 +608,32 @@ Each task implementation must have:
 ## DI registration (composition root in `ItrqTool.Presentation`)
 
 ```csharp
-// Program.cs or App.xaml.cs — single composition root
+// App.xaml.cs — configure Log.Logger (Serilog) BEFORE calling AddItrqToolServices.
+// Then:
+services.AddItrqToolServices(workflowsDirectoryPath, workflowDataRoot);
 
-var services = new ServiceCollection();
+// Inside AddItrqToolServices (single-param implementation):
+services.AddLogging(b => { b.SetMinimumLevel(LogLevel.Information); b.AddSerilog(Log.Logger, dispose: false); });
+services.AddSingleton<IUiLogSink>(_ => new UiLogSink(Application.Current?.Dispatcher));
+services.AddSingleton<ILoggerProvider>(sp => new UiLogSinkProvider(sp.GetRequiredService<IUiLogSink>()));
 
-// Infrastructure
 services.AddSingleton<IExcelReader, ClosedXmlExcelReader>();
-services.AddSingleton<IWorkflowLoader, JsonWorkflowLoader>();
-// Serilog file sink — configure once here
-
-// Application
-services.AddSingleton<WorkflowSessionFactory>();
+services.AddSingleton<IWorkflowLoader, JsonWorkflowLoader>(...);
 
 // Tasks — automatic registration via Scrutor
 services.Scan(scan => scan
-    .FromAssemblyOf<IWorkflowTaskMarker>()   // marker interface in ItrqTool.Tasks
+    .FromAssemblyOf<IWorkflowTaskMarker>()
     .AddClasses(c => c.AssignableTo<IWorkflowTask>())
     .AsImplementedInterfaces()
     .WithTransientLifetime());
 
-// Build the task registry from all registered IWorkflowTask instances
 services.AddSingleton<ITaskRegistry, DependencyInjectionTaskRegistry>();
+services.AddSingleton<WorkflowSessionFactory>();  // DI resolves (ITaskRegistry, ILogger<WorkflowSession>)
 
-// Presentation
-services.AddTransient<WorkflowRunViewModel>();
-services.AddTransient<WorkflowListViewModel>();
+services.AddSingleton<WorkflowListViewModel>();
+services.AddSingleton<WorkflowRunViewModel>();    // DI resolves (WorkflowSessionFactory, IUiLogSink)
+services.AddSingleton<ShellViewModel>();
+services.AddSingleton<MainWindow>();
 ```
 
 `IWorkflowTaskMarker` is an empty marker interface in `ItrqTool.Tasks` used solely

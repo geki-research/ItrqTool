@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ItrqTool.Application;
 using ItrqTool.Domain;
+using ItrqTool.Presentation.Logging;
 using ItrqTool.Presentation.UIModels;
 
 namespace ItrqTool.Presentation.ViewModels;
@@ -12,9 +13,11 @@ namespace ItrqTool.Presentation.ViewModels;
 public partial class WorkflowRunViewModel : ObservableObject
 {
     private readonly WorkflowSessionFactory _sessionFactory;
+    private readonly IUiLogSink _logSink;
 
     private WorkflowSession? _session;
     private WorkflowDefinition? _definition;
+    private IReadOnlyList<TaskNode> _order = Array.Empty<TaskNode>();
     private readonly Dictionary<string, int> _indexLookup = new();
 
     [ObservableProperty]
@@ -37,24 +40,31 @@ public partial class WorkflowRunViewModel : ObservableObject
 
     partial void OnSelectedTaskChanged(TaskRowItem? value) => UpdateResultForSelection();
 
+    public IUiLogSink LogSink => _logSink;
+    public string? SessionWorkingDirectory => _session?.WorkingDirectory;
+
     public event Action? BackRequested;
 
-    public WorkflowRunViewModel(WorkflowSessionFactory sessionFactory)
-        => _sessionFactory = sessionFactory;
+    public WorkflowRunViewModel(WorkflowSessionFactory sessionFactory, IUiLogSink logSink)
+    {
+        _sessionFactory = sessionFactory;
+        _logSink = logSink;
+    }
 
     public void InitializeFor(WorkflowDefinition definition)
     {
+        _logSink.Clear();
         _definition = definition;
         WorkflowName = definition.Name;
         _session = _sessionFactory.Create(definition);
+        _order = new WorkflowGraph(definition).GetTopologicalOrder();
 
-        var order = _session.Order;
         _indexLookup.Clear();
         Tasks.Clear();
 
-        for (int i = 0; i < order.Count; i++)
+        for (int i = 0; i < _order.Count; i++)
         {
-            var node = order[i];
+            var node = _order[i];
             _indexLookup[node.Id] = i;
             Tasks.Add(new TaskRowItem(
                 TaskId: node.Id,
@@ -66,7 +76,7 @@ public partial class WorkflowRunViewModel : ObservableObject
         SelectedTask = null;
         SelectedResult = null;
 
-        if (order.Count == 0)
+        if (_order.Count == 0)
         {
             RunButtonLabel = "No tasks to run";
             CanRun = false;
@@ -90,7 +100,7 @@ public partial class WorkflowRunViewModel : ObservableObject
     {
         if (_session is null) return;
         var path = _session.WorkingDirectory;
-        Directory.CreateDirectory(path);   // idempotent; ensures path exists
+        Directory.CreateDirectory(path);
         try
         {
             Process.Start(new ProcessStartInfo
@@ -102,11 +112,6 @@ public partial class WorkflowRunViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            // Non-fatal. Log and swallow — failing to launch Explorer
-            // should not crash the app or change session state.
-            // The user will notice nothing happened and can navigate
-            // manually. A future polish prompt can add a status bar
-            // for non-fatal user-facing messages.
             System.Diagnostics.Debug.WriteLine(
                 $"Failed to open working folder: {ex.Message}");
         }
@@ -120,8 +125,7 @@ public partial class WorkflowRunViewModel : ObservableObject
         if (_session is null) return;
 
         int runningIndex = _session.CurrentIndex;
-        var order = _session.Order;
-        var node = order[runningIndex];
+        var node = _order[runningIndex];
 
         Tasks[runningIndex] = Tasks[runningIndex] with { Status = TaskRowStatus.Running };
         CanRun = false;
@@ -150,8 +154,7 @@ public partial class WorkflowRunViewModel : ObservableObject
     {
         if (_session is null) return;
 
-        var order = _session.Order;
-        for (int i = 0; i < order.Count; i++)
+        for (int i = 0; i < _order.Count; i++)
         {
             var target = ComputeStatus(i);
             var existing = Tasks[i];
@@ -171,7 +174,7 @@ public partial class WorkflowRunViewModel : ObservableObject
 
         CanRun = (_session.Status == WorkflowSessionStatus.ReadyToRun ||
                   _session.Status == WorkflowSessionStatus.AwaitingReview) &&
-                 order.Count > 0;
+                 _order.Count > 0;
         RunTaskCommand.NotifyCanExecuteChanged();
     }
 
@@ -203,7 +206,7 @@ public partial class WorkflowRunViewModel : ObservableObject
         }
 
         var historical = _session.GetResult(index);
-        SelectedResult = historical is null ? null : BuildResultVm(_session.Order[index], historical);
+        SelectedResult = historical is null ? null : BuildResultVm(_order[index], historical);
     }
 
     private TaskResultViewModel BuildResultVm(TaskNode node, TaskResult result) => new(

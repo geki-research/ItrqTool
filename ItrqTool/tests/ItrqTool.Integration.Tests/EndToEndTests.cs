@@ -5,6 +5,7 @@ using Xunit;
 using ItrqTool.Application;
 using ItrqTool.Domain;
 using ItrqTool.Presentation;
+using ItrqTool.Presentation.Logging;
 
 namespace ItrqTool.Integration.Tests;
 
@@ -80,6 +81,42 @@ public sealed class EndToEndTests
             session.GetResult(0)!.Succeeded.Should().BeTrue();
             session.GetResult(1).Should().NotBeNull();
             session.GetResult(1)!.Succeeded.Should().BeTrue();
+        }
+        finally
+        {
+            try { Directory.Delete(workflowsDir, recursive: true); } catch (IOException) { }
+            if (sessionWorkingDir is not null)
+                try { Directory.Delete(sessionWorkingDir, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public async Task RunningTask_PushesLogEntriesToSink()
+    {
+        var workflowsDir = MakeWorkflowsDir();
+        Directory.CreateDirectory(workflowsDir);
+        string? sessionWorkingDir = null;
+
+        try
+        {
+            WriteSmokestestJson(workflowsDir);
+
+            var services = new ServiceCollection();
+            services.AddItrqToolServices(workflowsDir);
+            using var sp = services.BuildServiceProvider();
+
+            var loader = sp.GetRequiredService<IWorkflowLoader>();
+            var loadResult = loader.LoadAll();
+            var factory = sp.GetRequiredService<WorkflowSessionFactory>();
+            var session = factory.Create(loadResult.Workflows[0]);
+            sessionWorkingDir = session.WorkingDirectory;
+
+            var result = await session.RunCurrentTaskAsync();
+            result.Succeeded.Should().BeTrue();
+
+            var sink = sp.GetRequiredService<IUiLogSink>();
+            sink.Entries.Count.Should().BeGreaterThanOrEqualTo(2);
+            sink.Entries.Should().Contain(e => e.ShortCategory == "NoOpTask");
         }
         finally
         {

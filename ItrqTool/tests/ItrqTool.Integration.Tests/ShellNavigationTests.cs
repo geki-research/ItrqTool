@@ -1,9 +1,9 @@
-using System.IO;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
 using ItrqTool.Application;
 using ItrqTool.Domain;
+using ItrqTool.Presentation.Logging;
 using ItrqTool.Presentation.ViewModels;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -17,10 +17,9 @@ public sealed class ShellNavigationTests
     private static WorkflowRunViewModel MakeRunVm()
     {
         var factory = new WorkflowSessionFactory(
-            Path.GetTempPath(),
             Substitute.For<ITaskRegistry>(),
             NullLogger<WorkflowSession>.Instance);
-        return new WorkflowRunViewModel(factory);
+        return new WorkflowRunViewModel(factory, new UiLogSink(null));
     }
 
     [Fact]
