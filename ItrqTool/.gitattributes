@@ -1,0 +1,29 @@
+# Default to OS-native line endings for text files; Git normalizes on commit.
+* text=auto
+
+# Source code: LF in the repo, native on checkout.
+*.cs       text eol=lf
+*.xaml     text eol=lf
+*.csproj   text eol=lf
+*.props    text eol=lf
+*.targets  text eol=lf
+*.json     text eol=lf
+*.md       text eol=lf
+*.slnx     text eol=lf
+*.sln      text eol=lf
+
+# PowerShell: CRLF. PowerShell 5.1 on Windows is sensitive to encoding and
+# line endings; force CRLF so the file behaves consistently regardless of
+# whoever last touched it. The em-dash incident in the publish-profile
+# prompt was a symptom of this fragility.
+*.ps1      text eol=crlf
+
+# Binary files: never touch.
+*.png      binary
+*.jpg      binary
+*.gif      binary
+*.ico      binary
+*.pdf      binary
+*.xlsx     binary
+*.xls      binary
+*.zip      binary

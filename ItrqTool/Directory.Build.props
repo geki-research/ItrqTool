@@ -1,0 +1,18 @@
+<Project>
+
+  <!--
+    Repo-wide MSBuild defaults inherited by every .csproj in this solution.
+    Keep this file minimal: only properties that genuinely apply to every
+    project belong here. Per-project overrides go in the individual csproj.
+  -->
+
+  <PropertyGroup>
+    <!--
+      PDBs are embedded into the assembly (or the single-file publish bundle)
+      for every project in the solution. This prevents loose .pdb files from
+      appearing alongside ItrqTool.exe in the publish output.
+    -->
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+</Project>

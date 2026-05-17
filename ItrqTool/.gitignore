@@ -7,6 +7,10 @@ publish/
 .vs/
 *.user
 
+# Per-developer Claude Code state (permissions accumulated per machine).
+# Reviewed out-of-band, not version-controlled.
+.claude/settings.local.json
+
 # Rider
 .idea/
 

@@ -94,6 +94,7 @@ They are copied to the output directory by the Presentation project's `.csproj`.
 | DI assembly scanning | Scrutor | Presentation |
 | Configuration | Microsoft.Extensions.Configuration + Json 10.0.8 | Presentation |
 | Logging (file + UI) | Serilog + Serilog.Sinks.File + Serilog.Extensions.Logging | Presentation |
+| Logging factory and DI integration | Microsoft.Extensions.Logging 10.0.8 | Presentation |
 | Logging abstraction | Microsoft.Extensions.Logging.Abstractions 10.0.8 | Domain, Application, Tasks |
 | Excel reading | ClosedXML | Infrastructure only |
 | Testing framework | xUnit | all test projects |
@@ -746,3 +747,9 @@ Update `CLAUDE.md` whenever:
 
 `CLAUDE.md` is read at the start of every session. If it is out of date,
 subsequent sessions will drift from the established architecture.
+
+Per-developer artifacts not in version control:
+  - `.claude/settings.local.json` — Claude Code's per-machine permission
+    state. Accumulates as new tool permissions are granted; review it
+    directly on the developer's machine when auditing what Claude Code
+    can do. Not tracked in git.
