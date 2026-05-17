@@ -20,7 +20,13 @@
       "Bash(git add *)",
       "Bash(git rm *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(awk -F'Passed:' '{sum+=$2} END {print \"Total passed:\", sum}')",
+      "Bash(git restore *)",
+      "Bash(git pull *)",
+      "Bash(git merge *)",
+      "Bash(git branch *)"
     ]
   }
 }
