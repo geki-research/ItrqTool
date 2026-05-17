@@ -5,6 +5,18 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ItrqTool</AssemblyName>
+  </PropertyGroup>
+  <PropertyGroup>
+    <!-- Publish configuration: framework-dependent single-file for win-x64.
+         Driven by publish.ps1; do not invoke dotnet publish manually for
+         release. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ItrqTool.Application\ItrqTool.Application.csproj" />

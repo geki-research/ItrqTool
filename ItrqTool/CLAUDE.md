@@ -684,6 +684,57 @@ to give Scrutor an assembly anchor. It has no members.
 
 ---
 
+## Deployment
+
+The application is published as a framework-dependent, single-file
+executable for win-x64. Target machines must have
+Microsoft.WindowsDesktop.App 10.0.x installed (verified on all
+intended deployment machines).
+
+Publish configuration:
+  - Target framework: net10.0-windows
+  - Runtime identifier: win-x64
+  - Self-contained: false (framework-dependent)
+  - PublishSingleFile: true
+  - EnableCompressionInSingleFile: false (compression requires self-contained;
+    not supported for framework-dependent single-file builds — NETSDK1176)
+  - PublishReadyToRun: true
+  - DebugType: embedded (PDB embedded in the single-file exe)
+  - PublishTrimmed: false (trimming disabled — WPF, Scrutor reflection
+    scanning, System.Text.Json reflection, and CommunityToolkit.Mvvm
+    source generators are not safe to trim)
+
+Publish output layout (under `publish/` at the repo root):
+
+    publish/
+      ItrqTool.exe          single-file, PDB embedded
+      appsettings.json
+      workflows/
+        example.json
+        smoketest.json
+
+The `publish/` directory is .gitignore'd. After publishing, the
+contents of that directory are zipped and handed to the user. The
+user extracts the zip anywhere they have write access and runs the
+exe directly — no installer, no admin rights.
+
+Publishing is driven by `publish.ps1` at the repo root, which invokes
+`dotnet publish` with the canonical flags and stages `appsettings.json`
+and the `workflows/` directory alongside the exe. Never invoke
+`dotnet publish` manually for a release build; always go through
+`publish.ps1` so the output is reproducible.
+
+Runtime paths on a deployed install:
+  - `AppContext.BaseDirectory` resolves to the directory containing
+    ItrqTool.exe. This is where the app looks for `appsettings.json`
+    and the `workflows/` subdirectory.
+  - Working data and logs live under the paths configured in
+    appsettings.json (defaults: %USERPROFILE%\Documents\ItrqTool
+    and %USERPROFILE%\Documents\ItrqTool\logs). These persist across
+    app installs and upgrades.
+
+---
+
 ## Maintaining this file
 
 Update `CLAUDE.md` whenever:
