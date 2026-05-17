@@ -90,11 +90,11 @@ They are copied to the output directory by the Presentation project's `.csproj`.
 | Runtime | .NET 10 | all |
 | UI framework | WPF (built-in) | Presentation |
 | MVVM | CommunityToolkit.Mvvm | Presentation |
-| DI container | Microsoft.Extensions.DependencyInjection | Presentation |
+| DI container | Microsoft.Extensions.DependencyInjection 10.0.8 | Presentation |
 | DI assembly scanning | Scrutor | Presentation |
-| Configuration | Microsoft.Extensions.Configuration + Json | Presentation |
+| Configuration | Microsoft.Extensions.Configuration + Json 10.0.8 | Presentation |
 | Logging (file + UI) | Serilog + Serilog.Sinks.File + Serilog.Extensions.Logging | Presentation |
-| Logging abstraction | Microsoft.Extensions.Logging.Abstractions | Domain, Application, Tasks |
+| Logging abstraction | Microsoft.Extensions.Logging.Abstractions 10.0.8 | Domain, Application, Tasks |
 | Excel reading | ClosedXML | Infrastructure only |
 | Testing framework | xUnit | all test projects |
 | Mocking | NSubstitute | Application.Tests, Tasks.Tests |
