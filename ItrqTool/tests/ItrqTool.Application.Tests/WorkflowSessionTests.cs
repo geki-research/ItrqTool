@@ -246,6 +246,45 @@ public sealed class WorkflowSessionTests
     }
 
     [Fact]
+    public async Task RunCurrentTask_WipesWorkingDirectory_OnFirstExecution()
+    {
+        var workDir = Path.Combine(Path.GetTempPath(), "ItrqTool-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+        File.WriteAllText(Path.Combine(workDir, "stale.txt"), "stale content");
+
+        var node = new TaskNode("a", "TypeA",
+            new Dictionary<string, TaskOutputRef>(),
+            new Dictionary<string, string> { ["out"] = "fresh.txt" });
+        var def = new WorkflowDefinition("wf", "WF", [node]);
+
+        var taskA = Substitute.For<IWorkflowTask>();
+        taskA.ExecuteAsync(Arg.Any<TaskExecutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                var ctx = ci.ArgAt<TaskExecutionContext>(0);
+                File.WriteAllText(ctx.OutputPaths["out"], "fresh");
+                return Task.FromResult(SuccessResult());
+            });
+
+        var registry = Substitute.For<ITaskRegistry>();
+        registry.FindTask("TypeA").Returns(taskA);
+
+        var session = new WorkflowSession(def, registry, workDir, NullLogger<WorkflowSession>.Instance);
+
+        try
+        {
+            await session.RunCurrentTaskAsync();
+
+            File.Exists(Path.Combine(workDir, "stale.txt")).Should().BeFalse();
+            File.Exists(Path.Combine(workDir, "fresh.txt")).Should().BeTrue();
+        }
+        finally
+        {
+            try { Directory.Delete(workDir, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
     public async Task RunCurrentTask_PropagatesCancellation()
     {
         var node = new TaskNode("a", "TypeA",

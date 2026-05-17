@@ -19,7 +19,9 @@ public sealed class WorkflowRunViewModelTests
 {
     private static WorkflowRunViewModel MakeVm(ITaskRegistry registry)
     {
+        var workflowDataRoot = Path.Combine(Path.GetTempPath(), "ItrqTool-vm-tests", Guid.NewGuid().ToString("N"));
         var factory = new WorkflowSessionFactory(
+            workflowDataRoot,
             registry,
             NullLogger<WorkflowSession>.Instance);
         return new WorkflowRunViewModel(factory, new UiLogSink(null));
@@ -272,12 +274,13 @@ public sealed class WorkflowRunViewModelTests
     public void InitializeFor_ClearsLogSink()
     {
         var workflowsDir = Path.Combine(Path.GetTempPath(), "ItrqTool-vm-tests", Guid.NewGuid().ToString("N"));
+        var workflowDataRoot = Path.Combine(Path.GetTempPath(), "ItrqTool-vm-data", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(workflowsDir);
 
         try
         {
             var services = new ServiceCollection();
-            services.AddItrqToolServices(workflowsDir);
+            services.AddItrqToolServices(workflowsDir, workflowDataRoot);
             using var sp = services.BuildServiceProvider();
 
             var sink = sp.GetRequiredService<IUiLogSink>();

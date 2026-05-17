@@ -12,6 +12,7 @@ public sealed class WorkflowSession
     private readonly IReadOnlyList<TaskNode> _topologicalOrder;
     private readonly List<TaskResult?> _results;
     private readonly Dictionary<string, IReadOnlyDictionary<string, string>> _recordedOutputPaths = new();
+    private bool _hasExecutedFirstTask;
 
     public WorkflowDefinition Workflow { get; }
     public WorkflowSessionStatus Status { get; private set; }
@@ -70,7 +71,39 @@ public sealed class WorkflowSession
 
         Status = WorkflowSessionStatus.Running;
 
-        Directory.CreateDirectory(WorkingDirectory);
+        if (!_hasExecutedFirstTask)
+        {
+            try
+            {
+                if (Directory.Exists(WorkingDirectory))
+                {
+                    foreach (var file in Directory.EnumerateFiles(WorkingDirectory))
+                        File.Delete(file);
+                    foreach (var dir in Directory.EnumerateDirectories(WorkingDirectory))
+                        Directory.Delete(dir, recursive: true);
+                }
+                else
+                {
+                    Directory.CreateDirectory(WorkingDirectory);
+                }
+                _hasExecutedFirstTask = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to prepare working directory '{Path}'",
+                                 WorkingDirectory);
+                var prepFailure = new TaskResult(
+                    Succeeded: false,
+                    Messages: new[] { new TaskMessage(
+                        MessageSeverity.Error,
+                        $"Failed to prepare working directory: {ex.Message}",
+                        DateTimeOffset.Now) },
+                    Duration: TimeSpan.Zero);
+                _results[CurrentIndex] = prepFailure;
+                Status = WorkflowSessionStatus.Failed;
+                return prepFailure;
+            }
+        }
 
         var inputPaths = new Dictionary<string, string>();
         foreach (var (localKey, outputRef) in currentNode.Inputs)

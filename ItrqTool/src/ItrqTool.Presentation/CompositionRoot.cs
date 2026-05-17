@@ -13,17 +13,10 @@ namespace ItrqTool.Presentation;
 
 public static class CompositionRoot
 {
-    // Primary two-param overload — used by App.xaml.cs (workflowDataRoot reserved for future use).
     public static IServiceCollection AddItrqToolServices(
         this IServiceCollection services,
         string workflowsDirectoryPath,
         string workflowDataRoot)
-        => services.AddItrqToolServices(workflowsDirectoryPath);
-
-    // Single-param overload — used by integration tests.
-    public static IServiceCollection AddItrqToolServices(
-        this IServiceCollection services,
-        string workflowsDirectoryPath)
     {
         services.AddLogging(builder =>
         {
@@ -49,7 +42,11 @@ public static class CompositionRoot
             .WithTransientLifetime());
 
         services.AddSingleton<ITaskRegistry, DependencyInjectionTaskRegistry>();
-        services.AddSingleton<WorkflowSessionFactory>();
+        services.AddSingleton<WorkflowSessionFactory>(sp =>
+            new WorkflowSessionFactory(
+                workflowDataRoot,
+                sp.GetRequiredService<ITaskRegistry>(),
+                sp.GetRequiredService<ILogger<WorkflowSession>>()));
 
         services.AddSingleton<WorkflowListViewModel>();
         services.AddSingleton<WorkflowRunViewModel>();

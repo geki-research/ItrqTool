@@ -1,3 +1,4 @@
+using System.IO;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
@@ -16,7 +17,9 @@ public sealed class ShellNavigationTests
 
     private static WorkflowRunViewModel MakeRunVm()
     {
+        var workflowDataRoot = Path.Combine(Path.GetTempPath(), "ItrqTool-nav-tests", Guid.NewGuid().ToString("N"));
         var factory = new WorkflowSessionFactory(
+            workflowDataRoot,
             Substitute.For<ITaskRegistry>(),
             NullLogger<WorkflowSession>.Instance);
         return new WorkflowRunViewModel(factory, new UiLogSink(null));

@@ -26,7 +26,10 @@ These rules must never be broken, even when breaking them would be locally conve
    `Presentation` → `Application` → `Domain` ← `Infrastructure`
    `Tasks` → `Domain` only.
    `Infrastructure` and `Tasks` must never reference each other.
-   `Domain` must have zero external NuGet or project references.
+   `Domain` may reference Microsoft.Extensions.Logging.Abstractions only.
+   No other external NuGet packages and no project references. The
+   Abstractions package is treated as part of the BCL surface area
+   for logging.
 
 2. **ClosedXML must not appear in `ItrqTool.Tasks`.**
    Tasks read Excel files via `IExcelReader` from `ItrqTool.Domain`.
@@ -90,7 +93,7 @@ They are copied to the output directory by the Presentation project's `.csproj`.
 | DI container | Microsoft.Extensions.DependencyInjection | Presentation |
 | DI assembly scanning | Scrutor | Presentation |
 | Configuration | Microsoft.Extensions.Configuration + Json | Presentation |
-| Logging (file + UI) | Serilog + Serilog.Sinks.File + Serilog.Extensions.Logging | Presentation (providers), Infrastructure |
+| Logging (file + UI) | Serilog + Serilog.Sinks.File + Serilog.Extensions.Logging | Presentation |
 | Logging abstraction | Microsoft.Extensions.Logging.Abstractions | Domain, Application, Tasks |
 | Excel reading | ClosedXML | Infrastructure only |
 | Testing framework | xUnit | all test projects |
@@ -261,27 +264,30 @@ WorkflowSessionStatus values:
 4. If `result.Succeeded` is false → set status to `Failed`, stop.
 5. Record the result. Advance `CurrentIndex`. Set status to `AwaitingReview` or `Completed`.
 
-Each workflow has a dedicated working directory generated at session-creation
-time inside the system temp folder. The session's `WorkingDirectory` path is
-returned by `WorkflowSessionFactory.Create()`.
+Each workflow has a dedicated, persistent working directory at
+`<workflowDataRoot>/<workflow.Id>`. `workflowDataRoot` is configured
+in appsettings.json under `ItrqTool:WorkflowDataRoot`, supports
+Windows environment-variable expansion, and falls back to
+`%USERPROFILE%\Documents\ItrqTool` if missing or empty.
+`WorkflowSessionFactory.Create` computes the directory; `WorkflowSession`
+exposes it via the `WorkingDirectory` property. The directory is
+NOT created in the factory.
 
-`ItrqTool:WorkflowDataRoot` in appsettings.json is reserved for future use;
-it is passed to `AddItrqToolServices` but is not yet consumed by the factory.
-
-`ItrqTool:LogsDirectory` — directory where Serilog writes rolling daily files.
-Supports environment-variable expansion. Default if missing or empty:
-`%USERPROFILE%\Documents\ItrqTool\logs`.
-
-Files persist between tasks within a session, allowing the user to
-manually edit intermediate files between steps. On the first task
-execution of a new session, WorkflowSession wipes the working
-directory's contents before running the task — stale files from a
-previous run never bleed into a new one. Subsequent task executions
-within the same session do NOT wipe.
+Files persist between tasks within a session. On the first task
+execution of a fresh session, `WorkflowSession` wipes the directory's
+contents before running the task — stale files from a prior run
+never bleed into a new one. Subsequent task executions within the
+same session do NOT wipe.
 
 The application does NOT clean up working directories on close or
 startup. Users grab their deliverables from the workflow's folder
 whenever they choose.
+
+If the wipe fails (e.g. an output file is locked by Excel), the
+session sets `Status = Failed` and returns a `TaskResult` with one
+`Error` message describing the wipe failure. The internal "first
+execution" flag flips only on a successful wipe, so the user can
+close Excel and re-run.
 
 ---
 
@@ -493,16 +499,15 @@ historical result. Clicking a pending or ready task sets `SelectedResult` to nul
 The DI registrations are extracted into static methods in `ItrqTool.Presentation`:
 
 ```
-CompositionRoot.AddItrqToolServices(services, workflowsDirectoryPath, workflowDataRoot)
-    — production overload called by App.xaml.cs; workflowDataRoot reserved for future use.
-CompositionRoot.AddItrqToolServices(services, workflowsDirectoryPath)
-    — test-friendly single-param overload used by integration tests.
+AddItrqToolServices(this IServiceCollection services,
+                    string workflowsDirectoryPath,
+                    string workflowDataRoot)
 ```
 
 App.OnStartup builds IConfiguration from appsettings.json, resolves paths with
 `Environment.ExpandEnvironmentVariables`, configures `Log.Logger` (Serilog), and
-calls `AddItrqToolServices`. Integration tests call the single-param overload with
-a per-test temp workflows directory.
+calls `AddItrqToolServices`. Integration tests also call AddItrqToolServices with
+a per-test temp workflows directory and a per-test workflowDataRoot.
 Treat `AddItrqToolServices` as the single source of truth for the production object
 graph — never duplicate registrations elsewhere.
 
@@ -579,6 +584,8 @@ Use `NetArchTest.Rules` with `FluentAssertions`.
   output path placement in working directory, hard stop on `Succeeded = false`,
   cancellation propagation, `Completed` state after last task succeeds,
   wipe-on-first-execution (pre-populated stale files deleted before first task's output written).
+- Wipe-on-first-execution: pre-populate the working directory with stale files; assert they
+  are deleted before the first task's output is written.
 
 ### Infrastructure tests (`ItrqTool.Infrastructure.Tests`)
 - `JsonWorkflowLoader`: empty directory, valid file with empty task list,
@@ -602,6 +609,9 @@ Each task implementation must have:
   all `Succeeded`.
 - DI smoke: asserts every `IWorkflowTask` discovered by Scrutor is
   resolvable through `ITaskRegistry.FindTask(task.TaskType)`.
+- Second session run: run a workflow to completion, write a stale file into the
+  working directory, create a fresh session for the same workflow, run one task,
+  assert the stale file is gone and the first output file is freshly written.
 
 ---
 
@@ -628,7 +638,11 @@ services.Scan(scan => scan
     .WithTransientLifetime());
 
 services.AddSingleton<ITaskRegistry, DependencyInjectionTaskRegistry>();
-services.AddSingleton<WorkflowSessionFactory>();  // DI resolves (ITaskRegistry, ILogger<WorkflowSession>)
+services.AddSingleton<WorkflowSessionFactory>(sp =>
+    new WorkflowSessionFactory(
+        workflowDataRoot,
+        sp.GetRequiredService<ITaskRegistry>(),
+        sp.GetRequiredService<ILogger<WorkflowSession>>()));
 
 services.AddSingleton<WorkflowListViewModel>();
 services.AddSingleton<WorkflowRunViewModel>();    // DI resolves (WorkflowSessionFactory, IUiLogSink)
