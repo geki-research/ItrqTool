@@ -18,7 +18,9 @@
       "Bash(mv src/YourApp.Presentation src/ItrqTool.Presentation)",
       "Bash(xargs -0 sed -i 's/YourApp/ItrqTool/g')",
       "Bash(git add *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
