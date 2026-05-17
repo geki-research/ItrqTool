@@ -85,22 +85,22 @@ They are copied to the output directory by the Presentation project's `.csproj`.
 
 ## Technology stack — exact packages
 
-| Concern | Package | Project |
-|---|---|---|
-| Runtime | .NET 10 | all |
-| UI framework | WPF (built-in) | Presentation |
-| MVVM | CommunityToolkit.Mvvm | Presentation |
-| DI container | Microsoft.Extensions.DependencyInjection 10.0.8 | Presentation |
-| DI assembly scanning | Scrutor | Presentation |
-| Configuration | Microsoft.Extensions.Configuration + Json 10.0.8 | Presentation |
-| Logging (file + UI) | Serilog + Serilog.Sinks.File + Serilog.Extensions.Logging | Presentation |
-| Logging factory and DI integration | Microsoft.Extensions.Logging 10.0.8 | Presentation |
-| Logging abstraction | Microsoft.Extensions.Logging.Abstractions 10.0.8 | Domain, Application, Tasks |
-| Excel reading | ClosedXML | Infrastructure only |
-| Testing framework | xUnit | all test projects |
-| Mocking | NSubstitute | Application.Tests, Tasks.Tests |
-| Assertions | FluentAssertions | all test projects |
-| Architecture tests | NetArchTest.Rules | Architecture.Tests |
+| Concern | Package | Version | Project |
+|---|---|---|---|
+| Runtime | .NET | 10 | all |
+| UI framework | WPF (built-in) | (built-in) | Presentation |
+| MVVM | CommunityToolkit.Mvvm | 8.3.2 | Presentation |
+| DI container | Microsoft.Extensions.DependencyInjection | 10.0.8 | Presentation |
+| DI assembly scanning | Scrutor | 4.2.2 | Presentation |
+| Configuration | Microsoft.Extensions.Configuration + Json | 10.0.8 | Presentation |
+| Logging (file + UI) | Serilog + Serilog.Sinks.File + Serilog.Extensions.Logging | 4.0.0 / 6.0.0 / 8.0.0 | Presentation |
+| Logging factory and DI integration | Microsoft.Extensions.Logging | 10.0.8 | Presentation |
+| Logging abstraction | Microsoft.Extensions.Logging.Abstractions | 10.0.8 | Domain, Application, Tasks |
+| Excel reading | ClosedXML | 0.102.3 | Infrastructure only |
+| Testing framework | xUnit | 2.9.2 | all test projects |
+| Mocking | NSubstitute | 5.3.0 | Application.Tests, Tasks.Tests |
+| Assertions | FluentAssertions | 6.12.2 | all test projects |
+| Architecture tests | NetArchTest.Rules | 1.3.2 | Architecture.Tests |
 
 Do not add NuGet packages not listed here without documenting the reason in this file.
 
