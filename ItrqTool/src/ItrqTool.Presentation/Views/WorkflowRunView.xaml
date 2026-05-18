@@ -36,7 +36,7 @@
                 Padding="20,8"
                 Margin="0,12,0,0"/>
 
-        <!-- Main content: three rows — tasks+result | splitter | log panel -->
+        <!-- Main content: three rows — tasks+config | splitter | log panel -->
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" MinHeight="120"/>
@@ -44,7 +44,7 @@
                 <RowDefinition Height="180" MinHeight="80"/>
             </Grid.RowDefinitions>
 
-            <!-- Row 0: tasks (left) + result panel (right) -->
+            <!-- Row 0: tasks (left) + config panel (right) -->
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="280"/>
@@ -77,45 +77,29 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <ContentControl Grid.Column="1"
-                                Content="{Binding SelectedResult}"
-                                Margin="16,0,0,0">
-                    <ContentControl.ContentTemplate>
-                        <DataTemplate>
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top"
-                                           Text="{Binding TaskName}"
-                                           FontSize="16" FontWeight="SemiBold"/>
-                                <TextBlock DockPanel.Dock="Top"
-                                           Text="{Binding Duration}"
-                                           Foreground="Gray"
-                                           Margin="0,4,0,12"/>
-                                <ItemsControl ItemsSource="{Binding Messages}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,2">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="70"/>
-                                                    <ColumnDefinition Width="70"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0"
-                                                           Text="{Binding Severity}"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding Timestamp}"
-                                                           Foreground="Gray"/>
-                                                <TextBlock Grid.Column="2"
-                                                           Text="{Binding Text}"
-                                                           TextWrapping="Wrap"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </DockPanel>
-                        </DataTemplate>
-                    </ContentControl.ContentTemplate>
-                </ContentControl>
+                <!-- Task configuration viewer -->
+                <Grid Grid.Column="1" Margin="16,0,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0"
+                               Text="{Binding SelectedTaskDisplayName}"
+                               FontSize="16" FontWeight="SemiBold"
+                               Margin="0,0,0,8"/>
+                    <ListView Grid.Row="1"
+                              ItemsSource="{Binding SelectedTaskParameters}"
+                              BorderThickness="0">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Parameter" Width="200"
+                                                DisplayMemberBinding="{Binding Key}"/>
+                                <GridViewColumn Header="Value" Width="400"
+                                                DisplayMemberBinding="{Binding Value}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
             </Grid>
 
             <!-- Row 1: resizable splitter -->

@@ -7,6 +7,7 @@ using ItrqTool.Application;
 using ItrqTool.Domain;
 using ItrqTool.Presentation.Logging;
 using ItrqTool.Presentation.UIModels;
+using Microsoft.Extensions.Logging;
 
 namespace ItrqTool.Presentation.ViewModels;
 
@@ -27,9 +28,6 @@ public partial class WorkflowRunViewModel : ObservableObject
     private ObservableCollection<TaskRowItem> _tasks = new();
 
     [ObservableProperty]
-    private TaskResultViewModel? _selectedResult;
-
-    [ObservableProperty]
     private string _runButtonLabel = "Run";
 
     [ObservableProperty]
@@ -38,7 +36,26 @@ public partial class WorkflowRunViewModel : ObservableObject
     [ObservableProperty]
     private TaskRowItem? _selectedTask;
 
-    partial void OnSelectedTaskChanged(TaskRowItem? value) => UpdateResultForSelection();
+    [ObservableProperty]
+    private string _selectedTaskDisplayName = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<TaskParameterItem> _selectedTaskParameters = new();
+
+    partial void OnSelectedTaskChanged(TaskRowItem? value)
+    {
+        if (value is null || !_indexLookup.TryGetValue(value.TaskId, out int index))
+        {
+            SelectedTaskDisplayName = string.Empty;
+            SelectedTaskParameters.Clear();
+            return;
+        }
+        var node = _order[index];
+        SelectedTaskDisplayName = node.Id;
+        SelectedTaskParameters.Clear();
+        foreach (var kv in node.Parameters.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase))
+            SelectedTaskParameters.Add(new TaskParameterItem(kv.Key, kv.Value));
+    }
 
     public IUiLogSink LogSink => _logSink;
     public string? SessionWorkingDirectory => _session?.WorkingDirectory;
@@ -74,7 +91,6 @@ public partial class WorkflowRunViewModel : ObservableObject
         }
 
         SelectedTask = null;
-        SelectedResult = null;
 
         if (_order.Count == 0)
         {
@@ -133,7 +149,6 @@ public partial class WorkflowRunViewModel : ObservableObject
         if (_session is null) return;
 
         int runningIndex = _session.CurrentIndex;
-        var node = _order[runningIndex];
 
         Tasks[runningIndex] = Tasks[runningIndex] with { Status = TaskRowStatus.Running };
         CanRun = false;
@@ -143,19 +158,41 @@ public partial class WorkflowRunViewModel : ObservableObject
 
         var result = await _session.RunCurrentTaskAsync(CancellationToken.None);
 
-        var resultVm = BuildResultVm(node, result);
-
         Tasks[runningIndex] = Tasks[runningIndex] with
         {
             Status = result.Succeeded ? TaskRowStatus.Completed : TaskRowStatus.Failed,
             Duration = FormatDuration(result.Duration)
         };
 
-        SelectedResult = resultVm;
+        AppendResultToLog(result);
         SelectedTask = Tasks[runningIndex];
 
         SyncFromSession();
         BackCommand.NotifyCanExecuteChanged();
+    }
+
+    private void AppendResultToLog(TaskResult result)
+    {
+        _logSink.Add(new LogEntry(
+            DateTimeOffset.Now,
+            LogLevel.None,
+            "Result",
+            "Result",
+            "────────────────────────────────────────"));
+        foreach (var msg in result.Messages)
+        {
+            _logSink.Add(new LogEntry(
+                msg.Timestamp,
+                msg.Severity switch
+                {
+                    MessageSeverity.Warning => LogLevel.Warning,
+                    MessageSeverity.Error => LogLevel.Error,
+                    _ => LogLevel.Information
+                },
+                "Result",
+                "Result",
+                msg.Text));
+        }
     }
 
     private void SyncFromSession()
@@ -198,30 +235,6 @@ public partial class WorkflowRunViewModel : ObservableObject
             _ => TaskRowStatus.Ready
         };
     }
-
-    private void UpdateResultForSelection()
-    {
-        if (_session is null || SelectedTask is null)
-        {
-            SelectedResult = null;
-            return;
-        }
-
-        if (!_indexLookup.TryGetValue(SelectedTask.TaskId, out int index))
-        {
-            SelectedResult = null;
-            return;
-        }
-
-        var historical = _session.GetResult(index);
-        SelectedResult = historical is null ? null : BuildResultVm(_order[index], historical);
-    }
-
-    private TaskResultViewModel BuildResultVm(TaskNode node, TaskResult result) => new(
-        TaskName: node.Id,
-        Succeeded: result.Succeeded,
-        Duration: FormatDuration(result.Duration),
-        Messages: result.Messages.Select(TaskMessageMapper.ToUi).ToList());
 
     private static string FormatDuration(TimeSpan duration)
     {

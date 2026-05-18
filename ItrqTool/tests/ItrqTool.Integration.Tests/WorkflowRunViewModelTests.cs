@@ -120,9 +120,8 @@ public sealed class WorkflowRunViewModelTests
             vm.Tasks[0].Status.Should().Be(TaskRowStatus.Completed);
             vm.Tasks[0].Duration.Should().NotBeNull();
             vm.Tasks[1].Status.Should().Be(TaskRowStatus.Ready);
-            vm.SelectedResult.Should().NotBeNull();
-            vm.SelectedResult!.Succeeded.Should().BeTrue();
             vm.SelectedTask.Should().BeSameAs(vm.Tasks[0]);
+            vm.LogSink.Entries.Should().Contain(e => e.Level == LogLevel.Information && e.Message == "ok");
             vm.RunButtonLabel.Should().Be("Run next task");
 
             await vm.RunTaskCommand.ExecuteAsync(null);
@@ -159,10 +158,7 @@ public sealed class WorkflowRunViewModelTests
             await vm.RunTaskCommand.ExecuteAsync(null);
 
             vm.Tasks[0].Status.Should().Be(TaskRowStatus.Failed);
-            vm.SelectedResult.Should().NotBeNull();
-            vm.SelectedResult!.Succeeded.Should().BeFalse();
-            vm.SelectedResult.Messages.Should().NotBeEmpty();
-            vm.SelectedResult.Messages.Should().Contain(m => m.Severity == TaskMessageSeverity.Error);
+            vm.LogSink.Entries.Should().Contain(e => e.Level == LogLevel.Error && e.Message == "fail");
             vm.CanRun.Should().BeFalse();
             vm.RunButtonLabel.Should().Be("Workflow failed");
         }
@@ -174,7 +170,7 @@ public sealed class WorkflowRunViewModelTests
     }
 
     [Fact]
-    public async Task SelectedTask_ChangesResult_ToHistoricalResult()
+    public async Task SelectedTask_ChangesDisplayName_ToSelectedTask()
     {
         var nodeA = new TaskNode("taskA", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
@@ -200,12 +196,10 @@ public sealed class WorkflowRunViewModelTests
             await vm.RunTaskCommand.ExecuteAsync(null);
 
             vm.SelectedTask = vm.Tasks[0];
-            vm.SelectedResult.Should().NotBeNull();
-            vm.SelectedResult!.TaskName.Should().Be("taskA");
+            vm.SelectedTaskDisplayName.Should().Be("taskA");
 
             vm.SelectedTask = vm.Tasks[1];
-            vm.SelectedResult.Should().NotBeNull();
-            vm.SelectedResult!.TaskName.Should().Be("taskB");
+            vm.SelectedTaskDisplayName.Should().Be("taskB");
         }
         finally
         {
