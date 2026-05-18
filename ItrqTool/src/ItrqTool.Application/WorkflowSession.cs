@@ -126,7 +126,10 @@ public sealed class WorkflowSession
             InputPaths: inputPaths,
             OutputPaths: outputPaths,
             Logger: _logger,
-            WorkingDirectory: WorkingDirectory);
+            WorkingDirectory: WorkingDirectory)
+        {
+            Parameters = currentNode.Parameters
+        };
 
         var sw = Stopwatch.StartNew();
 

@@ -285,6 +285,49 @@ public sealed class WorkflowSessionTests
     }
 
     [Fact]
+    public async Task RunCurrentTask_PassesNodeParameters_ToContext()
+    {
+        var nodeParameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            { ["key"] = "value" };
+        var node = new TaskNode("a", "TypeA",
+            new Dictionary<string, TaskOutputRef>(),
+            new Dictionary<string, string>())
+        {
+            Parameters = nodeParameters
+        };
+        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var workDir = TestWorkDir();
+
+        TaskExecutionContext? capturedContext = null;
+
+        var taskA = Substitute.For<IWorkflowTask>();
+        taskA.ExecuteAsync(Arg.Any<TaskExecutionContext>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                capturedContext = ci.ArgAt<TaskExecutionContext>(0);
+                return Task.FromResult(SuccessResult());
+            });
+
+        var registry = Substitute.For<ITaskRegistry>();
+        registry.FindTask("TypeA").Returns(taskA);
+
+        var session = new WorkflowSession(def, registry, workDir, NullLogger<WorkflowSession>.Instance);
+
+        try
+        {
+            await session.RunCurrentTaskAsync();
+
+            capturedContext.Should().NotBeNull();
+            capturedContext!.WorkingDirectory.Should().Be(workDir);
+            capturedContext.Parameters["key"].Should().Be("value");
+        }
+        finally
+        {
+            try { Directory.Delete(workDir, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    [Fact]
     public async Task RunCurrentTask_PropagatesCancellation()
     {
         var node = new TaskNode("a", "TypeA",

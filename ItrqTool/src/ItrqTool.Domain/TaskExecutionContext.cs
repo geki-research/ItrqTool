@@ -8,4 +8,8 @@ public record TaskExecutionContext(
     IReadOnlyDictionary<string, string> OutputPaths,
     ILogger Logger,
     string WorkingDirectory
-);
+)
+{
+    public IReadOnlyDictionary<string, string> Parameters { get; init; }
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+}

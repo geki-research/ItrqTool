@@ -5,4 +5,8 @@ public record TaskNode(
     string TaskType,
     IReadOnlyDictionary<string, TaskOutputRef> Inputs,
     IReadOnlyDictionary<string, string> OutputFileNames
-);
+)
+{
+    public IReadOnlyDictionary<string, string> Parameters { get; init; }
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+}

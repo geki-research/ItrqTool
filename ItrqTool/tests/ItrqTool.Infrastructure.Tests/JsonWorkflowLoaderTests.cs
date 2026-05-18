@@ -355,4 +355,67 @@ public sealed class JsonWorkflowLoaderTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Parameters deserialization ─────────────────────────────────────────────
+
+    [Fact]
+    public void LoadAll_NodeWithParameters_DeserializesCorrectly()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "params.json"), """
+                {
+                    "id": "wf1",
+                    "name": "WF One",
+                    "tasks": [
+                        {
+                            "id": "t1",
+                            "type": "NoOp",
+                            "inputs": {},
+                            "outputs": {},
+                            "parameters": { "foo": "bar" }
+                        }
+                    ]
+                }
+                """);
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Nodes[0].Parameters["foo"].Should().Be("bar");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_NodeWithoutParameters_DefaultsToEmptyNotNull()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "noparams.json"), """
+                {
+                    "id": "wf1",
+                    "name": "WF One",
+                    "tasks": [
+                        {
+                            "id": "t1",
+                            "type": "NoOp",
+                            "inputs": {},
+                            "outputs": {}
+                        }
+                    ]
+                }
+                """);
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Nodes[0].Parameters.Should().NotBeNull().And.BeEmpty();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }

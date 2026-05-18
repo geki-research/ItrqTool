@@ -94,11 +94,21 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
                 inputs[localKey] = new TaskOutputRef(reference[..dot], reference[(dot + 1)..]);
             }
 
+            IReadOnlyDictionary<string, string> parameters = taskDto.Parameters is null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : taskDto.Parameters.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value ?? string.Empty,
+                    StringComparer.OrdinalIgnoreCase);
+
             nodes.Add(new TaskNode(
                 taskDto.Id,
                 taskDto.Type,
                 inputs,
-                new Dictionary<string, string>(taskDto.Outputs)));
+                new Dictionary<string, string>(taskDto.Outputs))
+            {
+                Parameters = parameters
+            });
         }
 
         return new WorkflowDefinition(dto.Id, dto.Name, nodes);
@@ -123,5 +133,6 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
         public string? Type { get; set; }
         public Dictionary<string, string>? Inputs { get; set; }
         public Dictionary<string, string>? Outputs { get; set; }
+        public Dictionary<string, string?>? Parameters { get; set; }
     }
 }
