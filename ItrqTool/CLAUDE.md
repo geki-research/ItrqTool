@@ -439,6 +439,54 @@ public sealed class MyExcelTask : IWorkflowTask
 
 ---
 
+## TemplateDiffTask — CLQ config file format
+
+`TemplateDiffTask` (TaskType `"TemplateDiff"`) reads a JSON config file whose path is
+passed via the `configPath` task parameter. The config describes the structure of the
+"Control Level Questions" sheet in the auditor-questionnaire workbook.
+
+**ControlLevelQuestionsConfig** (in `ItrqTool.Tasks.TemplateDiff`):
+
+```csharp
+public sealed record SectionDefinition(int SectionRow, int FirstQuestionRow, int LastQuestionRow);
+
+public sealed class ControlLevelQuestionsConfig
+{
+    public string SheetName { get; init; } = "Control Level Questions";
+    public string TextColumn { get; init; } = "C";
+    public string InputColumn { get; init; } = "D";
+    public IReadOnlyList<int> ChapterRows { get; init; } = [];
+    // Each entry: "<sectionRow>:<firstQuestionRow>-<lastQuestionRow>"
+    public IReadOnlyList<string> SectionRows { get; init; } = [];
+    // ParsedSections parses SectionRows; throws FormatException on invalid entries
+    public IReadOnlyList<SectionDefinition> ParsedSections { get; }
+}
+```
+
+**SectionRows format:** Each string is `"<sectionRow>:<firstQuestionRow>-<lastQuestionRow>"`.
+All numbers are 1-based Excel row numbers. Constraints:
+- `sectionRow` must be a positive integer.
+- `firstQuestionRow` must be greater than `sectionRow`.
+- `lastQuestionRow` must be ≥ `firstQuestionRow`.
+
+Rows not covered by any section range or chapter row are silently skipped during parsing.
+`ParsedSections` throws `FormatException` on the first invalid entry; `TemplateDiffTask`
+catches it and returns `Succeeded: false` with the error message.
+
+**Example CLQ config file:**
+
+```json
+{
+  "sheetName": "Control Level Questions",
+  "textColumn": "C",
+  "inputColumn": "D",
+  "chapterRows": [1, 15, 30],
+  "sectionRows": ["2:3-14", "16:17-29", "31:32-50"]
+}
+```
+
+---
+
 ## Presentation layer conventions
 
 - Framework: WPF on .NET 10. Target `net10.0-windows`.

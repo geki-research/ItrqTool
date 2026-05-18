@@ -138,49 +138,56 @@ public sealed class TemplateDiffTask : IWorkflowTask
         IReadOnlyList<ExcelRowStructure> rows,
         ControlLevelQuestionsConfig config)
     {
+        var parsedSections = config.ParsedSections; // throws FormatException on bad config
         var chapterSet = new HashSet<int>(config.ChapterRows);
-        var sectionSet = new HashSet<int>(config.SectionRows);
+        var sectionRowSet = new HashSet<int>(parsedSections.Select(s => s.SectionRow));
+        var textCol = config.TextColumn.ToUpperInvariant();
+        var inputCol = config.InputColumn.ToUpperInvariant();
 
+        // Pre-pass: collect text for all header rows
+        var headerText = new Dictionary<int, string>();
+        foreach (var row in rows)
+        {
+            if (chapterSet.Contains(row.RowNumber) || sectionRowSet.Contains(row.RowNumber))
+            {
+                headerText[row.RowNumber] = row.CellsByColumn.TryGetValue(textCol, out var c)
+                    ? c.TextValue ?? "" : "";
+            }
+        }
+
+        var sortedChapterRows = config.ChapterRows.OrderBy(r => r).ToList();
         var questions = new List<AuditQuestion>();
-        string currentChapter = string.Empty;
-        string currentSection = string.Empty;
 
         foreach (var row in rows)
         {
-            if (chapterSet.Contains(row.RowNumber))
-            {
-                currentChapter = row.CellsByColumn.TryGetValue(
-                    config.TextColumn.ToUpperInvariant(), out var c) ? c.TextValue ?? "" : "";
-                currentSection = string.Empty;
+            if (chapterSet.Contains(row.RowNumber) || sectionRowSet.Contains(row.RowNumber))
                 continue;
-            }
 
-            if (sectionSet.Contains(row.RowNumber))
-            {
-                currentSection = row.CellsByColumn.TryGetValue(
-                    config.TextColumn.ToUpperInvariant(), out var c) ? c.TextValue ?? "" : "";
+            var section = parsedSections.FirstOrDefault(s =>
+                row.RowNumber >= s.FirstQuestionRow && row.RowNumber <= s.LastQuestionRow);
+
+            if (section is null)
                 continue;
-            }
 
-            // Question row
-            if (!row.CellsByColumn.TryGetValue(config.TextColumn.ToUpperInvariant(), out var textCell))
+            if (!row.CellsByColumn.TryGetValue(textCol, out var textCell))
                 continue;
 
             var originalText = textCell.TextValue ?? "";
             if (string.IsNullOrWhiteSpace(originalText))
                 continue;
 
-            var inputCol = config.InputColumn.ToUpperInvariant();
+            var chapterRow = sortedChapterRows.LastOrDefault(cr => cr <= row.RowNumber);
+            var chapterText = chapterRow > 0 && headerText.TryGetValue(chapterRow, out var ct) ? ct : "";
+            var sectionText = headerText.TryGetValue(section.SectionRow, out var st) ? st : "";
+
             string? dvType = row.CellsByColumn.TryGetValue(inputCol, out var inputCell)
-                ? inputCell.DataValidationType
-                : null;
+                ? inputCell.DataValidationType : null;
             string? cfOperator = row.CellsByColumn.TryGetValue(inputCol, out var inputCell2)
-                ? inputCell2.ConditionalFormattingOperator
-                : null;
+                ? inputCell2.ConditionalFormattingOperator : null;
 
             questions.Add(new AuditQuestion(
-                currentChapter,
-                currentSection,
+                chapterText,
+                sectionText,
                 AuditQuestion.StripPrefix(originalText),
                 originalText,
                 row.RowNumber,
