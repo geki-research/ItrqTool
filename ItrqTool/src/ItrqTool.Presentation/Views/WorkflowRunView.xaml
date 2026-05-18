@@ -126,6 +126,13 @@
 
             <!-- Row 2: live log panel -->
             <Border Grid.Row="2" BorderBrush="#CCCCCC" BorderThickness="1" Padding="4">
+                <DockPanel>
+                <Button DockPanel.Dock="Top"
+                        Content="Copy log"
+                        Command="{Binding CopyLogCommand}"
+                        HorizontalAlignment="Left"
+                        Padding="8,2"
+                        Margin="0,0,0,4"/>
                 <ListBox x:Name="LogList"
                          ItemsSource="{Binding LogSink.Entries}"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -164,6 +171,7 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+                </DockPanel>
             </Border>
         </Grid>
     </DockPanel>

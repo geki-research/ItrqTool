@@ -95,6 +95,14 @@ public partial class WorkflowRunViewModel : ObservableObject
 
     private bool CanGoBack() => _session is null || _session.Status != WorkflowSessionStatus.Running;
 
+    [RelayCommand]
+    private void CopyLog()
+    {
+        var text = string.Join(Environment.NewLine, _logSink.Entries.Select(e =>
+            $"{e.Timestamp:yyyy-MM-dd HH:mm:ss} [{e.Level}] {e.ShortCategory}: {e.Message}"));
+        System.Windows.Clipboard.SetText(text);
+    }
+
     [RelayCommand(CanExecute = nameof(CanOpenWorkingFolder))]
     private void OpenWorkingFolder()
     {
