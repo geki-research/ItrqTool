@@ -124,7 +124,8 @@ public record TaskExecutionContext(
     IReadOnlyDictionary<string, string> InputPaths,    // logical key → resolved absolute path
     IReadOnlyDictionary<string, string> OutputPaths,   // logical key → resolved absolute path
     ILogger Logger,
-    string WorkingDirectory
+    string WorkingDirectory,
+    IReadOnlyDictionary<string, string> Parameters   // static config from workflow JSON node
 );
 
 // ── Task result ────────────────────────────────────────────────────────────────
@@ -155,7 +156,8 @@ public record TaskNode(
     string Id,
     string TaskType,
     IReadOnlyDictionary<string, TaskOutputRef> Inputs,       // localKey → (upstreamTaskId, outputKey)
-    IReadOnlyDictionary<string, string> OutputFileNames      // logicalKey → filename
+    IReadOnlyDictionary<string, string> OutputFileNames,     // logicalKey → filename
+    IReadOnlyDictionary<string, string> Parameters           // static config values, case-insensitive
 );
 
 public record TaskOutputRef(string TaskId, string OutputKey);
