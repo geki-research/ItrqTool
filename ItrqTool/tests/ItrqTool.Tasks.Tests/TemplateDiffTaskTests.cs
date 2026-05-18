@@ -40,24 +40,26 @@ public sealed class TemplateDiffTaskTests
         try
         {
             // Create minimal synthetic workbooks so file-existence check passes
-            var oldPath = Path.Combine(dir, "old.xlsx");
-            var newPath = Path.Combine(dir, "new.xlsx");
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
             using (var wb = new XLWorkbook())
             {
                 var ws = wb.Worksheets.Add("Control Level Questions");
                 ws.Cell(1, 3).Value = "1.1) What is risk?";
-                wb.SaveAs(oldPath);
+                wb.SaveAs(previousPath);
             }
             using (var wb = new XLWorkbook())
             {
                 var ws = wb.Worksheets.Add("Control Level Questions");
                 ws.Cell(1, 3).Value = "1.1) What is risk?";
-                wb.SaveAs(newPath);
+                wb.SaveAs(currentPath);
             }
 
-            var configPath = Path.Combine(dir, "config.json");
-            await File.WriteAllTextAsync(configPath,
-                """{"sheetName":"Control Level Questions","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""");
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            const string configJson = """{"sheetName":"Control Level Questions","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""";
+            await File.WriteAllTextAsync(previousConfigPath, configJson);
+            await File.WriteAllTextAsync(currentConfigPath, configJson);
 
             var reportPath = Path.Combine(dir, "report.xlsx");
 
@@ -77,9 +79,10 @@ public sealed class TemplateDiffTaskTests
             {
                 Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["oldWorkbookPath"] = oldPath,
-                    ["newWorkbookPath"] = newPath,
-                    ["configPath"] = configPath
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath
                 }
             };
 
@@ -92,15 +95,28 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
-    // ── Failure: missing parameter ─────────────────────────────────────────────
+    // ── Failure: missing parameter (one per key) ───────────────────────────────
 
-    [Fact]
-    public async Task ExecuteAsync_MissingConfigPath_ReturnsFailureWithErrorMessage()
+    [Theory]
+    [InlineData("previousWorkbookFullFilename")]
+    [InlineData("currentWorkbookFullFilename")]
+    [InlineData("previousConfigurationFullFilename")]
+    [InlineData("currentConfigurationFullFilename")]
+    public async Task ExecuteAsync_MissingRequiredParameter_ReturnsFailureNamingMissingKey(string missingKey)
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
         try
         {
+            var allParams = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["previousWorkbookFullFilename"] = "prev.xlsx",
+                ["currentWorkbookFullFilename"] = "curr.xlsx",
+                ["previousConfigurationFullFilename"] = "prev-config.json",
+                ["currentConfigurationFullFilename"] = "curr-config.json"
+            };
+            allParams.Remove(missingKey);
+
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
                 InputPaths: new Dictionary<string, string>(),
@@ -108,18 +124,14 @@ public sealed class TemplateDiffTaskTests
                 Logger: NullLogger.Instance,
                 WorkingDirectory: dir)
             {
-                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["oldWorkbookPath"] = "old.xlsx",
-                    ["newWorkbookPath"] = "new.xlsx"
-                    // configPath deliberately omitted
-                }
+                Parameters = allParams
             };
 
             var result = await MakeTask().ExecuteAsync(ctx, CancellationToken.None);
 
             result.Succeeded.Should().BeFalse();
-            result.Messages.Should().Contain(m => m.Severity == MessageSeverity.Error);
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error && m.Text.Contains(missingKey));
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
@@ -142,9 +154,10 @@ public sealed class TemplateDiffTaskTests
             {
                 Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["oldWorkbookPath"] = Path.Combine(dir, "old.xlsx"),
-                    ["newWorkbookPath"] = Path.Combine(dir, "new.xlsx"),
-                    ["configPath"] = Path.Combine(dir, "does-not-exist.json")
+                    ["previousWorkbookFullFilename"] = Path.Combine(dir, "prev.xlsx"),
+                    ["currentWorkbookFullFilename"] = Path.Combine(dir, "curr.xlsx"),
+                    ["previousConfigurationFullFilename"] = Path.Combine(dir, "does-not-exist.json"),
+                    ["currentConfigurationFullFilename"] = Path.Combine(dir, "also-missing.json")
                 }
             };
 
@@ -165,8 +178,8 @@ public sealed class TemplateDiffTaskTests
         Directory.CreateDirectory(dir);
         try
         {
-            var oldPath = Path.Combine(dir, "old.xlsx");
-            var newPath = Path.Combine(dir, "new.xlsx");
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
             // row1=chapter, row2=section, row3=question, row4=outside range
             using (var wb = new XLWorkbook())
             {
@@ -175,7 +188,7 @@ public sealed class TemplateDiffTaskTests
                 ws.Cell(2, 3).Value = "Section A";
                 ws.Cell(3, 3).Value = "1.1) What is risk?";
                 ws.Cell(4, 3).Value = "Outside range — should be skipped";
-                wb.SaveAs(oldPath);
+                wb.SaveAs(previousPath);
             }
             using (var wb = new XLWorkbook())
             {
@@ -184,12 +197,14 @@ public sealed class TemplateDiffTaskTests
                 ws.Cell(2, 3).Value = "Section A";
                 ws.Cell(3, 3).Value = "1.1) What is a risk?"; // slightly different
                 ws.Cell(4, 3).Value = "Outside range — should be skipped";
-                wb.SaveAs(newPath);
+                wb.SaveAs(currentPath);
             }
 
-            var configPath = Path.Combine(dir, "config.json");
-            await File.WriteAllTextAsync(configPath,
-                """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[1],"sectionRows":["2:3-3"]}""");
+            var configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[1],"sectionRows":["2:3-3"]}""";
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            await File.WriteAllTextAsync(previousConfigPath, configJson);
+            await File.WriteAllTextAsync(currentConfigPath, configJson);
 
             var reportPath = Path.Combine(dir, "report.xlsx");
 
@@ -219,16 +234,17 @@ public sealed class TemplateDiffTaskTests
             {
                 Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["oldWorkbookPath"] = oldPath,
-                    ["newWorkbookPath"] = newPath,
-                    ["configPath"] = configPath
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath
                 }
             };
 
             var result = await MakeTask(structureReader, excelWriter).ExecuteAsync(ctx, CancellationToken.None);
 
             result.Succeeded.Should().BeTrue();
-            // 1 question parsed from old → "Compared 1 questions"
+            // 1 question parsed from previous → "Compared 1 questions"
             result.Messages.Should().Contain(m =>
                 m.Severity == MessageSeverity.Info && m.Text.Contains("Compared 1 question"));
         }
@@ -242,15 +258,17 @@ public sealed class TemplateDiffTaskTests
         Directory.CreateDirectory(dir);
         try
         {
-            var oldPath = Path.Combine(dir, "old.xlsx");
-            var newPath = Path.Combine(dir, "new.xlsx");
-            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(oldPath); }
-            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(newPath); }
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(currentPath); }
 
-            var configPath = Path.Combine(dir, "config.json");
-            // Section range is rows 10-20 but we only supply rows 1-3 → nothing in range
-            await File.WriteAllTextAsync(configPath,
-                """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["9:10-20"]}""");
+            // Section range is rows 10-20 but we only supply rows 1-2 → nothing in range
+            var configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["9:10-20"]}""";
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            await File.WriteAllTextAsync(previousConfigPath, configJson);
+            await File.WriteAllTextAsync(currentConfigPath, configJson);
 
             var reportPath = Path.Combine(dir, "report.xlsx");
 
@@ -276,9 +294,10 @@ public sealed class TemplateDiffTaskTests
             {
                 Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["oldWorkbookPath"] = oldPath,
-                    ["newWorkbookPath"] = newPath,
-                    ["configPath"] = configPath
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath
                 }
             };
 
@@ -299,14 +318,17 @@ public sealed class TemplateDiffTaskTests
         Directory.CreateDirectory(dir);
         try
         {
-            var oldPath = Path.Combine(dir, "old.xlsx");
-            var newPath = Path.Combine(dir, "new.xlsx");
-            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(oldPath); }
-            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(newPath); }
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(currentPath); }
 
-            var configPath = Path.Combine(dir, "config.json");
-            await File.WriteAllTextAsync(configPath,
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            await File.WriteAllTextAsync(previousConfigPath,
                 """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["badformat"]}""");
+            await File.WriteAllTextAsync(currentConfigPath,
+                """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""");
 
             var reportPath = Path.Combine(dir, "report.xlsx");
 
@@ -322,9 +344,10 @@ public sealed class TemplateDiffTaskTests
             {
                 Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["oldWorkbookPath"] = oldPath,
-                    ["newWorkbookPath"] = newPath,
-                    ["configPath"] = configPath
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath
                 }
             };
 
@@ -332,6 +355,64 @@ public sealed class TemplateDiffTaskTests
 
             result.Succeeded.Should().BeFalse();
             result.Messages.Should().Contain(m => m.Severity == MessageSeverity.Error);
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Two different configs applied independently ────────────────────────────
+
+    [Fact]
+    public async Task ExecuteAsync_SeparateConfigs_EachAppliedToItsOwnWorkbook()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("PreviousSheet"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CurrentSheet"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            // Each config declares its own sheetName
+            await File.WriteAllTextAsync(previousConfigPath,
+                """{"sheetName":"PreviousSheet","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""");
+            await File.WriteAllTextAsync(currentConfigPath,
+                """{"sheetName":"CurrentSheet","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""");
+
+            var reportPath = Path.Combine(dir, "report.xlsx");
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
+
+            var excelWriter = Substitute.For<IExcelWriter>();
+            excelWriter.When(w => w.WriteWorkbook(Arg.Any<ExcelWorkbookData>(), Arg.Any<string>()))
+                .Do(ci => File.WriteAllBytes(ci.ArgAt<string>(1), []));
+
+            var ctx = new TaskExecutionContext(
+                TaskId: "diff",
+                InputPaths: new Dictionary<string, string>(),
+                OutputPaths: new Dictionary<string, string> { ["report"] = reportPath },
+                Logger: NullLogger.Instance,
+                WorkingDirectory: dir)
+            {
+                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath
+                }
+            };
+
+            var result = await MakeTask(structureReader, excelWriter).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            // previousConfig (sheetName "PreviousSheet") used for previousPath
+            structureReader.Received(1).ReadRows(previousPath, "PreviousSheet");
+            // currentConfig (sheetName "CurrentSheet") used for currentPath
+            structureReader.Received(1).ReadRows(currentPath, "CurrentSheet");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
@@ -345,13 +426,15 @@ public sealed class TemplateDiffTaskTests
         Directory.CreateDirectory(dir);
         try
         {
-            var oldPath = Path.Combine(dir, "old.xlsx");
-            var newPath = Path.Combine(dir, "new.xlsx");
-            var configPath = Path.Combine(dir, "config.json");
-            File.WriteAllText(oldPath, "");
-            File.WriteAllText(newPath, "");
-            await File.WriteAllTextAsync(configPath,
-                """{"sheetName":"Control Level Questions","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""");
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            File.WriteAllText(previousPath, "");
+            File.WriteAllText(currentPath, "");
+            const string configJson = """{"sheetName":"Control Level Questions","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""";
+            await File.WriteAllTextAsync(previousConfigPath, configJson);
+            await File.WriteAllTextAsync(currentConfigPath, configJson);
 
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
@@ -362,9 +445,10 @@ public sealed class TemplateDiffTaskTests
             {
                 Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["oldWorkbookPath"] = oldPath,
-                    ["newWorkbookPath"] = newPath,
-                    ["configPath"] = configPath
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath
                 }
             };
 

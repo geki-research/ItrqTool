@@ -37,21 +37,30 @@ public sealed class TemplateDiffTask : IWorkflowTask
         try
         {
             // 1. Validate parameters
-            if (!TryGetParam(ctx, "oldWorkbookPath", out var oldPath) ||
-                !TryGetParam(ctx, "newWorkbookPath", out var newPath) ||
-                !TryGetParam(ctx, "configPath", out var configPath))
+            var missingParams = new List<string>();
+            if (!TryGetParam(ctx, "previousWorkbookFullFilename", out var previousPath))
+                missingParams.Add("previousWorkbookFullFilename");
+            if (!TryGetParam(ctx, "currentWorkbookFullFilename", out var currentPath))
+                missingParams.Add("currentWorkbookFullFilename");
+            if (!TryGetParam(ctx, "previousConfigurationFullFilename", out var previousConfigPath))
+                missingParams.Add("previousConfigurationFullFilename");
+            if (!TryGetParam(ctx, "currentConfigurationFullFilename", out var currentConfigPath))
+                missingParams.Add("currentConfigurationFullFilename");
+
+            if (missingParams.Count > 0)
             {
                 messages.Add(new(MessageSeverity.Error,
-                    "Required parameters missing. Expected: oldWorkbookPath, newWorkbookPath, configPath.",
+                    $"Required parameter(s) missing or empty: {string.Join(", ", missingParams)}.",
                     DateTimeOffset.Now));
                 return new TaskResult(Succeeded: false, messages, sw.Elapsed);
             }
 
             // 2. Validate file existence
             var missing = new List<string>();
-            if (!File.Exists(oldPath)) missing.Add($"oldWorkbookPath: {oldPath}");
-            if (!File.Exists(newPath)) missing.Add($"newWorkbookPath: {newPath}");
-            if (!File.Exists(configPath)) missing.Add($"configPath: {configPath}");
+            if (!File.Exists(previousPath)) missing.Add($"previousWorkbookFullFilename: {previousPath}");
+            if (!File.Exists(currentPath)) missing.Add($"currentWorkbookFullFilename: {currentPath}");
+            if (!File.Exists(previousConfigPath)) missing.Add($"previousConfigurationFullFilename: {previousConfigPath}");
+            if (!File.Exists(currentConfigPath)) missing.Add($"currentConfigurationFullFilename: {currentConfigPath}");
 
             if (missing.Count > 0)
             {
@@ -63,43 +72,47 @@ public sealed class TemplateDiffTask : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            // 3. Deserialize config
-            var configJson = await File.ReadAllTextAsync(configPath, ct);
-            var config = JsonSerializer.Deserialize<ControlLevelQuestionsConfig>(configJson, JsonOptions)
+            // 3. Deserialize configs
+            var previousConfigJson = await File.ReadAllTextAsync(previousConfigPath, ct);
+            var previousConfig = JsonSerializer.Deserialize<ControlLevelQuestionsConfig>(previousConfigJson, JsonOptions)
                 ?? new ControlLevelQuestionsConfig();
 
-            // 4. Read old workbook rows
-            _logger.LogInformation("Reading old workbook: {Path}", oldPath);
-            var oldRows = _structureReader.ReadRows(oldPath, config.SheetName);
+            var currentConfigJson = await File.ReadAllTextAsync(currentConfigPath, ct);
+            var currentConfig = JsonSerializer.Deserialize<ControlLevelQuestionsConfig>(currentConfigJson, JsonOptions)
+                ?? new ControlLevelQuestionsConfig();
 
-            // 5. Read new workbook rows
-            _logger.LogInformation("Reading new workbook: {Path}", newPath);
-            var newRows = _structureReader.ReadRows(newPath, config.SheetName);
+            // 4. Read previous workbook rows
+            _logger.LogInformation("Reading previous workbook: {Path}", previousPath);
+            var previousRows = _structureReader.ReadRows(previousPath, previousConfig.SheetName);
+
+            // 5. Read current workbook rows
+            _logger.LogInformation("Reading current workbook: {Path}", currentPath);
+            var currentRows = _structureReader.ReadRows(currentPath, currentConfig.SheetName);
 
             ct.ThrowIfCancellationRequested();
 
             // 6. Parse rows into AuditQuestion lists
-            var oldQuestions = ParseQuestions(oldRows, config);
-            var newQuestions = ParseQuestions(newRows, config);
+            var previousQuestions = ParseQuestions(previousRows, previousConfig);
+            var currentQuestions = ParseQuestions(currentRows, currentConfig);
 
-            _logger.LogInformation("Parsed {OldCount} questions from old workbook.", oldQuestions.Count);
-            _logger.LogInformation("Parsed {NewCount} questions from new workbook.", newQuestions.Count);
+            _logger.LogInformation("Parsed {PreviousCount} questions from previous workbook.", previousQuestions.Count);
+            _logger.LogInformation("Parsed {CurrentCount} questions from current workbook.", currentQuestions.Count);
 
             // 7. Diff
-            _logger.LogInformation("Diff complete. Running QuestionDiffEngine.");
-            var diff = QuestionDiffEngine.Diff(oldQuestions, newQuestions);
+            _logger.LogInformation("Running QuestionDiffEngine.");
+            var diff = QuestionDiffEngine.Diff(previousQuestions, currentQuestions);
 
             ct.ThrowIfCancellationRequested();
 
             // 8. Build report workbook
             var reportPath = ctx.OutputPaths["report"];
-            var workbookData = BuildReport(config, diff, oldQuestions.Count + newQuestions.Count);
+            var workbookData = BuildReport(previousConfig, diff, previousQuestions.Count + currentQuestions.Count);
 
             // 9. Write report
             _excelWriter.WriteWorkbook(workbookData, reportPath);
 
             // 10. Curated messages
-            int totalCompared = oldQuestions.Count;
+            int totalCompared = previousQuestions.Count;
             messages.Add(new(MessageSeverity.Info,
                 $"Compared {totalCompared} questions across 1 sheet.",
                 DateTimeOffset.Now));

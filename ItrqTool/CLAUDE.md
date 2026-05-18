@@ -441,9 +441,19 @@ public sealed class MyExcelTask : IWorkflowTask
 
 ## TemplateDiffTask — CLQ config file format
 
-`TemplateDiffTask` (TaskType `"TemplateDiff"`) reads a JSON config file whose path is
-passed via the `configPath` task parameter. The config describes the structure of the
-"Control Level Questions" sheet in the auditor-questionnaire workbook.
+`TemplateDiffTask` (TaskType `"TemplateDiff"`) accepts four task parameters:
+
+| Parameter | Description |
+|---|---|
+| `previousWorkbookFullFilename` | Absolute path to the previous-year auditor-questionnaire workbook |
+| `currentWorkbookFullFilename` | Absolute path to the current-year auditor-questionnaire workbook |
+| `previousConfigurationFullFilename` | Absolute path to the CLQ config JSON for the previous workbook |
+| `currentConfigurationFullFilename` | Absolute path to the CLQ config JSON for the current workbook |
+
+Each config file is deserialized independently and applied only to its own workbook, allowing
+the two workbooks to have different sheet structures (e.g. across audit years).
+
+The config describes the structure of the "Control Level Questions" sheet in a workbook.
 
 **ControlLevelQuestionsConfig** (in `ItrqTool.Tasks.TemplateDiff`):
 

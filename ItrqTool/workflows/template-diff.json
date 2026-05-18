@@ -8,9 +8,10 @@
       "inputs": {},
       "outputs": { "report": "template-diff-report.xlsx" },
       "parameters": {
-        "oldWorkbookPath": "C:\\Audit\\Previous\\auditor-questionnaire.xlsx",
-        "newWorkbookPath": "C:\\Audit\\Current\\auditor-questionnaire.xlsx",
-        "configPath": "C:\\Audit\\clq-structure.json"
+        "previousWorkbookFullFilename": "C:\\Audit\\Previous\\auditor-questionnaire.xlsx",
+        "currentWorkbookFullFilename":  "C:\\Audit\\Current\\auditor-questionnaire.xlsx",
+        "previousConfigurationFullFilename": "C:\\Audit\\Previous\\clq-structure.json",
+        "currentConfigurationFullFilename":  "C:\\Audit\\Current\\clq-structure.json"
       }
     }
   ]
