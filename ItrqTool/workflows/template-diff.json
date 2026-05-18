@@ -1,0 +1,17 @@
+{
+  "id": "template-diff",
+  "name": "Audit Template Diff",
+  "tasks": [
+    {
+      "id": "diff",
+      "type": "TemplateDiff",
+      "inputs": {},
+      "outputs": { "report": "template-diff-report.xlsx" },
+      "parameters": {
+        "oldWorkbookPath": "C:\\Audit\\Previous\\auditor-questionnaire.xlsx",
+        "newWorkbookPath": "C:\\Audit\\Current\\auditor-questionnaire.xlsx",
+        "configPath": "C:\\Audit\\clq-structure.json"
+      }
+    }
+  ]
+}

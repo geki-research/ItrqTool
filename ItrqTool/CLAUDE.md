@@ -75,7 +75,8 @@ ItrqTool.sln
     ├── ItrqTool.Integration.Tests/   References: ItrqTool.Presentation
     │                                             (and transitively all src projects)
     │                                             TFM: net10.0-windows
-    └── ItrqTool.Tasks.Tests/         References: ItrqTool.Tasks, ItrqTool.Domain, NSubstitute
+    └── ItrqTool.Tasks.Tests/         References: ItrqTool.Tasks, ItrqTool.Domain, NSubstitute,
+                                                 ClosedXML (test fixture creation only)
 ```
 
 Workflow definition files live in a `/workflows` directory at the solution root.
@@ -96,7 +97,7 @@ They are copied to the output directory by the Presentation project's `.csproj`.
 | Logging (file + UI) | Serilog + Serilog.Sinks.File + Serilog.Extensions.Logging | 4.0.0 / 6.0.0 / 8.0.0 | Presentation |
 | Logging factory and DI integration | Microsoft.Extensions.Logging | 10.0.8 | Presentation |
 | Logging abstraction | Microsoft.Extensions.Logging.Abstractions | 10.0.8 | Domain, Application, Tasks |
-| Excel reading | ClosedXML | 0.102.3 | Infrastructure only |
+| Excel I/O | ClosedXML | 0.102.3 | Infrastructure only (Tasks.Tests for fixtures) |
 | Testing framework | xUnit | 2.9.2 | all test projects |
 | Mocking | NSubstitute | 5.3.0 | Application.Tests, Tasks.Tests |
 | Assertions | FluentAssertions | 6.12.2 | all test projects |
@@ -162,7 +163,7 @@ public record TaskNode(
 
 public record TaskOutputRef(string TaskId, string OutputKey);
 
-// ── Excel reading ──────────────────────────────────────────────────────────────
+// ── Excel I/O ──────────────────────────────────────────────────────────────────
 
 public interface IExcelReader
 {
@@ -181,6 +182,45 @@ public record ExcelCellValue(object? Value, Type? ClrType)
 {
     public T? As<T>() => Value is T v ? v : default;
 }
+
+public interface IExcelWriter
+{
+    void WriteWorkbook(ExcelWorkbookData data, string filePath);
+}
+
+public record ExcelWorkbookData(IReadOnlyList<ExcelSheetData> Sheets);
+
+public record ExcelSheetData(
+    string Name,
+    IReadOnlyList<string> Headers,
+    IReadOnlyList<IReadOnlyList<string>> Rows
+);
+
+/// <summary>
+/// Reads raw cell content and Excel structural metadata (data
+/// validation type, conditional formatting operator) that
+/// IExcelReader does not expose.
+/// </summary>
+public interface IExcelStructureReader
+{
+    IReadOnlyList<ExcelRowStructure> ReadRows(string filePath, string sheetName);
+}
+
+public record ExcelRowStructure(
+    int RowNumber,
+    // Key = uppercase column letter, e.g. "C", "D"
+    IReadOnlyDictionary<string, ExcelCellStructure> CellsByColumn
+);
+
+public record ExcelCellStructure(
+    string? TextValue,
+    // Name of the ClosedXML XLAllowedValues enum value,
+    // or null if no data validation is applied to this cell.
+    string? DataValidationType,
+    // Name of the ClosedXML XLCFOperator enum value for the first matching
+    // conditional format, or null if no conditional format applies.
+    string? ConditionalFormattingOperator
+);
 
 // ── Workflow loading ───────────────────────────────────────────────────────────
 

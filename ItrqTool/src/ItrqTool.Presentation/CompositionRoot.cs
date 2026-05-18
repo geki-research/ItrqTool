@@ -30,6 +30,8 @@ public static class CompositionRoot
             new UiLogSinkProvider(sp.GetRequiredService<IUiLogSink>()));
 
         services.AddSingleton<IExcelReader, ClosedXmlExcelReader>();
+        services.AddSingleton<IExcelStructureReader, ClosedXmlExcelStructureReader>();
+        services.AddSingleton<IExcelWriter, ClosedXmlExcelWriter>();
         services.AddSingleton<IWorkflowLoader>(sp =>
             new JsonWorkflowLoader(
                 workflowsDirectoryPath,
