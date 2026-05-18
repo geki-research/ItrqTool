@@ -111,7 +111,7 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
             });
         }
 
-        return new WorkflowDefinition(dto.Id, dto.Name, nodes);
+        return new WorkflowDefinition(dto.Id, dto.Name, dto.Group, nodes);
     }
 
     // ── Private DTOs — not part of the public API ──────────────────────────────
@@ -123,6 +123,7 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
         public WorkflowDto() { }
         public string? Id { get; set; }
         public string? Name { get; set; }
+        public string? Group { get; set; }
         public List<TaskDto>? Tasks { get; set; }
     }
 

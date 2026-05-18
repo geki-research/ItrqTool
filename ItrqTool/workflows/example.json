@@ -1,5 +1,6 @@
 {
   "id": "example",
   "name": "Example Workflow",
+  "group": "Examples",
   "tasks": []
 }

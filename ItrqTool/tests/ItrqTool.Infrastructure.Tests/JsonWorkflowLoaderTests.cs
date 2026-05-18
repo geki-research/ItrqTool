@@ -389,6 +389,62 @@ public sealed class JsonWorkflowLoaderTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
+    // ── Group field deserialization ────────────────────────────────────────────
+
+    [Fact]
+    public void LoadAll_GroupFieldPresent_DeserializesCorrectly()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "grouped.json"),
+                """{"id": "wf1", "name": "WF One", "group": "2025 Audit", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Group.Should().Be("2025 Audit");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_GroupFieldAbsent_GroupIsNull()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "nogroup.json"),
+                """{"id": "wf1", "name": "WF One", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Group.Should().BeNull();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_GroupFieldExplicitNull_GroupIsNull()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "nullgroup.json"),
+                """{"id": "wf1", "name": "WF One", "group": null, "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Group.Should().BeNull();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
     [Fact]
     public void LoadAll_NodeWithoutParameters_DefaultsToEmptyNotNull()
     {

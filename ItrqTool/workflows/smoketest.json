@@ -1,6 +1,7 @@
 {
   "id": "smoketest",
   "name": "Smoke Test Workflow",
+  "group": "System",
   "tasks": [
     {
       "id": "first",

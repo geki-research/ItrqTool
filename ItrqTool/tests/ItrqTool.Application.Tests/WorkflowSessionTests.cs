@@ -33,7 +33,7 @@ public sealed class WorkflowSessionTests
         var node = new TaskNode("a", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string> { ["out"] = "a.txt" });
-        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var def = new WorkflowDefinition("wf", "WF", null, [node]);
         var workDir = TestWorkDir();
 
         var session = new WorkflowSession(
@@ -53,7 +53,7 @@ public sealed class WorkflowSessionTests
         var b = new TaskNode("b", "TypeB",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("a", "out") },
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "WF", [a, b]);
+        var def = new WorkflowDefinition("wf", "WF", null, [a, b]);
         var workDir = TestWorkDir();
 
         WorkflowSession? session = null;
@@ -91,7 +91,7 @@ public sealed class WorkflowSessionTests
         var node = new TaskNode("a", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var def = new WorkflowDefinition("wf", "WF", null, [node]);
         var workDir = TestWorkDir();
 
         var taskA = Substitute.For<IWorkflowTask>();
@@ -127,7 +127,7 @@ public sealed class WorkflowSessionTests
         var b = new TaskNode("b", "TypeB",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("a", "out") },
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "WF", [a, b]);
+        var def = new WorkflowDefinition("wf", "WF", null, [a, b]);
         var workDir = TestWorkDir();
 
         var taskA = Substitute.For<IWorkflowTask>();
@@ -169,7 +169,7 @@ public sealed class WorkflowSessionTests
         var b = new TaskNode("b", "TypeB",
             new Dictionary<string, TaskOutputRef> { ["src"] = new TaskOutputRef("a", "data") },
             new Dictionary<string, string> { ["result"] = "b_out.csv" });
-        var def = new WorkflowDefinition("wf", "WF", [a, b]);
+        var def = new WorkflowDefinition("wf", "WF", null, [a, b]);
         var workDir = TestWorkDir();
 
         TaskExecutionContext? capturedContext = null;
@@ -213,7 +213,7 @@ public sealed class WorkflowSessionTests
         var node = new TaskNode("a", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string> { ["result"] = "out.txt" });
-        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var def = new WorkflowDefinition("wf", "WF", null, [node]);
         var workDir = TestWorkDir();
 
         TaskExecutionContext? capturedContext = null;
@@ -255,7 +255,7 @@ public sealed class WorkflowSessionTests
         var node = new TaskNode("a", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string> { ["out"] = "fresh.txt" });
-        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var def = new WorkflowDefinition("wf", "WF", null, [node]);
 
         var taskA = Substitute.For<IWorkflowTask>();
         taskA.ExecuteAsync(Arg.Any<TaskExecutionContext>(), Arg.Any<CancellationToken>())
@@ -295,7 +295,7 @@ public sealed class WorkflowSessionTests
         {
             Parameters = nodeParameters
         };
-        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var def = new WorkflowDefinition("wf", "WF", null, [node]);
         var workDir = TestWorkDir();
 
         TaskExecutionContext? capturedContext = null;
@@ -333,7 +333,7 @@ public sealed class WorkflowSessionTests
         var node = new TaskNode("a", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var def = new WorkflowDefinition("wf", "WF", null, [node]);
         var workDir = TestWorkDir();
 
         var taskA = Substitute.For<IWorkflowTask>();

@@ -13,7 +13,7 @@ public partial class WorkflowListViewModel : ObservableObject
     private readonly Dictionary<string, WorkflowDefinition> _definitionsById = new();
 
     [ObservableProperty]
-    private ObservableCollection<WorkflowListItem> _workflows = new();
+    private ObservableCollection<WorkflowGroupItem> _workflowGroups = [];
 
     [ObservableProperty]
     private WorkflowListItem? _selectedWorkflow;
@@ -40,8 +40,23 @@ public partial class WorkflowListViewModel : ObservableObject
         var result = _loader.LoadAll();
         foreach (var wf in result.Workflows)
             _definitionsById[wf.Id] = wf;
-        Workflows = new ObservableCollection<WorkflowListItem>(
-            result.Workflows.Select(wf => new WorkflowListItem(wf.Id, wf.Name)));
+
+        var items = result.Workflows
+            .Select(wf => new WorkflowListItem(wf.Id, wf.Name, wf.Group))
+            .ToList();
+
+        var groups = items
+            .GroupBy(wf => wf.Group ?? "Ungrouped")
+            .OrderBy(g => g.Key == "Ungrouped")
+            .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new WorkflowGroupItem(
+                g.Key,
+                new ObservableCollection<WorkflowListItem>(
+                    g.OrderBy(wf => wf.Name, StringComparer.OrdinalIgnoreCase))))
+            .ToList();
+
+        WorkflowGroups = new ObservableCollection<WorkflowGroupItem>(groups);
+        SelectedWorkflow = null;
 
         Failures.Clear();
         foreach (var failure in result.Failures)

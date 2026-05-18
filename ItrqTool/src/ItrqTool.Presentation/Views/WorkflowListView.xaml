@@ -1,9 +1,22 @@
 <UserControl x:Class="ItrqTool.Presentation.Views.WorkflowListView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:ItrqTool.Presentation.UIModels">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Group node template -->
+        <HierarchicalDataTemplate DataType="{x:Type ui:WorkflowGroupItem}"
+                                  ItemsSource="{Binding Workflows}">
+            <TextBlock Text="{Binding GroupName}" FontWeight="Bold"/>
+        </HierarchicalDataTemplate>
+
+        <!-- Workflow leaf template -->
+        <DataTemplate DataType="{x:Type ui:WorkflowListItem}">
+            <TextBlock Text="{Binding Name}"/>
+        </DataTemplate>
     </UserControl.Resources>
+
     <DockPanel Margin="16">
         <TextBlock DockPanel.Dock="Top" Text="Workflows"
                    FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12"/>
@@ -62,8 +75,17 @@
                 HorizontalAlignment="Right" Padding="16,6"
                 IsDefault="True"/>
 
-        <ListBox ItemsSource="{Binding Workflows}"
-                 SelectedItem="{Binding SelectedWorkflow, Mode=TwoWay}"
-                 DisplayMemberPath="Name"/>
+        <TreeView x:Name="WorkflowTreeView"
+                  ItemsSource="{Binding WorkflowGroups}"
+                  SelectedItemChanged="WorkflowTreeView_SelectedItemChanged">
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="True"/>
+                </Style>
+            </TreeView.ItemContainerStyle>
+            <TreeView.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding SelectCurrentCommand}"/>
+            </TreeView.InputBindings>
+        </TreeView>
     </DockPanel>
 </UserControl>

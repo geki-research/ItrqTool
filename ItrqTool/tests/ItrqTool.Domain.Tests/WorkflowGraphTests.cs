@@ -12,7 +12,7 @@ public sealed class WorkflowGraphTests
         var node = new TaskNode("a", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string> { ["out"] = "a.csv" });
-        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var def = new WorkflowDefinition("wf", "WF", null, [node]);
 
         var order = new WorkflowGraph(def).GetTopologicalOrder();
 
@@ -31,7 +31,7 @@ public sealed class WorkflowGraphTests
         var c = new TaskNode("c", "TypeC",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("b", "out") },
             new Dictionary<string, string> { ["out"] = "c.csv" });
-        var def = new WorkflowDefinition("wf", "WF", [a, b, c]);
+        var def = new WorkflowDefinition("wf", "WF", null, [a, b, c]);
 
         var order = new WorkflowGraph(def).GetTopologicalOrder();
 
@@ -47,7 +47,7 @@ public sealed class WorkflowGraphTests
         var b = new TaskNode("b", "TypeB",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("a", "out") },
             new Dictionary<string, string> { ["out"] = "b.csv" });
-        var def = new WorkflowDefinition("wf", "WF", [a, b]);
+        var def = new WorkflowDefinition("wf", "WF", null, [a, b]);
 
         var act = () => new WorkflowGraph(def);
 
@@ -60,7 +60,7 @@ public sealed class WorkflowGraphTests
         var node = new TaskNode("a", "TypeA",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("ghost", "out") },
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "WF", [node]);
+        var def = new WorkflowDefinition("wf", "WF", null, [node]);
 
         var act = () => new WorkflowGraph(def);
 
@@ -77,7 +77,7 @@ public sealed class WorkflowGraphTests
         var b = new TaskNode("b", "TypeB",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("a", "missing") },
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "WF", [a, b]);
+        var def = new WorkflowDefinition("wf", "WF", null, [a, b]);
 
         var act = () => new WorkflowGraph(def);
 
@@ -100,7 +100,7 @@ public sealed class WorkflowGraphTests
         var d = new TaskNode("d", "TypeD",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("c", "out") },
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "WF", [a, b, c, d]);
+        var def = new WorkflowDefinition("wf", "WF", null, [a, b, c, d]);
 
         var ids = new WorkflowGraph(def).GetTopologicalOrder().Select(n => n.Id).ToList();
 

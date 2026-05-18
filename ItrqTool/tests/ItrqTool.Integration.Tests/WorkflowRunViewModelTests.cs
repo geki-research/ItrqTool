@@ -60,7 +60,7 @@ public sealed class WorkflowRunViewModelTests
         var nodeB = new TaskNode("taskB", "TypeB",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("taskA", "out") },
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "Test Workflow", [nodeA, nodeB]);
+        var def = new WorkflowDefinition("wf", "Test Workflow", null, [nodeA, nodeB]);
 
         var taskA = StubNoOp("TypeA");
         var taskB = StubNoOp("TypeB");
@@ -81,7 +81,7 @@ public sealed class WorkflowRunViewModelTests
     [Fact]
     public void InitializeFor_EmptyWorkflow_DisablesRun()
     {
-        var def = new WorkflowDefinition("wf", "Empty Workflow", []);
+        var def = new WorkflowDefinition("wf", "Empty Workflow", null, []);
         var registry = Substitute.For<ITaskRegistry>();
         var vm = MakeVm(registry);
 
@@ -101,7 +101,7 @@ public sealed class WorkflowRunViewModelTests
         var nodeB = new TaskNode("taskB", "TypeB",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("taskA", "out") },
             new Dictionary<string, string> { ["out"] = "b.txt" });
-        var def = new WorkflowDefinition("wf", "Test Workflow", [nodeA, nodeB]);
+        var def = new WorkflowDefinition("wf", "Test Workflow", null, [nodeA, nodeB]);
 
         var taskA = StubNoOp("TypeA");
         var taskB = StubNoOp("TypeB");
@@ -143,7 +143,7 @@ public sealed class WorkflowRunViewModelTests
         var node = new TaskNode("taskA", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string>());
-        var def = new WorkflowDefinition("wf", "Test Workflow", [node]);
+        var def = new WorkflowDefinition("wf", "Test Workflow", null, [node]);
 
         var failTask = StubFailing("TypeA");
         var registry = Substitute.For<ITaskRegistry>();
@@ -178,7 +178,7 @@ public sealed class WorkflowRunViewModelTests
         var nodeB = new TaskNode("taskB", "TypeB",
             new Dictionary<string, TaskOutputRef> { ["in"] = new TaskOutputRef("taskA", "out") },
             new Dictionary<string, string> { ["out"] = "b.txt" });
-        var def = new WorkflowDefinition("wf", "Test Workflow", [nodeA, nodeB]);
+        var def = new WorkflowDefinition("wf", "Test Workflow", null, [nodeA, nodeB]);
 
         var taskA = StubNoOp("TypeA");
         var taskB = StubNoOp("TypeB");
@@ -223,7 +223,7 @@ public sealed class WorkflowRunViewModelTests
         var node = new TaskNode("taskA", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string> { ["out"] = "a.txt" });
-        var def = new WorkflowDefinition("wf", "Test Workflow", [node]);
+        var def = new WorkflowDefinition("wf", "Test Workflow", null, [node]);
 
         var taskA = StubNoOp("TypeA");
         var registry = Substitute.For<ITaskRegistry>();
@@ -245,7 +245,7 @@ public sealed class WorkflowRunViewModelTests
         var node = new TaskNode("taskA", "TypeA",
             new Dictionary<string, TaskOutputRef>(),
             new Dictionary<string, string> { ["out"] = "a.txt" });
-        var def = new WorkflowDefinition("open-folder-wf", "Test Workflow", [node]);
+        var def = new WorkflowDefinition("open-folder-wf", "Test Workflow", null, [node]);
 
         var taskA = StubNoOp("TypeA");
         var registry = Substitute.For<ITaskRegistry>();
@@ -286,7 +286,7 @@ public sealed class WorkflowRunViewModelTests
                 "t1", "NoOp",
                 new Dictionary<string, TaskOutputRef>(),
                 new Dictionary<string, string> { ["out"] = "out.txt" });
-            var def = new WorkflowDefinition("test-wf", "Test Workflow", [node]);
+            var def = new WorkflowDefinition("test-wf", "Test Workflow", null, [node]);
 
             var vm = sp.GetRequiredService<WorkflowRunViewModel>();
             vm.InitializeFor(def);

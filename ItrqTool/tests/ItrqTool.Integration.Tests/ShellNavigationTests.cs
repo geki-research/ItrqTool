@@ -41,7 +41,7 @@ public sealed class ShellNavigationTests
     [Fact]
     public void Shell_NavigatesToRunView_WhenWorkflowSelected()
     {
-        var definition = new WorkflowDefinition("test-wf", "Test Workflow", []);
+        var definition = new WorkflowDefinition("test-wf", "Test Workflow", null, []);
         var loader = Substitute.For<IWorkflowLoader>();
         loader.LoadAll().Returns(new WorkflowLoadResult([definition], []));
 
@@ -49,7 +49,7 @@ public sealed class ShellNavigationTests
         var runVm = MakeRunVm();
         var shell = new ShellViewModel(listVm, runVm);
 
-        listVm.SelectedWorkflow = listVm.Workflows[0];
+        listVm.SelectedWorkflow = listVm.WorkflowGroups[0].Workflows[0];
         listVm.SelectCurrentCommand.Execute(null);
 
         shell.CurrentViewModel.Should().BeSameAs(runVm);
@@ -59,7 +59,7 @@ public sealed class ShellNavigationTests
     [Fact]
     public void Shell_NavigatesBackToList_WhenBackRequested()
     {
-        var definition = new WorkflowDefinition("test-wf", "Test Workflow", []);
+        var definition = new WorkflowDefinition("test-wf", "Test Workflow", null, []);
         var loader = Substitute.For<IWorkflowLoader>();
         loader.LoadAll().Returns(new WorkflowLoadResult([definition], []));
 
@@ -68,7 +68,7 @@ public sealed class ShellNavigationTests
         var shell = new ShellViewModel(listVm, runVm);
 
         // Navigate forward
-        listVm.SelectedWorkflow = listVm.Workflows[0];
+        listVm.SelectedWorkflow = listVm.WorkflowGroups[0].Workflows[0];
         listVm.SelectCurrentCommand.Execute(null);
         shell.CurrentViewModel.Should().BeSameAs(runVm);
 

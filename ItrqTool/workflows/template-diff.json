@@ -1,6 +1,7 @@
 {
   "id": "template-diff",
   "name": "Audit Template Diff",
+  "group": "Audit Template Processing",
   "tasks": [
     {
       "id": "diff",

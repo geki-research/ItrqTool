@@ -150,6 +150,7 @@ public enum MessageSeverity { Info, Warning, Error }
 public record WorkflowDefinition(
     string Id,
     string Name,
+    string? Group,                    // optional; null if absent or null in JSON
     IReadOnlyList<TaskNode> Nodes
 );
 

@@ -22,7 +22,7 @@ public sealed class WorkflowListViewModelTests
     [Fact]
     public void Load_WhenNoFailures_HasFailuresIsFalse()
     {
-        var workflow = new WorkflowDefinition("wf1", "Workflow 1", []);
+        var workflow = new WorkflowDefinition("wf1", "Workflow 1", null, []);
         var loader = LoaderWith([workflow], []);
         var vm = MakeVm(loader);
 
@@ -81,6 +81,87 @@ public sealed class WorkflowListViewModelTests
 
         vm.ToggleFailureDetailsCommand.Execute(null);
         vm.ShowFailureDetails.Should().BeFalse();
+    }
+
+    // ── Grouping ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Load_TwoWorkflowsInSameGroup_ProduceOneGroupWithTwoLeaves()
+    {
+        var wf1 = new WorkflowDefinition("wf1", "Alpha", "Audit 2025", []);
+        var wf2 = new WorkflowDefinition("wf2", "Beta", "Audit 2025", []);
+        var loader = LoaderWith([wf1, wf2], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        vm.WorkflowGroups.Should().HaveCount(1);
+        vm.WorkflowGroups[0].GroupName.Should().Be("Audit 2025");
+        vm.WorkflowGroups[0].Workflows.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void Load_OneGroupedOneUngrouped_UngroupedIsLast()
+    {
+        var wf1 = new WorkflowDefinition("wf1", "Named Workflow", "Audit", []);
+        var wf2 = new WorkflowDefinition("wf2", "Bare Workflow", null, []);
+        var loader = LoaderWith([wf1, wf2], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        vm.WorkflowGroups.Should().HaveCount(2);
+        vm.WorkflowGroups[0].GroupName.Should().Be("Audit");
+        vm.WorkflowGroups[1].GroupName.Should().Be("Ungrouped");
+    }
+
+    [Fact]
+    public void Load_NullGroup_AppearsUnderUngrouped()
+    {
+        var wf = new WorkflowDefinition("wf1", "Some Workflow", null, []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        vm.WorkflowGroups.Should().HaveCount(1);
+        vm.WorkflowGroups[0].GroupName.Should().Be("Ungrouped");
+        vm.WorkflowGroups[0].Workflows.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void Load_SelectedWorkflowIsNull_AfterLoad()
+    {
+        var wf = new WorkflowDefinition("wf1", "Workflow 1", "Group A", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        vm.SelectedWorkflow.Should().BeNull();
+    }
+
+    [Fact]
+    public void SelectCurrentCommand_CanExecuteIsFalse_WhenNoSelection()
+    {
+        var wf = new WorkflowDefinition("wf1", "Workflow 1", "Group A", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+        vm.Load();
+
+        vm.SelectCurrentCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void SelectCurrentCommand_CanExecuteIsTrue_WhenWorkflowSelected()
+    {
+        var wf = new WorkflowDefinition("wf1", "Workflow 1", "Group A", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+        vm.Load();
+        vm.SelectedWorkflow = vm.WorkflowGroups[0].Workflows[0];
+
+        vm.SelectCurrentCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
