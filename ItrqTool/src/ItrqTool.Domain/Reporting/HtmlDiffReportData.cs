@@ -38,8 +38,8 @@ public record HtmlDiffValidationChange(
     string  Chapter,
     string  Section,
     string  QuestionText,
-    string? OldDvType,
-    string? NewDvType,
+    string  OldDvDisplay,   // formatted DV description: "—", type name, or "List: A | B | C"
+    string  NewDvDisplay,
     string? OldCfOperator,
     string? NewCfOperator
 );

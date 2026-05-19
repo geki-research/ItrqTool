@@ -346,8 +346,8 @@ function renderValChg() {
     '<td>' + esc(v.chapter) + '</td>' +
     '<td>' + esc(v.section) + '</td>' +
     '<td>' + esc(v.questionText) + '</td>' +
-    '<td>' + esc(v.oldDvType) + '</td>' +
-    '<td>' + esc(v.newDvType) + '</td>' +
+    '<td>' + esc(v.oldDvDisplay) + '</td>' +
+    '<td>' + esc(v.newDvDisplay) + '</td>' +
     '<td>' + esc(v.oldCfOperator) + '</td>' +
     '<td>' + esc(v.newCfOperator) + '</td>' +
     '</tr>'

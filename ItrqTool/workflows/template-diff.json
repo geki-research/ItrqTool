@@ -1,19 +1,19 @@
 {
   "id": "template-diff",
-  "name": "Compare current with previous",
-  "group": "ITRQ RefYear 2025",
+  "name": "Phase 0 Task 1 / Control Questions / Compare current with previous (ECB Format)",
+  "group": "ITRQ RefYear 2025:Stage 0",
   "tasks": [
     {
-      "id": "diff",
+      "id": "Diff Report — Control Questions",
       "type": "TemplateDiff",
       "inputs": {},
-      "outputs": { "report": "template-diff-report.html" },
+      "outputs": { "report": "diff-report__EcbFormat__ControlQuestions.html" },
       "parameters": {
         "previousWorkbookFullFilename": "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2024\\Templates\\EcbFormat\\ITRQ_RefYear2024_EcbFormat_Template_v2024-11-12.xlsx",
         "currentWorkbookFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\ITRQ_RefYear2025_EcbFormat_Template_v2026-01-23.xlsx",
         "previousConfigurationFullFilename": "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2024\\Templates\\EcbFormat\\clq-structure.json",
         "currentConfigurationFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\clq-structure.json",
-        "reportTitle": "Audit Template Diff — RefYear 2024 vs RefYear 2025"
+        "reportTitle": "Diff Report — Control Questions — RefYear 2024 vs RefYear 2025"
       }
     }
   ]

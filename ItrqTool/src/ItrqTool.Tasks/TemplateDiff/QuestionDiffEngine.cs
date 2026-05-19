@@ -54,22 +54,73 @@ public static class QuestionDiffEngine
             bool textChanged   = score < 1.0;
             bool numberChanged = !string.Equals(oldQ.QuestionNumber, newQ.QuestionNumber,
                                                 StringComparison.Ordinal);
-            bool dvDiffers     = oldQ.DvType != newQ.DvType;
-            bool cfDiffers     = oldQ.CfOperator != newQ.CfOperator;
+            bool dvChanged     = IsDvChanged(oldQ, newQ);
+            bool cfChanged     = !string.Equals(oldQ.CfOperator, newQ.CfOperator,
+                                                StringComparison.Ordinal);
 
             if (textChanged || numberChanged)
                 changed.Add(new ChangedQuestion(oldQ, newQ, score));
 
-            if (dvDiffers || cfDiffers)
+            if (dvChanged || cfChanged)
                 validationChanges.Add(new ValidationChange(
                     oldQ, newQ,
                     oldQ.DvType, newQ.DvType,
                     oldQ.CfOperator, newQ.CfOperator));
 
-            if (!textChanged && !numberChanged && !dvDiffers && !cfDiffers)
+            if (!textChanged && !numberChanged && !dvChanged && !cfChanged)
                 unchanged.Add(new UnchangedQuestion(oldQ));
         }
 
         return new DiffResult(added, removed, changed, validationChanges, unchanged);
+    }
+
+    private static bool IsDvChanged(AuditQuestion old, AuditQuestion @new)
+    {
+        // Step 1: if type names differ, always changed
+        if (!string.Equals(old.DvType, @new.DvType, StringComparison.Ordinal))
+            return true;
+
+        // Step 2: if both have no DV rule, not changed
+        if (old.DvType is null) return false;
+
+        // Step 3: for List type, compare resolved values
+        if (string.Equals(old.DvType, "List", StringComparison.OrdinalIgnoreCase))
+            return !ListValuesEqual(old.DvFormula, @new.DvFormula);
+
+        // Step 4: for other types, same type name = not changed
+        return false;
+    }
+
+    private static bool ListValuesEqual(string? oldFormula, string? newFormula)
+    {
+        if (oldFormula is null && newFormula is null) return true;
+        if (oldFormula is null || newFormula is null) return false;
+
+        bool oldInline = IsInlineList(oldFormula);
+        bool newInline = IsInlineList(newFormula);
+
+        if (oldInline && newInline)
+        {
+            var oldItems = ParseInlineList(oldFormula);
+            var newItems = ParseInlineList(newFormula);
+            return oldItems.SequenceEqual(newItems);
+        }
+
+        // At least one is a range or named reference: compare directly
+        return string.Equals(oldFormula, newFormula, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Inline = not a formula expression and not an absolute range reference
+    private static bool IsInlineList(string formula)
+        => !formula.StartsWith("=") && !formula.Contains('$');
+
+    private static IReadOnlyList<string> ParseInlineList(string formula)
+    {
+        var s = formula.Trim().Trim('"');
+        return s.Split(',')
+                .Select(x => x.Trim())
+                .Where(x => x.Length > 0)
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .ToList();
     }
 }

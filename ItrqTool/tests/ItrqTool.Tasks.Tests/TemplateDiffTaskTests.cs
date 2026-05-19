@@ -1,4 +1,4 @@
-using ClosedXML.Excel; // test fixture creation only
+﻿using ClosedXML.Excel; // test fixture creation only
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -27,11 +27,11 @@ public sealed class TemplateDiffTaskTests
     [
         new ExcelRowStructure(1, new Dictionary<string, ExcelCellStructure>
         {
-            ["C"] = new("1.1) What is risk?", null, null)
+            ["C"] = new("1.1) What is risk?", null, null, null)
         })
     ];
 
-    // ── Success path ───────────────────────────────────────────────────────────
+    // â”€â”€ Success path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task ExecuteAsync_ValidInputs_SucceedsAndOutputFileExists()
@@ -149,7 +149,7 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
-    // ── Failure: missing parameter (one per key) ───────────────────────────────
+    // â”€â”€ Failure: missing parameter (one per key) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Theory]
     [InlineData("previousWorkbookFullFilename")]
@@ -190,7 +190,7 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
-    // ── Failure: file not found ────────────────────────────────────────────────
+    // â”€â”€ Failure: file not found â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task ExecuteAsync_ConfigFileNotFound_ReturnsFailureWithErrorMessage()
@@ -223,7 +223,7 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
-    // ── ParseQuestions — explicit section ranges ───────────────────────────────
+    // â”€â”€ ParseQuestions â€” explicit section ranges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task ExecuteAsync_QuestionsInSectionRange_AreParsedAndAppearInDiff()
@@ -241,7 +241,7 @@ public sealed class TemplateDiffTaskTests
                 ws.Cell(1, 3).Value = "Chapter One";
                 ws.Cell(2, 3).Value = "Section A";
                 ws.Cell(3, 3).Value = "1.1) What is risk?";
-                ws.Cell(4, 3).Value = "Outside range — should be skipped";
+                ws.Cell(4, 3).Value = "Outside range â€” should be skipped";
                 wb.SaveAs(previousPath);
             }
             using (var wb = new XLWorkbook())
@@ -250,7 +250,7 @@ public sealed class TemplateDiffTaskTests
                 ws.Cell(1, 3).Value = "Chapter One";
                 ws.Cell(2, 3).Value = "Section A";
                 ws.Cell(3, 3).Value = "1.1) What is a risk?"; // slightly different
-                ws.Cell(4, 3).Value = "Outside range — should be skipped";
+                ws.Cell(4, 3).Value = "Outside range â€” should be skipped";
                 wb.SaveAs(currentPath);
             }
 
@@ -266,13 +266,13 @@ public sealed class TemplateDiffTaskTests
             structureReader.ReadRows(Arg.Any<string>(), "CLQ").Returns(
             [
                 new ExcelRowStructure(1, new Dictionary<string, ExcelCellStructure>
-                    { ["C"] = new("Chapter One", null, null) }),
+                    { ["C"] = new("Chapter One", null, null, null) }),
                 new ExcelRowStructure(2, new Dictionary<string, ExcelCellStructure>
-                    { ["C"] = new("Section A", null, null) }),
+                    { ["C"] = new("Section A", null, null, null) }),
                 new ExcelRowStructure(3, new Dictionary<string, ExcelCellStructure>
-                    { ["C"] = new("1.1) What is risk?", null, null) }),
+                    { ["C"] = new("1.1) What is risk?", null, null, null) }),
                 new ExcelRowStructure(4, new Dictionary<string, ExcelCellStructure>
-                    { ["C"] = new("Outside range", null, null) })
+                    { ["C"] = new("Outside range", null, null, null) })
             ]);
 
             var htmlWriter = Substitute.For<IHtmlReportWriter>();
@@ -296,7 +296,7 @@ public sealed class TemplateDiffTaskTests
             var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
 
             result.Succeeded.Should().BeTrue();
-            // 1 question parsed from previous → "Compared 1 questions"
+            // 1 question parsed from previous â†’ "Compared 1 questions"
             result.Messages.Should().Contain(m =>
                 m.Severity == MessageSeverity.Info && m.Text.Contains("Compared 1 question"));
         }
@@ -315,7 +315,7 @@ public sealed class TemplateDiffTaskTests
             using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(previousPath); }
             using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(currentPath); }
 
-            // Section range is rows 10-20 but we only supply rows 1-2 → nothing in range
+            // Section range is rows 10-20 but we only supply rows 1-2 â†’ nothing in range
             var configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["9:10-20"]}""";
             var previousConfigPath = Path.Combine(dir, "previous-config.json");
             var currentConfigPath = Path.Combine(dir, "current-config.json");
@@ -328,9 +328,9 @@ public sealed class TemplateDiffTaskTests
             structureReader.ReadRows(Arg.Any<string>(), "CLQ").Returns(
             [
                 new ExcelRowStructure(1, new Dictionary<string, ExcelCellStructure>
-                    { ["C"] = new("Outside", null, null) }),
+                    { ["C"] = new("Outside", null, null, null) }),
                 new ExcelRowStructure(2, new Dictionary<string, ExcelCellStructure>
-                    { ["C"] = new("Also outside", null, null) }),
+                    { ["C"] = new("Also outside", null, null, null) }),
             ]);
 
             var htmlWriter = Substitute.For<IHtmlReportWriter>();
@@ -409,7 +409,7 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
-    // ── Two different configs applied independently ────────────────────────────
+    // â”€â”€ Two different configs applied independently â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task ExecuteAsync_SeparateConfigs_EachAppliedToItsOwnWorkbook()
@@ -465,7 +465,7 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
-    // ── reportTitle parameter ─────────────────────────────────────────────────
+    // â”€â”€ reportTitle parameter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task ExecuteAsync_ReportTitleAbsent_DefaultsTitleIsUsed()
@@ -571,7 +571,7 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
-    // ── Cancellation ───────────────────────────────────────────────────────────
+    // â”€â”€ Cancellation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     [Fact]
     public async Task ExecuteAsync_AlreadyCancelledToken_ThrowsOperationCanceledException()
@@ -615,3 +615,4 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 }
+

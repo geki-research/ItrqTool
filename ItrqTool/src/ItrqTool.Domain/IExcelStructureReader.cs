@@ -25,6 +25,10 @@ public record ExcelCellStructure(
     // Name of the ClosedXML XLAllowedValues enum value,
     // or null if no data validation is applied to this cell.
     string? DataValidationType,
+    // Raw formula string from the DV rule (dv.Value from ClosedXML).
+    // Inline lists: e.g. "\"Yes,No,N/A\"". Range refs: e.g. "Sheet!$A$1:$A$5".
+    // Null if no DV rule applies.
+    string? DataValidationFormula,
     // Name of the ClosedXML XLConditionalFormattingOperatorValues
     // enum value for the first matching conditional format,
     // or null if no conditional format applies.

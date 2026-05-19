@@ -95,4 +95,58 @@ public sealed class ClosedXmlExcelStructureReaderTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── DataValidationFormula ─────────────────────────────────────────────────
+
+    [Fact]
+    public void ReadRows_CellWithInlineListDv_DataValidationFormulaContainsListValues()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "dv-inline.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.Worksheets.Add("Sheet1");
+                ws.Cell(1, 3).Value = "Question text";
+                var dvCell = ws.Cell(1, 4);
+                dvCell.Value = "Yes";
+                var dv = dvCell.CreateDataValidation();
+                dv.List("\"Yes,No,N/A\"");
+                wb.SaveAs(filePath);
+            }
+
+            var rows = Reader().ReadRows(filePath, "Sheet1");
+
+            var cell = rows.Single(r => r.RowNumber == 1).CellsByColumn["D"];
+            cell.DataValidationFormula.Should().NotBeNull();
+            cell.DataValidationFormula.Should().Contain("Yes");
+            cell.DataValidationFormula.Should().Contain("No");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void ReadRows_CellWithNoDv_DataValidationFormulaIsNull()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "dv-none.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.Worksheets.Add("Sheet1");
+                ws.Cell(1, 3).Value = "No DV here";
+                wb.SaveAs(filePath);
+            }
+
+            var rows = Reader().ReadRows(filePath, "Sheet1");
+
+            var cell = rows.Single(r => r.RowNumber == 1).CellsByColumn["C"];
+            cell.DataValidationFormula.Should().BeNull();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }

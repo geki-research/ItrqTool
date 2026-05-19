@@ -30,6 +30,7 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
                     hasContent = true;
 
                 string? dvType = null;
+                string? dvFormula = null;
                 try
                 {
                     foreach (var dv in worksheet.DataValidations)
@@ -39,6 +40,7 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
                             if (range.Contains(cell))
                             {
                                 dvType = dv.AllowedValues.ToString();
+                                dvFormula = dv.Value;
                                 goto dvFound;
                             }
                         }
@@ -73,7 +75,7 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
                         "Could not read conditional format for cell {Address}", cell.Address);
                 }
 
-                cellsByColumn[colLetter] = new ExcelCellStructure(textValue, dvType, cfOperator);
+                cellsByColumn[colLetter] = new ExcelCellStructure(textValue, dvType, dvFormula, cfOperator);
             }
 
             if (hasContent)

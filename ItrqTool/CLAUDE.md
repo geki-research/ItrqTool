@@ -218,6 +218,10 @@ public record ExcelCellStructure(
     // Name of the ClosedXML XLAllowedValues enum value,
     // or null if no data validation is applied to this cell.
     string? DataValidationType,
+    // Raw formula string from the DV rule (dv.Value from ClosedXML).
+    // Inline lists: e.g. "\"Yes,No,N/A\"". Range refs: e.g. "Sheet!$A$1:$A$5".
+    // Null if no DV rule applies.
+    string? DataValidationFormula,
     // Name of the ClosedXML XLCFOperator enum value for the first matching
     // conditional format, or null if no conditional format applies.
     string? ConditionalFormattingOperator
@@ -266,8 +270,8 @@ public record HtmlDiffValidationChange(
     string  Chapter,
     string  Section,
     string  QuestionText,
-    string? OldDvType,
-    string? NewDvType,
+    string  OldDvDisplay,   // formatted: "—", type name, or "List: A | B | C"
+    string  NewDvDisplay,
     string? OldCfOperator,
     string? NewCfOperator
 );
@@ -523,6 +527,7 @@ public sealed record AuditQuestion(
     string? QuestionNumber,    // e.g. "1.2", null if no prefix present
     int     RowNumber,
     string? DvType,
+    string? DvFormula,         // raw DV formula from ExcelCellStructure.DataValidationFormula
     string? CfOperator
 );
 // AuditQuestion.ExtractNumber("1.2) text") → "1.2"; no prefix → null

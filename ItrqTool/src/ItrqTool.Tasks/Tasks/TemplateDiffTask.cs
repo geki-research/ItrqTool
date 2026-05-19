@@ -198,10 +198,10 @@ public sealed class TemplateDiffTask : IWorkflowTask
             var chapterText = chapterRow > 0 && headerText.TryGetValue(chapterRow, out var ct) ? ct : "";
             var sectionText = headerText.TryGetValue(section.SectionRow, out var st) ? st : "";
 
-            string? dvType = row.CellsByColumn.TryGetValue(inputCol, out var inputCell)
-                ? inputCell.DataValidationType : null;
-            string? cfOperator = row.CellsByColumn.TryGetValue(inputCol, out var inputCell2)
-                ? inputCell2.ConditionalFormattingOperator : null;
+            row.CellsByColumn.TryGetValue(inputCol, out var inputCell);
+            string? dvType     = inputCell?.DataValidationType;
+            string? dvFormula  = inputCell?.DataValidationFormula;
+            string? cfOperator = inputCell?.ConditionalFormattingOperator;
 
             questions.Add(new AuditQuestion(
                 chapterText,
@@ -211,6 +211,7 @@ public sealed class TemplateDiffTask : IWorkflowTask
                 AuditQuestion.ExtractNumber(originalText),
                 row.RowNumber,
                 dvType,
+                dvFormula,
                 cfOperator));
         }
 
@@ -262,8 +263,8 @@ public sealed class TemplateDiffTask : IWorkflowTask
                 v.OldQuestion.ChapterName,
                 v.OldQuestion.SectionName,
                 v.OldQuestion.QuestionText,
-                v.OldQuestion.DvType,
-                v.NewQuestion.DvType,
+                DvDisplayFormatter.FormatDv(v.OldQuestion.DvType, v.OldQuestion.DvFormula),
+                DvDisplayFormatter.FormatDv(v.NewQuestion.DvType, v.NewQuestion.DvFormula),
                 v.OldQuestion.CfOperator,
                 v.NewQuestion.CfOperator))
             .ToList();

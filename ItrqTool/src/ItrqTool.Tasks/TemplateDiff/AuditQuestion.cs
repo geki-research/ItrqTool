@@ -10,6 +10,7 @@ public sealed record AuditQuestion(
     string? QuestionNumber,    // e.g. "1.2", null if no prefix
     int     RowNumber,
     string? DvType,
+    string? DvFormula,         // raw DV formula from ExcelCellStructure.DataValidationFormula
     string? CfOperator
 )
 {
