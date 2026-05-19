@@ -247,11 +247,12 @@ public sealed class TemplateDiffTask : IWorkflowTask
             .Select(c => new HtmlDiffChangedQuestion(
                 c.OldQuestion.ChapterName,
                 c.OldQuestion.SectionName,
-                PreviousNumber: c.OldQuestion.QuestionNumber,
-                CurrentNumber:  c.NewQuestion.QuestionNumber,
+                PreviousNumber:       c.OldQuestion.QuestionNumber,
+                CurrentNumber:        c.NewQuestion.QuestionNumber,
                 c.OldQuestion.QuestionText,
                 c.NewQuestion.QuestionText,
                 c.SimilarityScore,
+                SecondBestSimilarity: c.SecondBestSimilarity,
                 OldDvDisplay: DvDisplayFormatter.FormatDv(c.OldQuestion.DvType, c.OldQuestion.DvFormula),
                 NewDvDisplay: DvDisplayFormatter.FormatDv(c.NewQuestion.DvType, c.NewQuestion.DvFormula),
                 OldCfOperator: c.OldQuestion.CfOperator,
@@ -269,7 +270,9 @@ public sealed class TemplateDiffTask : IWorkflowTask
                 u.Question.QuestionNumber,
                 u.Question.QuestionText,
                 DvDisplayFormatter.FormatDv(u.Question.DvType, u.Question.DvFormula),
-                u.Question.CfOperator))
+                u.Question.CfOperator,
+                SimilarityScore:      1.0,
+                SecondBestSimilarity: u.SecondBestSimilarity))
             .ToList();
 
         return new HtmlDiffReportData(

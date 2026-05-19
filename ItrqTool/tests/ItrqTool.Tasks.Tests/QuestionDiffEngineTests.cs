@@ -303,6 +303,82 @@ public sealed class QuestionDiffEngineTests
         result.Changed.Should().BeEmpty();
     }
 
+    // ── SecondBestSimilarity ──────────────────────────────────────────────────
+
+    [Fact]
+    public void Diff_OneOldQuestion_SecondBestSimilarityIsNull()
+    {
+        // Only one old question → no second candidate exists
+        var old  = new[] { Q("What is risk?") };
+        var newQ = new[] { Q("What is risk?") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Unchanged[0].SecondBestSimilarity.Should().BeNull();
+    }
+
+    [Fact]
+    public void Diff_TwoOldQuestions_SecondBestSimilarityIsPopulated()
+    {
+        // Two old questions: one very similar, one very different.
+        // The matched pair must record the score of the non-chosen old question as SecondBestSimilarity.
+        var oldClose = Q("What is risk?");
+        var oldFar   = Q("zyxwv utsrq mnopq");    // nothing in common
+
+        var newQ = new[] { Q("What is risk?") };  // identical to oldClose
+
+        var result = QuestionDiffEngine.Diff([oldClose, oldFar], newQ);
+
+        result.Unchanged.Should().HaveCount(1, because: "identical text match → Unchanged");
+        result.Unchanged[0].SecondBestSimilarity.Should().NotBeNull(
+            because: "two old questions exist, so a second-best score must be recorded");
+        result.Unchanged[0].SecondBestSimilarity.Should().BeLessThan(1.0,
+            because: "second-best candidate is a dissimilar question");
+    }
+
+    // ── Optimal vs greedy assignment ──────────────────────────────────────────
+
+    [Fact]
+    public void Diff_OptimalAssignmentDiffersFromGreedy_CorrectPairingProduced()
+    {
+        // Similarity matrix (approximate values using real Levenshtein scoring):
+        //
+        //                 oldQ0               oldQ1
+        //   newQ0:  [  ~0.65 (moderate),   ~0.0 (none)  ]
+        //   newQ1:  [  ~0.85 (strong),     ~0.0 (none)  ]
+        //
+        // Greedy (processes in order) assigns newQ0 → oldQ0 first (0.65 ≥ 0.5),
+        // leaving newQ1 with only oldQ1 (score ≈ 0 < 0.5) → Added(newQ1).
+        //
+        // Optimal (Hungarian): give oldQ0 to newQ1 (0.85 > 0.65 profit),
+        // newQ0 → oldQ1 (score ≈ 0 < threshold) → Added(newQ0).
+        //
+        // Total profit: greedy = 0.65; optimal = 0.85. Hungarian wins.
+
+        var oldQ0 = Q("abcde fghij");           // base text
+        var oldQ1 = Q("zyxwv utsrq");           // completely different
+
+        // newQ1 appends " p" (2 chars): dist=2, max=13 → score ≈ 0.85 vs oldQ0
+        var newQ0 = Q("abcde fghij klmno");     // dist=6, max=17 → score ≈ 0.65 vs oldQ0
+        var newQ1 = Q("abcde fghij p");
+
+        var result = QuestionDiffEngine.Diff([oldQ0, oldQ1], [newQ0, newQ1]);
+
+        // Optimal: newQ1 is the one matched to oldQ0 (not newQ0 as greedy would choose)
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].NewQuestion.QuestionText.Should().Be("abcde fghij p",
+            because: "optimal assigns the closer new question (newQ1) to oldQ0");
+        result.Changed[0].OldQuestion.QuestionText.Should().Be("abcde fghij");
+
+        result.Added.Should().HaveCount(1);
+        result.Added[0].Question.QuestionText.Should().Be("abcde fghij klmno",
+            because: "newQ0 has no acceptable match under the optimal assignment");
+
+        result.Removed.Should().HaveCount(1);
+        result.Removed[0].Question.QuestionText.Should().Be("zyxwv utsrq");
+    }
+
     // ── Prefix extraction helpers ─────────────────────────────────────────────
 
     [Fact]

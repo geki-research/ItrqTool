@@ -28,14 +28,15 @@ public record HtmlDiffChangedQuestion(
     string  OldText,
     string  NewText,
     double  SimilarityScore,
-    string  OldDvDisplay,
+    double? SecondBestSimilarity,
+    string  OldDvDisplay,       // "—" if no DV
     string  NewDvDisplay,
     string? OldCfOperator,
     string? NewCfOperator,
     bool    TextChanged,
     bool    NumberChanged,
     bool    DvChanged,
-    bool    CfChanged
+    bool    CfChanged           // false when old DvType == "List" (presentational noise)
 );
 
 public record HtmlDiffUnchangedQuestion(
@@ -43,6 +44,9 @@ public record HtmlDiffUnchangedQuestion(
     string  Section,
     string? QuestionNumber,
     string  QuestionText,
-    string  DvDisplay,
-    string? CfOperator
+    string  DvDisplay,          // formatted: "—", type name, or "List: A | B | C"
+    string? CfOperator,
+    double  SimilarityScore,    // always 1.0
+    double? SecondBestSimilarity
 );
+

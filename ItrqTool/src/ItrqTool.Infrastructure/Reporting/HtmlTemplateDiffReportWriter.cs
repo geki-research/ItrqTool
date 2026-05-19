@@ -120,10 +120,15 @@ tbody tr:hover { background: #f1f5f9; }
 
 /* Change badges */
 .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 2px; }
-.badge-text { background: #e0f2fe; color: #075985; }
-.badge-num  { background: #fef3c7; color: #92400e; }
-.badge-dv   { background: #f3e8ff; color: #6b21a8; }
-.badge-cf   { background: #fce7f3; color: #9d174d; }
+.badge-text      { background: #e0f2fe; color: #075985; }
+.badge-num       { background: #fef3c7; color: #92400e; }
+.badge-dv        { background: #f3e8ff; color: #6b21a8; }
+.badge-cf        { background: #fce7f3; color: #9d174d; }
+.badge-ambiguous { background: #fef9c3; color: #a16207; }
+
+.sim-cell    { display: inline-flex; flex-direction: column; gap: 1px; }
+.sim-primary { font-weight: 600; }
+.sim-secondary { font-size: 11px; color: #94a3b8; }
 </style>
 </head>
 <body>
@@ -274,6 +279,21 @@ function simClass(score) {
   return 'sim-red';
 }
 
+function renderSimCell(score, secondBest) {
+  const pct = Math.round(score * 100) + '%';
+  const cls = simClass(score);
+  let html = '<span class="sim-cell"><span class="sim-primary ' + cls + '">' + pct + '</span>';
+  if (secondBest != null) {
+    const secondPct = Math.round(secondBest * 100) + '%';
+    html += '<span class="sim-secondary">' + secondPct + '</span>';
+    if ((score - secondBest) < 0.10) {
+      html += '<span class="badge badge-ambiguous">~</span>';
+    }
+  }
+  html += '</span>';
+  return html;
+}
+
 // ── Render all tables ─────────────────────────────────────────────────────────
 function renderAdded() {
   const tbody = document.getElementById('tbody-added');
@@ -312,8 +332,7 @@ function renderChanged() {
   if (!REPORT_DATA.changed.length) { tbody.innerHTML = '<tr><td colspan="11" class="no-data">No changed questions.</td></tr>'; return; }
   tbody.innerHTML = REPORT_DATA.changed.map((c, i) => {
     const d = renderDiff(c.oldText, c.newText);
-    const pct = Math.round(c.similarityScore * 100) + '%';
-    const cls = simClass(c.similarityScore);
+    const simCell = renderSimCell(c.similarityScore, c.secondBestSimilarity);
     const numChg = c.previousNumber !== c.currentNumber;
     const numCls = numChg ? ' class="num-chg"' : '';
 
@@ -340,7 +359,7 @@ function renderChanged() {
       '<td' + numCls + '>' + esc(c.currentNumber) + '</td>' +
       '<td>' + d.oldHtml + '</td>' +
       '<td>' + d.newHtml + '</td>' +
-      '<td><span class="' + cls + '">' + pct + '</span></td>' +
+      '<td>' + simCell + '</td>' +
       '<td>' + dvCell + '</td>' +
       '<td>' + cfCell + '</td>' +
       '</tr>';
@@ -360,7 +379,7 @@ function renderUnchanged() {
     '<td>' + esc(q.questionNumber) + '</td>' +
     '<td>' + escPlain(q.questionText || '') + '</td>' +
     '<td>' + escPlain(q.questionText || '') + '</td>' +
-    '<td><span class="sim-green">100%</span></td>' +
+    '<td>' + renderSimCell(q.similarityScore, q.secondBestSimilarity) + '</td>' +
     '<td><span class="cell-unchanged">unchanged</span></td>' +
     '<td><span class="cell-unchanged">unchanged</span></td>' +
     '</tr>'

@@ -260,6 +260,7 @@ public record HtmlDiffChangedQuestion(
     string  OldText,
     string  NewText,
     double  SimilarityScore,
+    double? SecondBestSimilarity,
     string  OldDvDisplay,       // "—" if no DV
     string  NewDvDisplay,
     string? OldCfOperator,
@@ -276,7 +277,9 @@ public record HtmlDiffUnchangedQuestion(
     string? QuestionNumber,
     string  QuestionText,
     string  DvDisplay,          // formatted: "—", type name, or "List: A | B | C"
-    string? CfOperator
+    string? CfOperator,
+    double  SimilarityScore,    // always 1.0
+    double? SecondBestSimilarity
 );
 
 public interface IHtmlReportWriter
@@ -547,10 +550,16 @@ public sealed record ChangedQuestion(
     AuditQuestion OldQuestion,
     AuditQuestion NewQuestion,
     double  SimilarityScore,
+    double? SecondBestSimilarity,
     bool    TextChanged,        // SimilarityScore < 1.0
     bool    NumberChanged,
     bool    DvChanged,
     bool    CfChanged           // false when old DvType == "List"
+);
+
+public sealed record UnchangedQuestion(
+    AuditQuestion Question,
+    double? SecondBestSimilarity
 );
 
 public sealed record DiffResult(

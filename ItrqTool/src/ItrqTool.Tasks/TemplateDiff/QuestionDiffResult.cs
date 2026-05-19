@@ -8,13 +8,17 @@ public sealed record ChangedQuestion(
     AuditQuestion OldQuestion,
     AuditQuestion NewQuestion,
     double  SimilarityScore,
+    double? SecondBestSimilarity,
     bool    TextChanged,
     bool    NumberChanged,
     bool    DvChanged,
     bool    CfChanged
 );
 
-public sealed record UnchangedQuestion(AuditQuestion Question);
+public sealed record UnchangedQuestion(
+    AuditQuestion Question,
+    double? SecondBestSimilarity
+);
 
 public sealed record DiffResult(
     IReadOnlyList<AddedQuestion>      Added,

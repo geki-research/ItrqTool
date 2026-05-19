@@ -97,6 +97,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
                         OldText: oldText,
                         NewText: newText,
                         SimilarityScore: 0.75,
+                        SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
                         OldCfOperator: null,
@@ -174,7 +175,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
             {
                 Unchanged =
                 [
-                    new HtmlDiffUnchangedQuestion("Chapter 1", "Section A", null, questionText, "—", null)
+                    new HtmlDiffUnchangedQuestion("Chapter 1", "Section A", null, questionText, "—", null, 1.0, null)
                 ]
             };
 
@@ -251,6 +252,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
                         OldText: "What is risk?",
                         NewText: "What is the risk level?",
                         SimilarityScore: 0.8,
+                        SecondBestSimilarity: null,
                         OldDvDisplay: "List: Yes | No",
                         NewDvDisplay: "List: Yes | No | N/A",
                         OldCfOperator: null,
@@ -292,6 +294,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
                         OldText: "What is risk?",
                         NewText: "What is the risk level?",
                         SimilarityScore: 0.8,
+                        SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
                         OldCfOperator: null,
@@ -333,6 +336,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
                         OldText: "What is risk?",
                         NewText: "What is the risk level?",
                         SimilarityScore: 0.8,
+                        SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
                         OldCfOperator: null,
@@ -369,7 +373,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
             {
                 Unchanged =
                 [
-                    new HtmlDiffUnchangedQuestion("Chapter 2", "Section B", "2.1", questionText, "List: Yes | No", null)
+                    new HtmlDiffUnchangedQuestion("Chapter 2", "Section B", "2.1", questionText, "List: Yes | No", null, 1.0, null)
                 ]
             };
 
@@ -388,8 +392,8 @@ public sealed class HtmlTemplateDiffReportWriterTests
             if (fnEnd < 0) fnEnd = content.IndexOf("</script>", fnStart, StringComparison.OrdinalIgnoreCase);
             var fnBody = content.Substring(fnStart, fnEnd - fnStart);
 
-            fnBody.Should().Contain("sim-green", because: "similarity cell must use sim-green class");
-            fnBody.Should().Contain("100%",       because: "similarity must be rendered as 100%");
+            fnBody.Should().Contain("renderSimCell", because: "renderUnchanged must delegate similarity rendering to renderSimCell");
+            content.Should().Contain("sim-green", because: "simClass must return sim-green for high similarity scores");
             fnBody.Should().Contain("cell-unchanged");
 
             var unchangedSpanCount = 0;
@@ -400,6 +404,125 @@ public sealed class HtmlTemplateDiffReportWriterTests
             fnBody.Should().NotContain("badge-text", because: "unchanged rows never emit change badges");
             fnBody.Should().NotContain("badge-dv");
             fnBody.Should().NotContain("badge-cf");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Phase 2: sim-cell rendering ───────────────────────────────────────────
+
+    [Fact]
+    public void WriteReport_RenderSimCell_FunctionBodyContainsRequiredElements()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+
+            var fnStart = content.IndexOf("function renderSimCell(", StringComparison.Ordinal);
+            fnStart.Should().BeGreaterThan(0, because: "renderSimCell JS function must be present");
+            var fnEnd = content.IndexOf("\nfunction ", fnStart + 1, StringComparison.Ordinal);
+            if (fnEnd < 0) fnEnd = content.IndexOf("</script>", fnStart, StringComparison.OrdinalIgnoreCase);
+            var fnBody = content.Substring(fnStart, fnEnd - fnStart);
+
+            fnBody.Should().Contain("sim-secondary",  because: "secondary score must use sim-secondary class");
+            fnBody.Should().Contain("badge-ambiguous", because: "ambiguous margin must show badge-ambiguous");
+            fnBody.Should().Contain("0.10",            because: "margin threshold must be 0.10");
+            fnBody.Should().Contain("sim-primary",     because: "primary score must use sim-primary class");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_RenderChangedAndUnchanged_DelegateSimilarityToRenderSimCell()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+
+            static string GetFnBody(string html, string fnName)
+            {
+                var start = html.IndexOf("function " + fnName + "(", StringComparison.Ordinal);
+                if (start < 0) return string.Empty;
+                var end = html.IndexOf("\nfunction ", start + 1, StringComparison.Ordinal);
+                if (end < 0) end = html.IndexOf("</script>", start, StringComparison.OrdinalIgnoreCase);
+                return html.Substring(start, end - start);
+            }
+
+            GetFnBody(content, "renderChanged").Should().Contain("renderSimCell",
+                because: "renderChanged must delegate to renderSimCell");
+            GetFnBody(content, "renderUnchanged").Should().Contain("renderSimCell",
+                because: "renderUnchanged must delegate to renderSimCell");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_ChangedQuestion_SecondBestSimilaritySerializedToJson()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+
+            var data = EmptyReport() with
+            {
+                Changed =
+                [
+                    new HtmlDiffChangedQuestion(
+                        Chapter: "Chapter 1",
+                        Section: "Section A",
+                        PreviousNumber: null,
+                        CurrentNumber: null,
+                        OldText: "What is risk?",
+                        NewText: "What is risk level?",
+                        SimilarityScore: 0.75,
+                        SecondBestSimilarity: 0.65,
+                        OldDvDisplay: "—",
+                        NewDvDisplay: "—",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: true,
+                        NumberChanged: false,
+                        DvChanged: false,
+                        CfChanged: false)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("secondBestSimilarity",
+                because: "secondBestSimilarity must be serialized into REPORT_DATA");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_RenderSimCell_NullSecondBestProducesNoSecondarySpan()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+
+            var fnStart = content.IndexOf("function renderSimCell(", StringComparison.Ordinal);
+            var fnEnd = content.IndexOf("\nfunction ", fnStart + 1, StringComparison.Ordinal);
+            if (fnEnd < 0) fnEnd = content.IndexOf("</script>", fnStart, StringComparison.OrdinalIgnoreCase);
+            var fnBody = content.Substring(fnStart, fnEnd - fnStart);
+
+            fnBody.Should().Contain("secondBest != null",
+                because: "secondary span must be guarded by a null check on secondBest");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
