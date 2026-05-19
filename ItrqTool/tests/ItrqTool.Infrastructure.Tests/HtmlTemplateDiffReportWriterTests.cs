@@ -272,7 +272,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
     }
 
     [Fact]
-    public void WriteReport_ChangedWithCfNotChanged_CfColumnShowsDash()
+    public void WriteReport_ChangedWithDvNotChanged_DvColumnShowsUnchanged()
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
@@ -306,8 +306,49 @@ public sealed class HtmlTemplateDiffReportWriterTests
             Writer().WriteReport(data, filePath);
 
             var content = File.ReadAllText(filePath);
-            // CfChanged=false → CF cell renders em-dash
-            content.Should().Contain("class=\"em\"");
+            content.Should().Contain("cell-unchanged");
+            content.Should().Contain(">unchanged<");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_ChangedWithCfNotChanged_CfColumnShowsUnchanged()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+
+            var data = EmptyReport() with
+            {
+                Changed =
+                [
+                    new HtmlDiffChangedQuestion(
+                        Chapter: "Chapter 1",
+                        Section: "Section A",
+                        PreviousNumber: null,
+                        CurrentNumber: null,
+                        OldText: "What is risk?",
+                        NewText: "What is the risk level?",
+                        SimilarityScore: 0.8,
+                        OldDvDisplay: "—",
+                        NewDvDisplay: "—",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: true,
+                        NumberChanged: false,
+                        DvChanged: false,
+                        CfChanged: false)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("cell-unchanged");
+            content.Should().Contain(">unchanged<");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }

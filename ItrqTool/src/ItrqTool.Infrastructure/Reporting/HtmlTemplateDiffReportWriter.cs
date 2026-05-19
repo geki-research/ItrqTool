@@ -116,6 +116,7 @@ tbody tr:hover { background: #f1f5f9; }
 
 .num-chg { color: #d97706; font-weight: 600; }
 .em { color: #94a3b8; }
+.cell-unchanged { color: #9ca3af; font-style: italic; }
 
 /* Change badges */
 .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 2px; }
@@ -324,11 +325,11 @@ function renderChanged() {
 
     const dvCell = c.dvChanged
       ? esc(c.oldDvDisplay) + ' → ' + esc(c.newDvDisplay)
-      : '<span class="em">—</span>';
+      : '<span class="cell-unchanged">unchanged</span>';
 
     const cfCell = c.cfChanged
       ? esc(c.oldCfOperator) + ' → ' + esc(c.newCfOperator)
-      : '<span class="em">—</span>';
+      : '<span class="cell-unchanged">unchanged</span>';
 
     return '<tr>' +
       '<td>' + (i+1) + '</td>' +
