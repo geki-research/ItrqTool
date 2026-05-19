@@ -229,34 +229,40 @@ public record ExcelCellStructure(
 // Files: src/ItrqTool.Domain/Reporting/
 
 public record HtmlDiffReportData(
+    string Title,
     string PreviousWorkbookPath,
     string CurrentWorkbookPath,
     DateTimeOffset GeneratedAt,
     IReadOnlyList<HtmlDiffQuestion>         Added,
     IReadOnlyList<HtmlDiffQuestion>         Removed,
     IReadOnlyList<HtmlDiffChangedQuestion>  Changed,
-    IReadOnlyList<HtmlDiffValidationChange> ValidationChanges
+    IReadOnlyList<HtmlDiffValidationChange> ValidationChanges,
+    IReadOnlyList<HtmlDiffQuestion>         Unchanged
 );
 
 public record HtmlDiffQuestion(
-    string Chapter,
-    string Section,
-    string QuestionText,
+    string? QuestionNumber,
+    string  Chapter,
+    string  Section,
+    string  QuestionText,
     string? DvType,
     string? CfOperator
 );
 
 public record HtmlDiffChangedQuestion(
-    string Chapter,
-    string Section,
-    string OldText,
-    string NewText,
-    double SimilarityScore,
-    bool   DvTypeChanged,
-    bool   CfOperatorChanged
+    string  Chapter,
+    string  Section,
+    string? PreviousNumber,
+    string? CurrentNumber,
+    string  OldText,
+    string  NewText,
+    double  SimilarityScore,
+    bool    DvTypeChanged,
+    bool    CfOperatorChanged
 );
 
 public record HtmlDiffValidationChange(
+    string? QuestionNumber,
     string  Chapter,
     string  Section,
     string  QuestionText,
@@ -505,6 +511,23 @@ Each config file is deserialized independently and applied only to its own workb
 the two workbooks to have different sheet structures (e.g. across audit years).
 
 The config describes the structure of the "Control Level Questions" sheet in a workbook.
+
+**AuditQuestion** (in `ItrqTool.Tasks.TemplateDiff`):
+
+```csharp
+public sealed record AuditQuestion(
+    string  ChapterName,
+    string  SectionName,
+    string  QuestionText,      // prefix stripped
+    string  OriginalText,      // raw cell text
+    string? QuestionNumber,    // e.g. "1.2", null if no prefix present
+    int     RowNumber,
+    string? DvType,
+    string? CfOperator
+);
+// AuditQuestion.ExtractNumber("1.2) text") → "1.2"; no prefix → null
+// AuditQuestion.StripPrefix("1.2) text")   → "text"
+```
 
 **ControlLevelQuestionsConfig** (in `ItrqTool.Tasks.TemplateDiff`):
 

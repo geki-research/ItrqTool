@@ -9,6 +9,8 @@ namespace ItrqTool.Tasks;
 
 public sealed class TemplateDiffTask : IWorkflowTask
 {
+    private const string DefaultReportTitle = "Audit Template Diff Report";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -37,7 +39,7 @@ public sealed class TemplateDiffTask : IWorkflowTask
 
         try
         {
-            // 1. Validate parameters
+            // 1. Validate required parameters
             var missingParams = new List<string>();
             if (!TryGetParam(ctx, "previousWorkbookFullFilename", out var previousPath))
                 missingParams.Add("previousWorkbookFullFilename");
@@ -56,7 +58,13 @@ public sealed class TemplateDiffTask : IWorkflowTask
                 return new TaskResult(Succeeded: false, messages, sw.Elapsed);
             }
 
-            // 2. Validate file existence
+            // 2. Read optional reportTitle parameter
+            ctx.Parameters.TryGetValue("reportTitle", out var reportTitleRaw);
+            var reportTitle = string.IsNullOrWhiteSpace(reportTitleRaw)
+                ? DefaultReportTitle
+                : reportTitleRaw;
+
+            // 3. Validate file existence
             var missing = new List<string>();
             if (!File.Exists(previousPath)) missing.Add($"previousWorkbookFullFilename: {previousPath}");
             if (!File.Exists(currentPath)) missing.Add($"currentWorkbookFullFilename: {currentPath}");
@@ -73,7 +81,7 @@ public sealed class TemplateDiffTask : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            // 3. Deserialize configs
+            // 4. Deserialize configs
             var previousConfigJson = await File.ReadAllTextAsync(previousConfigPath, ct);
             var previousConfig = JsonSerializer.Deserialize<ControlLevelQuestionsConfig>(previousConfigJson, JsonOptions)
                 ?? new ControlLevelQuestionsConfig();
@@ -82,11 +90,10 @@ public sealed class TemplateDiffTask : IWorkflowTask
             var currentConfig = JsonSerializer.Deserialize<ControlLevelQuestionsConfig>(currentConfigJson, JsonOptions)
                 ?? new ControlLevelQuestionsConfig();
 
-            // 4. Read previous workbook rows
+            // 5. Read workbook rows
             _logger.LogInformation("Reading previous workbook: {Path}", previousPath);
             var previousRows = _structureReader.ReadRows(previousPath, previousConfig.SheetName);
 
-            // 5. Read current workbook rows
             _logger.LogInformation("Reading current workbook: {Path}", currentPath);
             var currentRows = _structureReader.ReadRows(currentPath, currentConfig.SheetName);
 
@@ -105,21 +112,19 @@ public sealed class TemplateDiffTask : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            // 8. Build report data
+            // 8. Build and write report
             var reportPath = ctx.OutputPaths["report"];
-            var reportData = BuildReportData(previousPath, currentPath, diff);
-
-            // 9. Write HTML report
+            var reportData = BuildReportData(reportTitle, previousPath, currentPath, diff);
             _htmlReportWriter.WriteReport(reportData, reportPath);
 
-            // 10. Curated messages
-            int totalCompared = previousQuestions.Count;
+            // 9. Curated messages
             messages.Add(new(MessageSeverity.Info,
-                $"Compared {totalCompared} questions across 1 sheet.",
+                $"Compared {previousQuestions.Count} questions across 1 sheet.",
                 DateTimeOffset.Now));
             messages.Add(new(MessageSeverity.Info,
                 $"Found {diff.Added.Count} added, {diff.Removed.Count} removed, " +
-                $"{diff.Changed.Count} changed, {diff.ValidationChanges.Count} validation changes.",
+                $"{diff.Changed.Count} changed, {diff.ValidationChanges.Count} validation changes, " +
+                $"{diff.Unchanged.Count} unchanged.",
                 DateTimeOffset.Now));
             messages.Add(new(MessageSeverity.Info,
                 $"Report written to {Path.GetFileName(reportPath)}",
@@ -158,7 +163,6 @@ public sealed class TemplateDiffTask : IWorkflowTask
         var textCol = config.TextColumn.ToUpperInvariant();
         var inputCol = config.InputColumn.ToUpperInvariant();
 
-        // Pre-pass: collect text for all header rows
         var headerText = new Dictionary<int, string>();
         foreach (var row in rows)
         {
@@ -204,6 +208,7 @@ public sealed class TemplateDiffTask : IWorkflowTask
                 sectionText,
                 AuditQuestion.StripPrefix(originalText),
                 originalText,
+                AuditQuestion.ExtractNumber(originalText),
                 row.RowNumber,
                 dvType,
                 cfOperator));
@@ -213,12 +218,14 @@ public sealed class TemplateDiffTask : IWorkflowTask
     }
 
     private static HtmlDiffReportData BuildReportData(
+        string title,
         string previousWorkbookPath,
         string currentWorkbookPath,
         DiffResult diff)
     {
         var added = diff.Added
             .Select(a => new HtmlDiffQuestion(
+                a.Question.QuestionNumber,
                 a.Question.ChapterName,
                 a.Question.SectionName,
                 a.Question.QuestionText,
@@ -228,6 +235,7 @@ public sealed class TemplateDiffTask : IWorkflowTask
 
         var removed = diff.Removed
             .Select(r => new HtmlDiffQuestion(
+                r.Question.QuestionNumber,
                 r.Question.ChapterName,
                 r.Question.SectionName,
                 r.Question.QuestionText,
@@ -239,15 +247,18 @@ public sealed class TemplateDiffTask : IWorkflowTask
             .Select(c => new HtmlDiffChangedQuestion(
                 c.OldQuestion.ChapterName,
                 c.OldQuestion.SectionName,
+                PreviousNumber: c.OldQuestion.QuestionNumber,
+                CurrentNumber:  c.NewQuestion.QuestionNumber,
                 c.OldQuestion.QuestionText,
                 c.NewQuestion.QuestionText,
                 c.SimilarityScore,
-                DvTypeChanged: c.OldQuestion.DvType != c.NewQuestion.DvType,
-                CfOperatorChanged: c.OldQuestion.CfOperator != c.NewQuestion.CfOperator))
+                DvTypeChanged:       c.OldQuestion.DvType      != c.NewQuestion.DvType,
+                CfOperatorChanged:   c.OldQuestion.CfOperator  != c.NewQuestion.CfOperator))
             .ToList();
 
         var validationChanges = diff.ValidationChanges
             .Select(v => new HtmlDiffValidationChange(
+                v.OldQuestion.QuestionNumber,
                 v.OldQuestion.ChapterName,
                 v.OldQuestion.SectionName,
                 v.OldQuestion.QuestionText,
@@ -257,13 +268,25 @@ public sealed class TemplateDiffTask : IWorkflowTask
                 v.NewQuestion.CfOperator))
             .ToList();
 
+        var unchanged = diff.Unchanged
+            .Select(u => new HtmlDiffQuestion(
+                u.Question.QuestionNumber,
+                u.Question.ChapterName,
+                u.Question.SectionName,
+                u.Question.QuestionText,
+                u.Question.DvType,
+                u.Question.CfOperator))
+            .ToList();
+
         return new HtmlDiffReportData(
+            title,
             previousWorkbookPath,
             currentWorkbookPath,
             DateTimeOffset.Now,
             added,
             removed,
             changed,
-            validationChanges);
+            validationChanges,
+            unchanged);
     }
 }

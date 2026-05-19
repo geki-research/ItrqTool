@@ -13,13 +13,15 @@ public sealed class HtmlTemplateDiffReportWriterTests
     private static HtmlTemplateDiffReportWriter Writer() => new();
 
     private static HtmlDiffReportData EmptyReport() => new(
+        Title: "Audit Template Diff Report",
         PreviousWorkbookPath: @"C:\prev\workbook.xlsx",
         CurrentWorkbookPath: @"C:\curr\workbook.xlsx",
         GeneratedAt: new DateTimeOffset(2025, 5, 19, 12, 0, 0, TimeSpan.Zero),
         Added: [],
         Removed: [],
         Changed: [],
-        ValidationChanges: []
+        ValidationChanges: [],
+        Unchanged: []
     );
 
     // ── Empty report ───────────────────────────────────────────────────────────
@@ -59,7 +61,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
             {
                 Added =
                 [
-                    new HtmlDiffQuestion("Chapter 1", "Section A", questionText, "List", null)
+                    new HtmlDiffQuestion(null, "Chapter 1", "Section A", questionText, "List", null)
                 ]
             };
 
@@ -91,6 +93,8 @@ public sealed class HtmlTemplateDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 2",
                         Section: "Section B",
+                        PreviousNumber: null,
+                        CurrentNumber: null,
                         OldText: oldText,
                         NewText: newText,
                         SimilarityScore: 0.75,
@@ -123,6 +127,56 @@ public sealed class HtmlTemplateDiffReportWriterTests
             var act = () => Writer().WriteReport(EmptyReport(), filePath);
 
             act.Should().NotThrow();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Title appears in output ───────────────────────────────────────────────
+
+    [Fact]
+    public void WriteReport_CustomTitle_AppearInFileContent()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            const string customTitle = "FY2025 vs FY2024 Audit Template Diff";
+
+            var data = EmptyReport() with { Title = customTitle };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain(customTitle);
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── One unchanged question ────────────────────────────────────────────────
+
+    [Fact]
+    public void WriteReport_OneUnchangedQuestion_QuestionTextAppearsInFile()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            const string questionText = "Describe the control environment.";
+
+            var data = EmptyReport() with
+            {
+                Unchanged =
+                [
+                    new HtmlDiffQuestion(null, "Chapter 1", "Section A", questionText, null, null)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain(questionText);
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }

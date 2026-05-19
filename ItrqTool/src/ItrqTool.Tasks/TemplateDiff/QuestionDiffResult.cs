@@ -19,9 +19,12 @@ public sealed record ValidationChange(
     string? NewCfOperator
 );
 
+public sealed record UnchangedQuestion(AuditQuestion Question);
+
 public sealed record DiffResult(
-    IReadOnlyList<AddedQuestion> Added,
-    IReadOnlyList<RemovedQuestion> Removed,
-    IReadOnlyList<ChangedQuestion> Changed,
-    IReadOnlyList<ValidationChange> ValidationChanges
+    IReadOnlyList<AddedQuestion>      Added,
+    IReadOnlyList<RemovedQuestion>    Removed,
+    IReadOnlyList<ChangedQuestion>    Changed,
+    IReadOnlyList<ValidationChange>   ValidationChanges,
+    IReadOnlyList<UnchangedQuestion>  Unchanged
 );

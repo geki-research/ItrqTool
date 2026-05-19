@@ -6,8 +6,8 @@ namespace ItrqTool.Tasks.Tests;
 
 public sealed class QuestionDiffEngineTests
 {
-    private static AuditQuestion Q(string text, string? dv = null, string? cf = null, int row = 1)
-        => new("Chapter", "Section", AuditQuestion.StripPrefix(text), text, row, dv, cf);
+    private static AuditQuestion Q(string text, string? dv = null, string? cf = null, int row = 1, string? qn = null)
+        => new("Chapter", "Section", AuditQuestion.StripPrefix(text), text, qn, row, dv, cf);
 
     [Fact]
     public void Diff_AllIdentical_NoChanges()
@@ -86,6 +86,7 @@ public sealed class QuestionDiffEngineTests
         result.ValidationChanges[0].OldDvType.Should().Be("List");
         result.ValidationChanges[0].NewDvType.Should().Be("WholeNumber");
         result.Changed.Should().BeEmpty();
+        result.Unchanged.Should().BeEmpty();
     }
 
     [Fact]
@@ -103,16 +104,89 @@ public sealed class QuestionDiffEngineTests
     [Fact]
     public void Diff_PrefixDoesNotAffectMatching()
     {
+        // Q() helper leaves QuestionNumber=null, so numbers are equal (null==null)
+        // → text-identical match lands in Unchanged, not Changed
         var old = new[] { Q("1.1) What is risk?") };
         var newQ = new[] { Q("2.1) What is risk?") };
 
-        // Both strip to "What is risk?" so they should match perfectly
         var result = QuestionDiffEngine.Diff(old, newQ);
 
         result.Added.Should().BeEmpty();
         result.Removed.Should().BeEmpty();
-        // Score == 1.0 so Changed is empty too
         result.Changed.Should().BeEmpty();
+    }
+
+    // ── Number-change tests ───────────────────────────────────────────────────
+
+    [Fact]
+    public void Diff_IdenticalTextDifferentNumbers_AppearsInChangedNotUnchanged()
+    {
+        var old = new[] { Q("What is risk?", qn: "1.1") };
+        var newQ = new[] { Q("What is risk?", qn: "1.2") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].OldQuestion.QuestionNumber.Should().Be("1.1");
+        result.Changed[0].NewQuestion.QuestionNumber.Should().Be("1.2");
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_IdenticalTextSameNumberNoValidationChange_AppearsInUnchanged()
+    {
+        var old = new[] { Q("What is risk?", qn: "1.1") };
+        var newQ = new[] { Q("What is risk?", qn: "1.1") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
+        result.ValidationChanges.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_IdenticalTextSameNumberDvTypeDiffers_NotInUnchanged_InValidationChanges()
+    {
+        var old = new[] { Q("What is risk?", dv: "List",        qn: "1.1") };
+        var newQ = new[] { Q("What is risk?", dv: "WholeNumber", qn: "1.1") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().BeEmpty();
+        result.Changed.Should().BeEmpty();
+        result.ValidationChanges.Should().HaveCount(1);
+    }
+
+    // ── Unchanged category ────────────────────────────────────────────────────
+
+    [Fact]
+    public void Diff_AllIdentical_AllLandInUnchanged()
+    {
+        var q1 = Q("What is risk?", dv: "List", qn: "1.1");
+        var q2 = Q("Describe controls.", qn: "1.2");
+        var result = QuestionDiffEngine.Diff([q1, q2], [q1, q2]);
+
+        result.Unchanged.Should().HaveCount(2);
+        result.Changed.Should().BeEmpty();
+        result.ValidationChanges.Should().BeEmpty();
+    }
+
+    // ── Prefix extraction helpers ─────────────────────────────────────────────
+
+    [Fact]
+    public void ExtractNumber_WithPrefix_ReturnsNumber()
+    {
+        AuditQuestion.ExtractNumber("3.5) Some text").Should().Be("3.5");
+        AuditQuestion.ExtractNumber("1.1) What is risk?").Should().Be("1.1");
+        AuditQuestion.ExtractNumber("10.3) Multi-digit").Should().Be("10.3");
+    }
+
+    [Fact]
+    public void ExtractNumber_NoPrefix_ReturnsNull()
+    {
+        AuditQuestion.ExtractNumber("Some text").Should().BeNull();
+        AuditQuestion.ExtractNumber("  No prefix here  ").Should().BeNull();
     }
 
     [Fact]

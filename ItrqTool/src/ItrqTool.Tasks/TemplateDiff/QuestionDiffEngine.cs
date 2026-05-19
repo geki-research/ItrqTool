@@ -11,6 +11,7 @@ public static class QuestionDiffEngine
         var removed = new List<RemovedQuestion>();
         var changed = new List<ChangedQuestion>();
         var validationChanges = new List<ValidationChange>();
+        var unchanged = new List<UnchangedQuestion>();
         var matched = new List<(AuditQuestion Old, AuditQuestion New, double Score)>();
 
         foreach (var newQ in newQuestions)
@@ -50,19 +51,25 @@ public static class QuestionDiffEngine
 
         foreach (var (oldQ, newQ, score) in matched)
         {
-            if (score < 1.0)
-                changed.Add(new ChangedQuestion(oldQ, newQ, score));
+            bool textChanged   = score < 1.0;
+            bool numberChanged = !string.Equals(oldQ.QuestionNumber, newQ.QuestionNumber,
+                                                StringComparison.Ordinal);
+            bool dvDiffers     = oldQ.DvType != newQ.DvType;
+            bool cfDiffers     = oldQ.CfOperator != newQ.CfOperator;
 
-            bool dvDiffers = oldQ.DvType != newQ.DvType;
-            bool cfDiffers = oldQ.CfOperator != newQ.CfOperator;
+            if (textChanged || numberChanged)
+                changed.Add(new ChangedQuestion(oldQ, newQ, score));
 
             if (dvDiffers || cfDiffers)
                 validationChanges.Add(new ValidationChange(
                     oldQ, newQ,
                     oldQ.DvType, newQ.DvType,
                     oldQ.CfOperator, newQ.CfOperator));
+
+            if (!textChanged && !numberChanged && !dvDiffers && !cfDiffers)
+                unchanged.Add(new UnchangedQuestion(oldQ));
         }
 
-        return new DiffResult(added, removed, changed, validationChanges);
+        return new DiffResult(added, removed, changed, validationChanges, unchanged);
     }
 }

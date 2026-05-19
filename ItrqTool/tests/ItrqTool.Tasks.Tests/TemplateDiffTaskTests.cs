@@ -465,6 +465,112 @@ public sealed class TemplateDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
+    // ── reportTitle parameter ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExecuteAsync_ReportTitleAbsent_DefaultsTitleIsUsed()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            const string configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""";
+            await File.WriteAllTextAsync(previousConfigPath, configJson);
+            await File.WriteAllTextAsync(currentConfigPath, configJson);
+
+            HtmlDiffReportData? captured = null;
+            var htmlWriter = Substitute.For<IHtmlReportWriter>();
+            htmlWriter.When(w => w.WriteReport(Arg.Any<HtmlDiffReportData>(), Arg.Any<string>()))
+                .Do(ci => captured = ci.ArgAt<HtmlDiffReportData>(0));
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
+
+            var ctx = new TaskExecutionContext(
+                TaskId: "diff",
+                InputPaths: new Dictionary<string, string>(),
+                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "report.html") },
+                Logger: NullLogger.Instance,
+                WorkingDirectory: dir)
+            {
+                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath
+                    // reportTitle intentionally absent
+                }
+            };
+
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            captured.Should().NotBeNull();
+            captured!.Title.Should().Be("Audit Template Diff Report");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReportTitlePresent_CustomTitleIsUsed()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            const string configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""";
+            await File.WriteAllTextAsync(previousConfigPath, configJson);
+            await File.WriteAllTextAsync(currentConfigPath, configJson);
+
+            HtmlDiffReportData? captured = null;
+            var htmlWriter = Substitute.For<IHtmlReportWriter>();
+            htmlWriter.When(w => w.WriteReport(Arg.Any<HtmlDiffReportData>(), Arg.Any<string>()))
+                .Do(ci => captured = ci.ArgAt<HtmlDiffReportData>(0));
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
+
+            var ctx = new TaskExecutionContext(
+                TaskId: "diff",
+                InputPaths: new Dictionary<string, string>(),
+                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "report.html") },
+                Logger: NullLogger.Instance,
+                WorkingDirectory: dir)
+            {
+                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath,
+                    ["reportTitle"] = "My Custom Diff Title"
+                }
+            };
+
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            captured.Should().NotBeNull();
+            captured!.Title.Should().Be("My Custom Diff Title");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
     // ── Cancellation ───────────────────────────────────────────────────────────
 
     [Fact]

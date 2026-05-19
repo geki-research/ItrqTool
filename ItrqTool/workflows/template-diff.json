@@ -12,7 +12,8 @@
         "previousWorkbookFullFilename": "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2024\\Templates\\EcbFormat\\ITRQ_RefYear2024_EcbFormat_Template_v2024-11-12.xlsx",
         "currentWorkbookFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\ITRQ_RefYear2025_EcbFormat_Template_v2026-01-23.xlsx",
         "previousConfigurationFullFilename": "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2024\\Templates\\EcbFormat\\clq-structure.json",
-        "currentConfigurationFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\clq-structure.json"
+        "currentConfigurationFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\clq-structure.json",
+        "reportTitle": "Audit Template Diff — RefYear 2024 vs RefYear 2025"
       }
     }
   ]

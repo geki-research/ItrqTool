@@ -29,6 +29,7 @@ public sealed class HtmlTemplateDiffReportWriter : IHtmlReportWriter
         var prevFile = Path.GetFileName(data.PreviousWorkbookPath);
         var currFile = Path.GetFileName(data.CurrentWorkbookPath);
         var generated = data.GeneratedAt.ToString("yyyy-MM-dd HH:mm:ss zzz");
+        var title = HtmlEncode(data.Title);
 
         return $$"""
 <!DOCTYPE html>
@@ -36,7 +37,7 @@ public sealed class HtmlTemplateDiffReportWriter : IHtmlReportWriter
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Audit Template Diff Report</title>
+<title>{{title}}</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -59,10 +60,11 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
 }
 .card .count { font-size: 28px; font-weight: 700; line-height: 1; }
 .card .label { font-size: 12px; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: .04em; }
-.card-added    { border-color: #16a34a; } .card-added .count    { color: #16a34a; }
-.card-removed  { border-color: #dc2626; } .card-removed .count  { color: #dc2626; }
-.card-changed  { border-color: #d97706; } .card-changed .count  { color: #d97706; }
-.card-valchg   { border-color: #2563eb; } .card-valchg .count   { color: #2563eb; }
+.card-added     { border-color: #16a34a; } .card-added .count     { color: #16a34a; }
+.card-removed   { border-color: #dc2626; } .card-removed .count   { color: #dc2626; }
+.card-changed   { border-color: #d97706; } .card-changed .count   { color: #d97706; }
+.card-valchg    { border-color: #2563eb; } .card-valchg .count    { color: #2563eb; }
+.card-unchanged { border-color: #9ca3af; background: #f3f4f6; } .card-unchanged .count { color: #374151; }
 
 /* Search */
 .search-bar { margin-bottom: 12px; }
@@ -113,11 +115,12 @@ tbody tr:hover { background: #f1f5f9; }
 .sim-amber { color: #d97706; font-weight: 600; }
 .sim-red   { color: #dc2626; font-weight: 600; }
 
+.num-chg { color: #d97706; font-weight: 600; }
 .em { color: #94a3b8; }
 </style>
 </head>
 <body>
-<h1>Audit Template Diff Report</h1>
+<h1>{{title}}</h1>
 <div class="meta">
   <span>Previous: {{HtmlEncode(prevFile)}}</span>
   <span>Current: {{HtmlEncode(currFile)}}</span>
@@ -141,6 +144,10 @@ tbody tr:hover { background: #f1f5f9; }
     <div class="count" id="cnt-valchg">{{data.ValidationChanges.Count}}</div>
     <div class="label">Validation Changes</div>
   </div>
+  <div class="card card-unchanged">
+    <div class="count" id="cnt-unchanged">{{data.Unchanged.Count}}</div>
+    <div class="label">Unchanged</div>
+  </div>
 </div>
 
 <div class="search-bar">
@@ -152,33 +159,41 @@ tbody tr:hover { background: #f1f5f9; }
   <button class="tab-btn" onclick="showTab('removed')">Removed</button>
   <button class="tab-btn" onclick="showTab('changed')">Changed</button>
   <button class="tab-btn" onclick="showTab('valchg')">Validation Changes</button>
+  <button class="tab-btn" onclick="showTab('unchanged')">Unchanged</button>
 </div>
 
 <div id="tab-added" class="tab-panel active">
   <div class="tbl-wrap"><table id="tbl-added">
-    <thead><tr><th>#</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV Type</th><th>CF Operator</th></tr></thead>
+    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV Type</th><th>CF Operator</th></tr></thead>
     <tbody id="tbody-added"></tbody>
   </table></div>
 </div>
 
 <div id="tab-removed" class="tab-panel">
   <div class="tbl-wrap"><table id="tbl-removed">
-    <thead><tr><th>#</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV Type</th><th>CF Operator</th></tr></thead>
+    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV Type</th><th>CF Operator</th></tr></thead>
     <tbody id="tbody-removed"></tbody>
   </table></div>
 </div>
 
 <div id="tab-changed" class="tab-panel">
   <div class="tbl-wrap"><table id="tbl-changed">
-    <thead><tr><th>#</th><th>Chapter</th><th>Section</th><th>Similarity</th><th>Old Text</th><th>New Text</th><th>DV?</th><th>CF?</th></tr></thead>
+    <thead><tr><th>#</th><th>Chapter</th><th>Section</th><th>Prev №</th><th>Curr №</th><th>Old Text</th><th>New Text</th><th>Similarity</th><th>DV?</th><th>CF?</th></tr></thead>
     <tbody id="tbody-changed"></tbody>
   </table></div>
 </div>
 
 <div id="tab-valchg" class="tab-panel">
   <div class="tbl-wrap"><table id="tbl-valchg">
-    <thead><tr><th>#</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>Old DV</th><th>New DV</th><th>Old CF</th><th>New CF</th></tr></thead>
+    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>Old DV</th><th>New DV</th><th>Old CF</th><th>New CF</th></tr></thead>
     <tbody id="tbody-valchg"></tbody>
+  </table></div>
+</div>
+
+<div id="tab-unchanged" class="tab-panel">
+  <div class="tbl-wrap"><table id="tbl-unchanged">
+    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV Type</th><th>CF Operator</th></tr></thead>
+    <tbody id="tbody-unchanged"></tbody>
   </table></div>
 </div>
 
@@ -192,7 +207,7 @@ function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   const buttons = document.querySelectorAll('.tab-btn');
-  const labels = ['added','removed','changed','valchg'];
+  const labels = ['added','removed','changed','valchg','unchanged'];
   buttons[labels.indexOf(name)].classList.add('active');
   currentTab = name;
   applyFilter();
@@ -267,10 +282,11 @@ function simClass(score) {
 // ── Render all tables ─────────────────────────────────────────────────────────
 function renderAdded() {
   const tbody = document.getElementById('tbody-added');
-  if (!REPORT_DATA.added.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">No added questions.</td></tr>'; return; }
+  if (!REPORT_DATA.added.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data">No added questions.</td></tr>'; return; }
   tbody.innerHTML = REPORT_DATA.added.map((q, i) =>
     '<tr>' +
     '<td>' + (i+1) + '</td>' +
+    '<td>' + esc(q.questionNumber) + '</td>' +
     '<td>' + esc(q.chapter) + '</td>' +
     '<td>' + esc(q.section) + '</td>' +
     '<td>' + esc(q.questionText) + '</td>' +
@@ -282,10 +298,11 @@ function renderAdded() {
 
 function renderRemoved() {
   const tbody = document.getElementById('tbody-removed');
-  if (!REPORT_DATA.removed.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">No removed questions.</td></tr>'; return; }
+  if (!REPORT_DATA.removed.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data">No removed questions.</td></tr>'; return; }
   tbody.innerHTML = REPORT_DATA.removed.map((q, i) =>
     '<tr>' +
     '<td>' + (i+1) + '</td>' +
+    '<td>' + esc(q.questionNumber) + '</td>' +
     '<td>' + esc(q.chapter) + '</td>' +
     '<td>' + esc(q.section) + '</td>' +
     '<td>' + esc(q.questionText) + '</td>' +
@@ -297,18 +314,22 @@ function renderRemoved() {
 
 function renderChanged() {
   const tbody = document.getElementById('tbody-changed');
-  if (!REPORT_DATA.changed.length) { tbody.innerHTML = '<tr><td colspan="8" class="no-data">No changed questions.</td></tr>'; return; }
+  if (!REPORT_DATA.changed.length) { tbody.innerHTML = '<tr><td colspan="10" class="no-data">No changed questions.</td></tr>'; return; }
   tbody.innerHTML = REPORT_DATA.changed.map((c, i) => {
     const d = renderDiff(c.oldText, c.newText);
     const pct = Math.round(c.similarityScore * 100) + '%';
     const cls = simClass(c.similarityScore);
+    const numChg = c.previousNumber !== c.currentNumber;
+    const numCls = numChg ? ' class="num-chg"' : '';
     return '<tr>' +
       '<td>' + (i+1) + '</td>' +
       '<td>' + esc(c.chapter) + '</td>' +
       '<td>' + esc(c.section) + '</td>' +
-      '<td><span class="' + cls + '">' + pct + '</span></td>' +
+      '<td' + numCls + '>' + esc(c.previousNumber) + '</td>' +
+      '<td' + numCls + '>' + esc(c.currentNumber) + '</td>' +
       '<td>' + d.oldHtml + '</td>' +
       '<td>' + d.newHtml + '</td>' +
+      '<td><span class="' + cls + '">' + pct + '</span></td>' +
       '<td>' + (c.dvTypeChanged ? 'Yes' : '<span class="em">—</span>') + '</td>' +
       '<td>' + (c.cfOperatorChanged ? 'Yes' : '<span class="em">—</span>') + '</td>' +
       '</tr>';
@@ -317,10 +338,11 @@ function renderChanged() {
 
 function renderValChg() {
   const tbody = document.getElementById('tbody-valchg');
-  if (!REPORT_DATA.validationChanges.length) { tbody.innerHTML = '<tr><td colspan="8" class="no-data">No validation changes.</td></tr>'; return; }
+  if (!REPORT_DATA.validationChanges.length) { tbody.innerHTML = '<tr><td colspan="9" class="no-data">No validation changes.</td></tr>'; return; }
   tbody.innerHTML = REPORT_DATA.validationChanges.map((v, i) =>
     '<tr>' +
     '<td>' + (i+1) + '</td>' +
+    '<td>' + esc(v.questionNumber) + '</td>' +
     '<td>' + esc(v.chapter) + '</td>' +
     '<td>' + esc(v.section) + '</td>' +
     '<td>' + esc(v.questionText) + '</td>' +
@@ -332,10 +354,32 @@ function renderValChg() {
   ).join('');
 }
 
+function renderUnchanged() {
+  const tbody = document.getElementById('tbody-unchanged');
+  if (!REPORT_DATA.unchanged.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data">No unchanged questions.</td></tr>'; return; }
+  tbody.innerHTML = REPORT_DATA.unchanged.map((q, i) =>
+    '<tr>' +
+    '<td>' + (i+1) + '</td>' +
+    '<td>' + esc(q.questionNumber) + '</td>' +
+    '<td>' + esc(q.chapter) + '</td>' +
+    '<td>' + esc(q.section) + '</td>' +
+    '<td>' + esc(q.questionText) + '</td>' +
+    '<td>' + esc(q.dvType) + '</td>' +
+    '<td>' + esc(q.cfOperator) + '</td>' +
+    '</tr>'
+  ).join('');
+}
+
 // ── Search / filter ───────────────────────────────────────────────────────────
 function applyFilter() {
   const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
-  const tbodyId = {added:'tbody-added', removed:'tbody-removed', changed:'tbody-changed', valchg:'tbody-valchg'}[currentTab];
+  const tbodyId = {
+    added:     'tbody-added',
+    removed:   'tbody-removed',
+    changed:   'tbody-changed',
+    valchg:    'tbody-valchg',
+    unchanged: 'tbody-unchanged'
+  }[currentTab];
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   Array.from(tbody.rows).forEach(row => {
@@ -350,6 +394,7 @@ renderAdded();
 renderRemoved();
 renderChanged();
 renderValChg();
+renderUnchanged();
 </script>
 </body>
 </html>
