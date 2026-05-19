@@ -20,7 +20,6 @@ public sealed class HtmlTemplateDiffReportWriterTests
         Added: [],
         Removed: [],
         Changed: [],
-        ValidationChanges: [],
         Unchanged: []
     );
 
@@ -40,7 +39,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
             File.Exists(filePath).Should().BeTrue();
             var content = File.ReadAllText(filePath);
             content.Should().Contain("<html");
-            content.Should().Contain(">0<");  // all four summary counts are 0
+            content.Should().Contain(">0<");  // all summary counts are 0
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
@@ -98,8 +97,14 @@ public sealed class HtmlTemplateDiffReportWriterTests
                         OldText: oldText,
                         NewText: newText,
                         SimilarityScore: 0.75,
-                        DvTypeChanged: false,
-                        CfOperatorChanged: false)
+                        OldDvDisplay: "—",
+                        NewDvDisplay: "—",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: true,
+                        NumberChanged: false,
+                        DvChanged: false,
+                        CfChanged: false)
                 ]
             };
 
@@ -199,6 +204,110 @@ public sealed class HtmlTemplateDiffReportWriterTests
             content.Should().NotContain("https://",  because: "the report must be fully self-contained");
             content.Should().NotContain("<link ",    because: "no external stylesheets allowed");
             content.Should().NotContain("src=\"http", because: "no external script or image src");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── No Validation Changes tab ─────────────────────────────────────────────
+
+    [Fact]
+    public void WriteReport_OutputDoesNotContainValidationChangesTab()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+
+            Writer().WriteReport(EmptyReport(), filePath);
+
+            var content = File.ReadAllText(filePath);
+            content.Should().NotContain("Validation Changes",
+                because: "the Validation Changes tab has been removed from the report");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Change badges ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void WriteReport_ChangedWithTextAndDvChanged_BadgesAppearInOutput()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+
+            var data = EmptyReport() with
+            {
+                Changed =
+                [
+                    new HtmlDiffChangedQuestion(
+                        Chapter: "Chapter 1",
+                        Section: "Section A",
+                        PreviousNumber: "1.1",
+                        CurrentNumber: "1.1",
+                        OldText: "What is risk?",
+                        NewText: "What is the risk level?",
+                        SimilarityScore: 0.8,
+                        OldDvDisplay: "List: Yes | No",
+                        NewDvDisplay: "List: Yes | No | N/A",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: true,
+                        NumberChanged: false,
+                        DvChanged: true,
+                        CfChanged: false)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("badge-text");
+            content.Should().Contain("badge-dv");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_ChangedWithCfNotChanged_CfColumnShowsDash()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+
+            var data = EmptyReport() with
+            {
+                Changed =
+                [
+                    new HtmlDiffChangedQuestion(
+                        Chapter: "Chapter 1",
+                        Section: "Section A",
+                        PreviousNumber: null,
+                        CurrentNumber: null,
+                        OldText: "What is risk?",
+                        NewText: "What is the risk level?",
+                        SimilarityScore: 0.8,
+                        OldDvDisplay: "—",
+                        NewDvDisplay: "—",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: true,
+                        NumberChanged: false,
+                        DvChanged: false,
+                        CfChanged: false)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+            // CfChanged=false → CF cell renders em-dash
+            content.Should().Contain("class=\"em\"");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }

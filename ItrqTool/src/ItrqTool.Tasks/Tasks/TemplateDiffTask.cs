@@ -123,8 +123,7 @@ public sealed class TemplateDiffTask : IWorkflowTask
                 DateTimeOffset.Now));
             messages.Add(new(MessageSeverity.Info,
                 $"Found {diff.Added.Count} added, {diff.Removed.Count} removed, " +
-                $"{diff.Changed.Count} changed, {diff.ValidationChanges.Count} validation changes, " +
-                $"{diff.Unchanged.Count} unchanged.",
+                $"{diff.Changed.Count} changed, {diff.Unchanged.Count} unchanged.",
                 DateTimeOffset.Now));
             messages.Add(new(MessageSeverity.Info,
                 $"Report written to {Path.GetFileName(reportPath)}",
@@ -253,20 +252,14 @@ public sealed class TemplateDiffTask : IWorkflowTask
                 c.OldQuestion.QuestionText,
                 c.NewQuestion.QuestionText,
                 c.SimilarityScore,
-                DvTypeChanged:       c.OldQuestion.DvType      != c.NewQuestion.DvType,
-                CfOperatorChanged:   c.OldQuestion.CfOperator  != c.NewQuestion.CfOperator))
-            .ToList();
-
-        var validationChanges = diff.ValidationChanges
-            .Select(v => new HtmlDiffValidationChange(
-                v.OldQuestion.QuestionNumber,
-                v.OldQuestion.ChapterName,
-                v.OldQuestion.SectionName,
-                v.OldQuestion.QuestionText,
-                DvDisplayFormatter.FormatDv(v.OldQuestion.DvType, v.OldQuestion.DvFormula),
-                DvDisplayFormatter.FormatDv(v.NewQuestion.DvType, v.NewQuestion.DvFormula),
-                v.OldQuestion.CfOperator,
-                v.NewQuestion.CfOperator))
+                OldDvDisplay: DvDisplayFormatter.FormatDv(c.OldQuestion.DvType, c.OldQuestion.DvFormula),
+                NewDvDisplay: DvDisplayFormatter.FormatDv(c.NewQuestion.DvType, c.NewQuestion.DvFormula),
+                OldCfOperator: c.OldQuestion.CfOperator,
+                NewCfOperator: c.NewQuestion.CfOperator,
+                TextChanged:   c.TextChanged,
+                NumberChanged: c.NumberChanged,
+                DvChanged:     c.DvChanged,
+                CfChanged:     c.CfChanged))
             .ToList();
 
         var unchanged = diff.Unchanged
@@ -287,7 +280,6 @@ public sealed class TemplateDiffTask : IWorkflowTask
             added,
             removed,
             changed,
-            validationChanges,
             unchanged);
     }
 }

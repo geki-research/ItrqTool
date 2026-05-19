@@ -18,7 +18,6 @@ public sealed class QuestionDiffEngineTests
         result.Added.Should().BeEmpty();
         result.Removed.Should().BeEmpty();
         result.Changed.Should().BeEmpty();
-        result.ValidationChanges.Should().BeEmpty();
     }
 
     [Fact]
@@ -75,22 +74,21 @@ public sealed class QuestionDiffEngineTests
     }
 
     [Fact]
-    public void Diff_SameTextDvTypeChanged_AppearsInValidationChanges_NotChanged()
+    public void Diff_SameTextDvTypeChanged_IsChangedWithDvChangedTrue()
     {
         var old = new[] { Q("What is risk?", dv: "List") };
         var newQ = new[] { Q("What is risk?", dv: "WholeNumber") };
 
         var result = QuestionDiffEngine.Diff(old, newQ);
 
-        result.ValidationChanges.Should().HaveCount(1);
-        result.ValidationChanges[0].OldDvType.Should().Be("List");
-        result.ValidationChanges[0].NewDvType.Should().Be("WholeNumber");
-        result.Changed.Should().BeEmpty();
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].DvChanged.Should().BeTrue();
+        result.Changed[0].TextChanged.Should().BeFalse();
         result.Unchanged.Should().BeEmpty();
     }
 
     [Fact]
-    public void Diff_TextAndDvTypeChanged_AppearsInBothChangedAndValidationChanges()
+    public void Diff_TextAndDvTypeChanged_ChangedWithTextAndDvChangedTrue()
     {
         var old = new[] { Q("What is the risk level?", dv: "List") };
         var newQ = new[] { Q("What is the risk rating?", dv: "WholeNumber") };
@@ -98,7 +96,8 @@ public sealed class QuestionDiffEngineTests
         var result = QuestionDiffEngine.Diff(old, newQ);
 
         result.Changed.Should().HaveCount(1);
-        result.ValidationChanges.Should().HaveCount(1);
+        result.Changed[0].TextChanged.Should().BeTrue();
+        result.Changed[0].DvChanged.Should().BeTrue();
     }
 
     [Fact]
@@ -133,7 +132,22 @@ public sealed class QuestionDiffEngineTests
     }
 
     [Fact]
-    public void Diff_IdenticalTextSameNumberNoValidationChange_AppearsInUnchanged()
+    public void Diff_NumberChangedOnly_ChangedWithNumberChangedTrueAllOtherFlagsFalse()
+    {
+        var old = new[] { Q("What is risk?", qn: "1.1") };
+        var newQ = new[] { Q("What is risk?", qn: "1.2") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].NumberChanged.Should().BeTrue();
+        result.Changed[0].TextChanged.Should().BeFalse();
+        result.Changed[0].DvChanged.Should().BeFalse();
+        result.Changed[0].CfChanged.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Diff_IdenticalTextSameNumberNoDvCfChange_AppearsInUnchanged()
     {
         var old = new[] { Q("What is risk?", qn: "1.1") };
         var newQ = new[] { Q("What is risk?", qn: "1.1") };
@@ -142,20 +156,19 @@ public sealed class QuestionDiffEngineTests
 
         result.Unchanged.Should().HaveCount(1);
         result.Changed.Should().BeEmpty();
-        result.ValidationChanges.Should().BeEmpty();
     }
 
     [Fact]
-    public void Diff_IdenticalTextSameNumberDvTypeDiffers_NotInUnchanged_InValidationChanges()
+    public void Diff_IdenticalTextSameNumberDvTypeDiffers_IsChangedWithDvChangedTrue()
     {
         var old = new[] { Q("What is risk?", dv: "List",        qn: "1.1") };
         var newQ = new[] { Q("What is risk?", dv: "WholeNumber", qn: "1.1") };
 
         var result = QuestionDiffEngine.Diff(old, newQ);
 
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].DvChanged.Should().BeTrue();
         result.Unchanged.Should().BeEmpty();
-        result.Changed.Should().BeEmpty();
-        result.ValidationChanges.Should().HaveCount(1);
     }
 
     // ── Unchanged category ────────────────────────────────────────────────────
@@ -169,7 +182,125 @@ public sealed class QuestionDiffEngineTests
 
         result.Unchanged.Should().HaveCount(2);
         result.Changed.Should().BeEmpty();
-        result.ValidationChanges.Should().BeEmpty();
+    }
+
+    // ── CF-change rules ───────────────────────────────────────────────────────
+
+    [Fact]
+    public void Diff_NonListDv_CfDiffers_ChangedWithCfChangedTrueAllOtherFlagsFalse()
+    {
+        var old = new[] { Q("What is risk?", dv: "WholeNumber", cf: "Equal") };
+        var newQ = new[] { Q("What is risk?", dv: "WholeNumber", cf: "NotEqual") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].CfChanged.Should().BeTrue();
+        result.Changed[0].TextChanged.Should().BeFalse();
+        result.Changed[0].NumberChanged.Should().BeFalse();
+        result.Changed[0].DvChanged.Should().BeFalse();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_ListDv_SameList_CfDiffers_IsUnchanged()
+    {
+        // CF on dropdown cells is presentational noise — ignored when DvType is List
+        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"", cf: "Equal") };
+        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"", cf: "NotEqual") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
+    }
+
+    // ── IsDvChanged / List comparison ─────────────────────────────────────────
+
+    [Fact]
+    public void Diff_ListDvSameInlineFormula_IsUnchanged()
+    {
+        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No,N/A\"") };
+        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No,N/A\"") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_ListDvDifferentInlineItems_ChangedWithDvChangedTrue()
+    {
+        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"") };
+        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No,N/A\"") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].DvChanged.Should().BeTrue();
+        result.Changed[0].CfChanged.Should().BeFalse();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_ListDvSameItemsDifferentOrder_IsUnchanged()
+    {
+        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"") };
+        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "\"No,Yes\"") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_ListDvOneInlineOneRangeRef_ChangedWithDvChangedTrue()
+    {
+        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"") };
+        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "Sheet1!$A$1:$A$2") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].DvChanged.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Diff_ListDvSameRangeRef_IsUnchanged()
+    {
+        var old = new[] { Q("What is risk?", dv: "List", dvf: "Sheet1!$A$1:$A$5") };
+        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "Sheet1!$A$1:$A$5") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_NullDvNullCf_IdenticalTextSameNumber_IsUnchanged()
+    {
+        var old = new[] { Q("What is risk?", qn: "1.1") };
+        var newQ = new[] { Q("What is risk?", qn: "1.1") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_SameDvTypeNonList_IsUnchanged()
+    {
+        var old = new[] { Q("What is risk?", dv: "WholeNumber") };
+        var newQ = new[] { Q("What is risk?", dv: "WholeNumber") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
     }
 
     // ── Prefix extraction helpers ─────────────────────────────────────────────
@@ -188,94 +319,6 @@ public sealed class QuestionDiffEngineTests
         AuditQuestion.ExtractNumber("Some text").Should().BeNull();
         AuditQuestion.ExtractNumber("  No prefix here  ").Should().BeNull();
     }
-
-    // ── IsDvChanged / List comparison ────────────────────────────────────────
-
-    [Fact]
-    public void Diff_ListDvSameInlineFormula_NoValidationChange_InUnchanged()
-    {
-        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No,N/A\"") };
-        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No,N/A\"") };
-
-        var result = QuestionDiffEngine.Diff(old, newQ);
-
-        result.ValidationChanges.Should().BeEmpty();
-        result.Unchanged.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public void Diff_ListDvDifferentInlineItems_ValidationChangeEmitted()
-    {
-        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"") };
-        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No,N/A\"") };
-
-        var result = QuestionDiffEngine.Diff(old, newQ);
-
-        result.ValidationChanges.Should().HaveCount(1);
-        result.Unchanged.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void Diff_ListDvSameItemsDifferentOrder_NoValidationChange()
-    {
-        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"") };
-        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "\"No,Yes\"") };
-
-        var result = QuestionDiffEngine.Diff(old, newQ);
-
-        result.ValidationChanges.Should().BeEmpty();
-        result.Unchanged.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public void Diff_ListDvOneInlineOneRangeRef_ValidationChangeEmitted()
-    {
-        var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"") };
-        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "Sheet1!$A$1:$A$2") };
-
-        var result = QuestionDiffEngine.Diff(old, newQ);
-
-        result.ValidationChanges.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public void Diff_ListDvSameRangeRef_NoValidationChange()
-    {
-        var old = new[] { Q("What is risk?", dv: "List", dvf: "Sheet1!$A$1:$A$5") };
-        var newQ = new[] { Q("What is risk?", dv: "List", dvf: "Sheet1!$A$1:$A$5") };
-
-        var result = QuestionDiffEngine.Diff(old, newQ);
-
-        result.ValidationChanges.Should().BeEmpty();
-        result.Unchanged.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public void Diff_NullDvNullCf_IdenticalTextSameNumber_Unchanged()
-    {
-        var old = new[] { Q("What is risk?", qn: "1.1") };
-        var newQ = new[] { Q("What is risk?", qn: "1.1") };
-
-        var result = QuestionDiffEngine.Diff(old, newQ);
-
-        result.Unchanged.Should().HaveCount(1);
-        result.ValidationChanges.Should().BeEmpty();
-        result.Changed.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void Diff_SameDvTypeNonList_NoValidationChange()
-    {
-        var old = new[] { Q("What is risk?", dv: "WholeNumber") };
-        var newQ = new[] { Q("What is risk?", dv: "WholeNumber") };
-
-        var result = QuestionDiffEngine.Diff(old, newQ);
-
-        result.ValidationChanges.Should().BeEmpty();
-        result.Unchanged.Should().HaveCount(1);
-    }
-
-    // ── Prefix extraction helpers ─────────────────────────────────────────────
 
     [Fact]
     public void StripPrefix_RemovesNumberPrefix()

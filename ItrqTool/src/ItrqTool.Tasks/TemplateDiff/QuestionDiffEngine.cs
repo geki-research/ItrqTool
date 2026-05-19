@@ -10,7 +10,6 @@ public static class QuestionDiffEngine
         var added = new List<AddedQuestion>();
         var removed = new List<RemovedQuestion>();
         var changed = new List<ChangedQuestion>();
-        var validationChanges = new List<ValidationChange>();
         var unchanged = new List<UnchangedQuestion>();
         var matched = new List<(AuditQuestion Old, AuditQuestion New, double Score)>();
 
@@ -55,39 +54,33 @@ public static class QuestionDiffEngine
             bool numberChanged = !string.Equals(oldQ.QuestionNumber, newQ.QuestionNumber,
                                                 StringComparison.Ordinal);
             bool dvChanged     = IsDvChanged(oldQ, newQ);
-            bool cfChanged     = !string.Equals(oldQ.CfOperator, newQ.CfOperator,
-                                                StringComparison.Ordinal);
+            bool cfChanged     = !IsDvList(oldQ.DvType)
+                                 && !string.Equals(oldQ.CfOperator, newQ.CfOperator,
+                                                   StringComparison.Ordinal);
 
-            if (textChanged || numberChanged)
-                changed.Add(new ChangedQuestion(oldQ, newQ, score));
-
-            if (dvChanged || cfChanged)
-                validationChanges.Add(new ValidationChange(
-                    oldQ, newQ,
-                    oldQ.DvType, newQ.DvType,
-                    oldQ.CfOperator, newQ.CfOperator));
-
-            if (!textChanged && !numberChanged && !dvChanged && !cfChanged)
-                unchanged.Add(new UnchangedQuestion(oldQ));
+            if (textChanged || numberChanged || dvChanged || cfChanged)
+                changed.Add(new ChangedQuestion(oldQ, newQ, score,
+                                                textChanged, numberChanged, dvChanged, cfChanged));
+            else
+                unchanged.Add(new UnchangedQuestion(newQ));
         }
 
-        return new DiffResult(added, removed, changed, validationChanges, unchanged);
+        return new DiffResult(added, removed, changed, unchanged);
     }
+
+    private static bool IsDvList(string? dvType)
+        => string.Equals(dvType, "List", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsDvChanged(AuditQuestion old, AuditQuestion @new)
     {
-        // Step 1: if type names differ, always changed
         if (!string.Equals(old.DvType, @new.DvType, StringComparison.Ordinal))
             return true;
 
-        // Step 2: if both have no DV rule, not changed
         if (old.DvType is null) return false;
 
-        // Step 3: for List type, compare resolved values
         if (string.Equals(old.DvType, "List", StringComparison.OrdinalIgnoreCase))
             return !ListValuesEqual(old.DvFormula, @new.DvFormula);
 
-        // Step 4: for other types, same type name = not changed
         return false;
     }
 
@@ -106,11 +99,9 @@ public static class QuestionDiffEngine
             return oldItems.SequenceEqual(newItems);
         }
 
-        // At least one is a range or named reference: compare directly
         return string.Equals(oldFormula, newFormula, StringComparison.OrdinalIgnoreCase);
     }
 
-    // Inline = not a formula expression and not an absolute range reference
     private static bool IsInlineList(string formula)
         => !formula.StartsWith("=") && !formula.Contains('$');
 

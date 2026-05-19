@@ -8,7 +8,6 @@ public record HtmlDiffReportData(
     IReadOnlyList<HtmlDiffQuestion>         Added,
     IReadOnlyList<HtmlDiffQuestion>         Removed,
     IReadOnlyList<HtmlDiffChangedQuestion>  Changed,
-    IReadOnlyList<HtmlDiffValidationChange> ValidationChanges,
     IReadOnlyList<HtmlDiffQuestion>         Unchanged
 );
 
@@ -29,17 +28,12 @@ public record HtmlDiffChangedQuestion(
     string  OldText,
     string  NewText,
     double  SimilarityScore,
-    bool    DvTypeChanged,
-    bool    CfOperatorChanged
-);
-
-public record HtmlDiffValidationChange(
-    string? QuestionNumber,
-    string  Chapter,
-    string  Section,
-    string  QuestionText,
-    string  OldDvDisplay,   // formatted DV description: "—", type name, or "List: A | B | C"
+    string  OldDvDisplay,
     string  NewDvDisplay,
     string? OldCfOperator,
-    string? NewCfOperator
+    string? NewCfOperator,
+    bool    TextChanged,
+    bool    NumberChanged,
+    bool    DvChanged,
+    bool    CfChanged
 );

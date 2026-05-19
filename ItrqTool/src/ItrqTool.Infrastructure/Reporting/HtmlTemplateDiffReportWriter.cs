@@ -63,7 +63,6 @@ h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
 .card-added     { border-color: #16a34a; } .card-added .count     { color: #16a34a; }
 .card-removed   { border-color: #dc2626; } .card-removed .count   { color: #dc2626; }
 .card-changed   { border-color: #d97706; } .card-changed .count   { color: #d97706; }
-.card-valchg    { border-color: #2563eb; } .card-valchg .count    { color: #2563eb; }
 .card-unchanged { border-color: #9ca3af; background: #f3f4f6; } .card-unchanged .count { color: #374151; }
 
 /* Search */
@@ -117,6 +116,13 @@ tbody tr:hover { background: #f1f5f9; }
 
 .num-chg { color: #d97706; font-weight: 600; }
 .em { color: #94a3b8; }
+
+/* Change badges */
+.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 2px; }
+.badge-text { background: #e0f2fe; color: #075985; }
+.badge-num  { background: #fef3c7; color: #92400e; }
+.badge-dv   { background: #f3e8ff; color: #6b21a8; }
+.badge-cf   { background: #fce7f3; color: #9d174d; }
 </style>
 </head>
 <body>
@@ -140,10 +146,6 @@ tbody tr:hover { background: #f1f5f9; }
     <div class="count" id="cnt-changed">{{data.Changed.Count}}</div>
     <div class="label">Changed</div>
   </div>
-  <div class="card card-valchg">
-    <div class="count" id="cnt-valchg">{{data.ValidationChanges.Count}}</div>
-    <div class="label">Validation Changes</div>
-  </div>
   <div class="card card-unchanged">
     <div class="count" id="cnt-unchanged">{{data.Unchanged.Count}}</div>
     <div class="label">Unchanged</div>
@@ -158,7 +160,6 @@ tbody tr:hover { background: #f1f5f9; }
   <button class="tab-btn active" onclick="showTab('added')">Added</button>
   <button class="tab-btn" onclick="showTab('removed')">Removed</button>
   <button class="tab-btn" onclick="showTab('changed')">Changed</button>
-  <button class="tab-btn" onclick="showTab('valchg')">Validation Changes</button>
   <button class="tab-btn" onclick="showTab('unchanged')">Unchanged</button>
 </div>
 
@@ -178,15 +179,8 @@ tbody tr:hover { background: #f1f5f9; }
 
 <div id="tab-changed" class="tab-panel">
   <div class="tbl-wrap"><table id="tbl-changed">
-    <thead><tr><th>#</th><th>Chapter</th><th>Section</th><th>Prev №</th><th>Curr №</th><th>Old Text</th><th>New Text</th><th>Similarity</th><th>DV?</th><th>CF?</th></tr></thead>
+    <thead><tr><th>#</th><th>Changes</th><th>Chapter</th><th>Section</th><th>Prev №</th><th>Curr №</th><th>Old Text</th><th>New Text</th><th>Similarity</th><th>DV (old → new)</th><th>CF (old → new)</th></tr></thead>
     <tbody id="tbody-changed"></tbody>
-  </table></div>
-</div>
-
-<div id="tab-valchg" class="tab-panel">
-  <div class="tbl-wrap"><table id="tbl-valchg">
-    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>Old DV</th><th>New DV</th><th>Old CF</th><th>New CF</th></tr></thead>
-    <tbody id="tbody-valchg"></tbody>
   </table></div>
 </div>
 
@@ -207,7 +201,7 @@ function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   const buttons = document.querySelectorAll('.tab-btn');
-  const labels = ['added','removed','changed','valchg','unchanged'];
+  const labels = ['added','removed','changed','unchanged'];
   buttons[labels.indexOf(name)].classList.add('active');
   currentTab = name;
   applyFilter();
@@ -314,15 +308,31 @@ function renderRemoved() {
 
 function renderChanged() {
   const tbody = document.getElementById('tbody-changed');
-  if (!REPORT_DATA.changed.length) { tbody.innerHTML = '<tr><td colspan="10" class="no-data">No changed questions.</td></tr>'; return; }
+  if (!REPORT_DATA.changed.length) { tbody.innerHTML = '<tr><td colspan="11" class="no-data">No changed questions.</td></tr>'; return; }
   tbody.innerHTML = REPORT_DATA.changed.map((c, i) => {
     const d = renderDiff(c.oldText, c.newText);
     const pct = Math.round(c.similarityScore * 100) + '%';
     const cls = simClass(c.similarityScore);
     const numChg = c.previousNumber !== c.currentNumber;
     const numCls = numChg ? ' class="num-chg"' : '';
+
+    let badges = '';
+    if (c.textChanged)   badges += '<span class="badge badge-text">T</span>';
+    if (c.numberChanged) badges += '<span class="badge badge-num">#</span>';
+    if (c.dvChanged)     badges += '<span class="badge badge-dv">DV</span>';
+    if (c.cfChanged)     badges += '<span class="badge badge-cf">CF</span>';
+
+    const dvCell = c.dvChanged
+      ? esc(c.oldDvDisplay) + ' → ' + esc(c.newDvDisplay)
+      : '<span class="em">—</span>';
+
+    const cfCell = c.cfChanged
+      ? esc(c.oldCfOperator) + ' → ' + esc(c.newCfOperator)
+      : '<span class="em">—</span>';
+
     return '<tr>' +
       '<td>' + (i+1) + '</td>' +
+      '<td>' + badges + '</td>' +
       '<td>' + esc(c.chapter) + '</td>' +
       '<td>' + esc(c.section) + '</td>' +
       '<td' + numCls + '>' + esc(c.previousNumber) + '</td>' +
@@ -330,28 +340,10 @@ function renderChanged() {
       '<td>' + d.oldHtml + '</td>' +
       '<td>' + d.newHtml + '</td>' +
       '<td><span class="' + cls + '">' + pct + '</span></td>' +
-      '<td>' + (c.dvTypeChanged ? 'Yes' : '<span class="em">—</span>') + '</td>' +
-      '<td>' + (c.cfOperatorChanged ? 'Yes' : '<span class="em">—</span>') + '</td>' +
+      '<td>' + dvCell + '</td>' +
+      '<td>' + cfCell + '</td>' +
       '</tr>';
   }).join('');
-}
-
-function renderValChg() {
-  const tbody = document.getElementById('tbody-valchg');
-  if (!REPORT_DATA.validationChanges.length) { tbody.innerHTML = '<tr><td colspan="9" class="no-data">No validation changes.</td></tr>'; return; }
-  tbody.innerHTML = REPORT_DATA.validationChanges.map((v, i) =>
-    '<tr>' +
-    '<td>' + (i+1) + '</td>' +
-    '<td>' + esc(v.questionNumber) + '</td>' +
-    '<td>' + esc(v.chapter) + '</td>' +
-    '<td>' + esc(v.section) + '</td>' +
-    '<td>' + esc(v.questionText) + '</td>' +
-    '<td>' + esc(v.oldDvDisplay) + '</td>' +
-    '<td>' + esc(v.newDvDisplay) + '</td>' +
-    '<td>' + esc(v.oldCfOperator) + '</td>' +
-    '<td>' + esc(v.newCfOperator) + '</td>' +
-    '</tr>'
-  ).join('');
 }
 
 function renderUnchanged() {
@@ -377,7 +369,6 @@ function applyFilter() {
     added:     'tbody-added',
     removed:   'tbody-removed',
     changed:   'tbody-changed',
-    valchg:    'tbody-valchg',
     unchanged: 'tbody-unchanged'
   }[currentTab];
   const tbody = document.getElementById(tbodyId);
@@ -393,7 +384,6 @@ function applyFilter() {
 renderAdded();
 renderRemoved();
 renderChanged();
-renderValChg();
 renderUnchanged();
 </script>
 </body>

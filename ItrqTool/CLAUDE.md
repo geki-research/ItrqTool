@@ -240,7 +240,6 @@ public record HtmlDiffReportData(
     IReadOnlyList<HtmlDiffQuestion>         Added,
     IReadOnlyList<HtmlDiffQuestion>         Removed,
     IReadOnlyList<HtmlDiffChangedQuestion>  Changed,
-    IReadOnlyList<HtmlDiffValidationChange> ValidationChanges,
     IReadOnlyList<HtmlDiffQuestion>         Unchanged
 );
 
@@ -261,19 +260,14 @@ public record HtmlDiffChangedQuestion(
     string  OldText,
     string  NewText,
     double  SimilarityScore,
-    bool    DvTypeChanged,
-    bool    CfOperatorChanged
-);
-
-public record HtmlDiffValidationChange(
-    string? QuestionNumber,
-    string  Chapter,
-    string  Section,
-    string  QuestionText,
-    string  OldDvDisplay,   // formatted: "—", type name, or "List: A | B | C"
+    string  OldDvDisplay,       // "—" if no DV
     string  NewDvDisplay,
     string? OldCfOperator,
-    string? NewCfOperator
+    string? NewCfOperator,
+    bool    TextChanged,
+    bool    NumberChanged,
+    bool    DvChanged,
+    bool    CfChanged           // false when old DvType == "List" (presentational noise)
 );
 
 public interface IHtmlReportWriter
@@ -532,6 +526,30 @@ public sealed record AuditQuestion(
 );
 // AuditQuestion.ExtractNumber("1.2) text") → "1.2"; no prefix → null
 // AuditQuestion.StripPrefix("1.2) text")   → "text"
+```
+
+**DiffResult / ChangedQuestion** (in `ItrqTool.Tasks.TemplateDiff`):
+
+A matched question pair is either Changed or Unchanged — there is no separate ValidationChange
+category. CF changes are ignored when the old DvType is "List" (presentational noise on dropdowns).
+
+```csharp
+public sealed record ChangedQuestion(
+    AuditQuestion OldQuestion,
+    AuditQuestion NewQuestion,
+    double  SimilarityScore,
+    bool    TextChanged,        // SimilarityScore < 1.0
+    bool    NumberChanged,
+    bool    DvChanged,
+    bool    CfChanged           // false when old DvType == "List"
+);
+
+public sealed record DiffResult(
+    IReadOnlyList<AddedQuestion>      Added,
+    IReadOnlyList<RemovedQuestion>    Removed,
+    IReadOnlyList<ChangedQuestion>    Changed,
+    IReadOnlyList<UnchangedQuestion>  Unchanged
+);
 ```
 
 **ControlLevelQuestionsConfig** (in `ItrqTool.Tasks.TemplateDiff`):
