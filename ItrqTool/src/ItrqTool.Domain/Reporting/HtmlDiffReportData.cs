@@ -5,10 +5,10 @@ public record HtmlDiffReportData(
     string PreviousWorkbookPath,
     string CurrentWorkbookPath,
     DateTimeOffset GeneratedAt,
-    IReadOnlyList<HtmlDiffQuestion>         Added,
-    IReadOnlyList<HtmlDiffQuestion>         Removed,
-    IReadOnlyList<HtmlDiffChangedQuestion>  Changed,
-    IReadOnlyList<HtmlDiffQuestion>         Unchanged
+    IReadOnlyList<HtmlDiffQuestion>           Added,
+    IReadOnlyList<HtmlDiffQuestion>           Removed,
+    IReadOnlyList<HtmlDiffChangedQuestion>    Changed,
+    IReadOnlyList<HtmlDiffUnchangedQuestion>  Unchanged
 );
 
 public record HtmlDiffQuestion(
@@ -36,4 +36,13 @@ public record HtmlDiffChangedQuestion(
     bool    NumberChanged,
     bool    DvChanged,
     bool    CfChanged
+);
+
+public record HtmlDiffUnchangedQuestion(
+    string  Chapter,
+    string  Section,
+    string? QuestionNumber,
+    string  QuestionText,
+    string  DvDisplay,
+    string? CfOperator
 );

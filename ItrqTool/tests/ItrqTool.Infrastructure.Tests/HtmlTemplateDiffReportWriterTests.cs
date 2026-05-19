@@ -174,7 +174,7 @@ public sealed class HtmlTemplateDiffReportWriterTests
             {
                 Unchanged =
                 [
-                    new HtmlDiffQuestion(null, "Chapter 1", "Section A", questionText, null, null)
+                    new HtmlDiffUnchangedQuestion("Chapter 1", "Section A", null, questionText, "—", null)
                 ]
             };
 
@@ -349,6 +349,95 @@ public sealed class HtmlTemplateDiffReportWriterTests
             var content = File.ReadAllText(filePath);
             content.Should().Contain("cell-unchanged");
             content.Should().Contain(">unchanged<");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Unchanged tab structure ───────────────────────────────────────────────
+
+    [Fact]
+    public void WriteReport_OneUnchangedQuestion_RowContainsExpectedStructure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            const string questionText = "Describe the governance framework.";
+
+            var data = EmptyReport() with
+            {
+                Unchanged =
+                [
+                    new HtmlDiffUnchangedQuestion("Chapter 2", "Section B", "2.1", questionText, "List: Yes | No", null)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+
+            // Question text is serialised into the embedded REPORT_DATA JSON
+            content.Should().Contain(questionText);
+
+            // Extract the renderUnchanged JS function body — rows are JS-rendered at runtime,
+            // so the function source code is the right place to verify rendering logic
+            var fnStart = content.IndexOf("function renderUnchanged()", StringComparison.Ordinal);
+            fnStart.Should().BeGreaterThan(0, because: "renderUnchanged JS function must be present");
+            var fnEnd = content.IndexOf("\nfunction ", fnStart + 1, StringComparison.Ordinal);
+            if (fnEnd < 0) fnEnd = content.IndexOf("</script>", fnStart, StringComparison.OrdinalIgnoreCase);
+            var fnBody = content.Substring(fnStart, fnEnd - fnStart);
+
+            fnBody.Should().Contain("sim-green", because: "similarity cell must use sim-green class");
+            fnBody.Should().Contain("100%",       because: "similarity must be rendered as 100%");
+            fnBody.Should().Contain("cell-unchanged");
+
+            var unchangedSpanCount = 0;
+            var idx = 0;
+            while ((idx = fnBody.IndexOf(">unchanged<", idx, StringComparison.Ordinal)) >= 0) { unchangedSpanCount++; idx++; }
+            unchangedSpanCount.Should().BeGreaterThanOrEqualTo(2, because: "DV and CF columns both show 'unchanged'");
+
+            fnBody.Should().NotContain("badge-text", because: "unchanged rows never emit change badges");
+            fnBody.Should().NotContain("badge-dv");
+            fnBody.Should().NotContain("badge-cf");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_UnchangedTableHasSameColumnCountAsChangedTable()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+
+            Writer().WriteReport(EmptyReport(), filePath);
+
+            var content = File.ReadAllText(filePath);
+
+            static int CountThInThead(string html, string tbodyId)
+            {
+                // Find the <thead> that immediately precedes the table body identified by tbodyId
+                var tbodyPos = html.IndexOf($"id=\"{tbodyId}\"", StringComparison.Ordinal);
+                if (tbodyPos < 0) return -1;
+                var theadEnd = html.LastIndexOf("</thead>", tbodyPos, StringComparison.OrdinalIgnoreCase);
+                if (theadEnd < 0) return -1;
+                var theadStart = html.LastIndexOf("<thead>", theadEnd, StringComparison.OrdinalIgnoreCase);
+                if (theadStart < 0) return -1;
+                var theadHtml = html.Substring(theadStart, theadEnd - theadStart);
+                var count = 0;
+                var idx = 0;
+                while ((idx = theadHtml.IndexOf("<th>", idx, StringComparison.OrdinalIgnoreCase)) >= 0) { count++; idx++; }
+                return count;
+            }
+
+            var changedCols   = CountThInThead(content, "tbody-changed");
+            var unchangedCols = CountThInThead(content, "tbody-unchanged");
+
+            changedCols.Should().BePositive(because: "changed table must have a thead");
+            unchangedCols.Should().Be(changedCols, because: "unchanged table must mirror changed table column count");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }

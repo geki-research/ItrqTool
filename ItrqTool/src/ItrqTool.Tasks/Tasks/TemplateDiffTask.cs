@@ -263,12 +263,12 @@ public sealed class TemplateDiffTask : IWorkflowTask
             .ToList();
 
         var unchanged = diff.Unchanged
-            .Select(u => new HtmlDiffQuestion(
-                u.Question.QuestionNumber,
+            .Select(u => new HtmlDiffUnchangedQuestion(
                 u.Question.ChapterName,
                 u.Question.SectionName,
+                u.Question.QuestionNumber,
                 u.Question.QuestionText,
-                u.Question.DvType,
+                DvDisplayFormatter.FormatDv(u.Question.DvType, u.Question.DvFormula),
                 u.Question.CfOperator))
             .ToList();
 

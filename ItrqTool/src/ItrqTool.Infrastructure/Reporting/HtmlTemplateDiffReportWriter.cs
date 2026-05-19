@@ -187,7 +187,7 @@ tbody tr:hover { background: #f1f5f9; }
 
 <div id="tab-unchanged" class="tab-panel">
   <div class="tbl-wrap"><table id="tbl-unchanged">
-    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV Type</th><th>CF Operator</th></tr></thead>
+    <thead><tr><th>#</th><th>Changes</th><th>Chapter</th><th>Section</th><th>Prev №</th><th>Curr №</th><th>Old Text</th><th>New Text</th><th>Similarity</th><th>DV (old → new)</th><th>CF (old → new)</th></tr></thead>
     <tbody id="tbody-unchanged"></tbody>
   </table></div>
 </div>
@@ -349,16 +349,20 @@ function renderChanged() {
 
 function renderUnchanged() {
   const tbody = document.getElementById('tbody-unchanged');
-  if (!REPORT_DATA.unchanged.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data">No unchanged questions.</td></tr>'; return; }
+  if (!REPORT_DATA.unchanged.length) { tbody.innerHTML = '<tr><td colspan="11" class="no-data">No unchanged questions.</td></tr>'; return; }
   tbody.innerHTML = REPORT_DATA.unchanged.map((q, i) =>
     '<tr>' +
     '<td>' + (i+1) + '</td>' +
-    '<td>' + esc(q.questionNumber) + '</td>' +
+    '<td></td>' +
     '<td>' + esc(q.chapter) + '</td>' +
     '<td>' + esc(q.section) + '</td>' +
-    '<td>' + esc(q.questionText) + '</td>' +
-    '<td>' + esc(q.dvType) + '</td>' +
-    '<td>' + esc(q.cfOperator) + '</td>' +
+    '<td>' + esc(q.questionNumber) + '</td>' +
+    '<td>' + esc(q.questionNumber) + '</td>' +
+    '<td>' + escPlain(q.questionText || '') + '</td>' +
+    '<td>' + escPlain(q.questionText || '') + '</td>' +
+    '<td><span class="sim-green">100%</span></td>' +
+    '<td><span class="cell-unchanged">unchanged</span></td>' +
+    '<td><span class="cell-unchanged">unchanged</span></td>' +
     '</tr>'
   ).join('');
 }

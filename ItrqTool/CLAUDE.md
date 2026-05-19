@@ -237,10 +237,10 @@ public record HtmlDiffReportData(
     string PreviousWorkbookPath,
     string CurrentWorkbookPath,
     DateTimeOffset GeneratedAt,
-    IReadOnlyList<HtmlDiffQuestion>         Added,
-    IReadOnlyList<HtmlDiffQuestion>         Removed,
-    IReadOnlyList<HtmlDiffChangedQuestion>  Changed,
-    IReadOnlyList<HtmlDiffQuestion>         Unchanged
+    IReadOnlyList<HtmlDiffQuestion>           Added,
+    IReadOnlyList<HtmlDiffQuestion>           Removed,
+    IReadOnlyList<HtmlDiffChangedQuestion>    Changed,
+    IReadOnlyList<HtmlDiffUnchangedQuestion>  Unchanged
 );
 
 public record HtmlDiffQuestion(
@@ -268,6 +268,15 @@ public record HtmlDiffChangedQuestion(
     bool    NumberChanged,
     bool    DvChanged,
     bool    CfChanged           // false when old DvType == "List" (presentational noise)
+);
+
+public record HtmlDiffUnchangedQuestion(
+    string  Chapter,
+    string  Section,
+    string? QuestionNumber,
+    string  QuestionText,
+    string  DvDisplay,          // formatted: "—", type name, or "List: A | B | C"
+    string? CfOperator
 );
 
 public interface IHtmlReportWriter
