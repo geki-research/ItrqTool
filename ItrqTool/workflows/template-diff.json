@@ -1,18 +1,18 @@
 {
   "id": "template-diff",
-  "name": "Audit Template Diff",
-  "group": "Audit Template Processing",
+  "name": "Compare current with previous",
+  "group": "ITRQ RefYear 2025",
   "tasks": [
     {
       "id": "diff",
       "type": "TemplateDiff",
       "inputs": {},
-      "outputs": { "report": "template-diff-report.xlsx" },
+      "outputs": { "report": "template-diff-report.html" },
       "parameters": {
-        "previousWorkbookFullFilename": "C:\\Audit\\Previous\\auditor-questionnaire.xlsx",
-        "currentWorkbookFullFilename":  "C:\\Audit\\Current\\auditor-questionnaire.xlsx",
-        "previousConfigurationFullFilename": "C:\\Audit\\Previous\\clq-structure.json",
-        "currentConfigurationFullFilename":  "C:\\Audit\\Current\\clq-structure.json"
+        "previousWorkbookFullFilename": "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2024\\Templates\\EcbFormat\\ITRQ_RefYear2024_EcbFormat_Template_v2024-11-12.xlsx",
+        "currentWorkbookFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\ITRQ_RefYear2025_EcbFormat_Template_v2026-01-23.xlsx",
+        "previousConfigurationFullFilename": "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2024\\Templates\\EcbFormat\\clq-structure.json",
+        "currentConfigurationFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\clq-structure.json"
       }
     }
   ]

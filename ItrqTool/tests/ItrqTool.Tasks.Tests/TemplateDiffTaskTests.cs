@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 using ItrqTool.Domain;
+using ItrqTool.Domain.Reporting;
 using ItrqTool.Tasks;
 
 namespace ItrqTool.Tasks.Tests;
@@ -15,10 +16,10 @@ public sealed class TemplateDiffTaskTests
 
     private static TemplateDiffTask MakeTask(
         IExcelStructureReader? reader = null,
-        IExcelWriter? writer = null)
+        IHtmlReportWriter? htmlWriter = null)
     {
         var r = reader ?? Substitute.For<IExcelStructureReader>();
-        var w = writer ?? Substitute.For<IExcelWriter>();
+        var w = htmlWriter ?? Substitute.For<IHtmlReportWriter>();
         return new TemplateDiffTask(r, w, NullLogger<TemplateDiffTask>.Instance);
     }
 
@@ -61,14 +62,14 @@ public sealed class TemplateDiffTaskTests
             await File.WriteAllTextAsync(previousConfigPath, configJson);
             await File.WriteAllTextAsync(currentConfigPath, configJson);
 
-            var reportPath = Path.Combine(dir, "report.xlsx");
+            var reportPath = Path.Combine(dir, "report.html");
 
             var structureReader = Substitute.For<IExcelStructureReader>();
             structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns(MinimalRows());
 
-            var excelWriter = Substitute.For<IExcelWriter>();
-            excelWriter.When(w => w.WriteWorkbook(Arg.Any<ExcelWorkbookData>(), Arg.Any<string>()))
-                .Do(ci => File.WriteAllBytes(ci.ArgAt<string>(1), []));
+            var htmlWriter = Substitute.For<IHtmlReportWriter>();
+            htmlWriter.When(w => w.WriteReport(Arg.Any<HtmlDiffReportData>(), Arg.Any<string>()))
+                .Do(ci => File.WriteAllText(ci.ArgAt<string>(1), "<html/>"));
 
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
@@ -86,11 +87,64 @@ public sealed class TemplateDiffTaskTests
                 }
             };
 
-            var result = await MakeTask(structureReader, excelWriter).ExecuteAsync(ctx, CancellationToken.None);
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
 
             result.Succeeded.Should().BeTrue();
             File.Exists(reportPath).Should().BeTrue();
             result.Messages.Should().Contain(m => m.Severity == MessageSeverity.Info);
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_Success_OutputPathEndsWithHtml()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            const string configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""";
+            await File.WriteAllTextAsync(previousConfigPath, configJson);
+            await File.WriteAllTextAsync(currentConfigPath, configJson);
+
+            var reportPath = Path.Combine(dir, "report.html");
+
+            string? capturedPath = null;
+            var htmlWriter = Substitute.For<IHtmlReportWriter>();
+            htmlWriter.When(w => w.WriteReport(Arg.Any<HtmlDiffReportData>(), Arg.Any<string>()))
+                .Do(ci => capturedPath = ci.ArgAt<string>(1));
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
+
+            var ctx = new TaskExecutionContext(
+                TaskId: "diff",
+                InputPaths: new Dictionary<string, string>(),
+                OutputPaths: new Dictionary<string, string> { ["report"] = reportPath },
+                Logger: NullLogger.Instance,
+                WorkingDirectory: dir)
+            {
+                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["previousWorkbookFullFilename"] = previousPath,
+                    ["currentWorkbookFullFilename"] = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"] = currentConfigPath
+                }
+            };
+
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            capturedPath.Should().NotBeNull();
+            capturedPath!.Should().EndWith(".html");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
@@ -120,7 +174,7 @@ public sealed class TemplateDiffTaskTests
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
                 InputPaths: new Dictionary<string, string>(),
-                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "r.xlsx") },
+                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "r.html") },
                 Logger: NullLogger.Instance,
                 WorkingDirectory: dir)
             {
@@ -148,7 +202,7 @@ public sealed class TemplateDiffTaskTests
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
                 InputPaths: new Dictionary<string, string>(),
-                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "r.xlsx") },
+                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "r.html") },
                 Logger: NullLogger.Instance,
                 WorkingDirectory: dir)
             {
@@ -206,7 +260,7 @@ public sealed class TemplateDiffTaskTests
             await File.WriteAllTextAsync(previousConfigPath, configJson);
             await File.WriteAllTextAsync(currentConfigPath, configJson);
 
-            var reportPath = Path.Combine(dir, "report.xlsx");
+            var reportPath = Path.Combine(dir, "report.html");
 
             var structureReader = Substitute.For<IExcelStructureReader>();
             structureReader.ReadRows(Arg.Any<string>(), "CLQ").Returns(
@@ -221,9 +275,7 @@ public sealed class TemplateDiffTaskTests
                     { ["C"] = new("Outside range", null, null) })
             ]);
 
-            var excelWriter = Substitute.For<IExcelWriter>();
-            excelWriter.When(w => w.WriteWorkbook(Arg.Any<ExcelWorkbookData>(), Arg.Any<string>()))
-                .Do(ci => File.WriteAllBytes(ci.ArgAt<string>(1), []));
+            var htmlWriter = Substitute.For<IHtmlReportWriter>();
 
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
@@ -241,7 +293,7 @@ public sealed class TemplateDiffTaskTests
                 }
             };
 
-            var result = await MakeTask(structureReader, excelWriter).ExecuteAsync(ctx, CancellationToken.None);
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
 
             result.Succeeded.Should().BeTrue();
             // 1 question parsed from previous → "Compared 1 questions"
@@ -270,7 +322,7 @@ public sealed class TemplateDiffTaskTests
             await File.WriteAllTextAsync(previousConfigPath, configJson);
             await File.WriteAllTextAsync(currentConfigPath, configJson);
 
-            var reportPath = Path.Combine(dir, "report.xlsx");
+            var reportPath = Path.Combine(dir, "report.html");
 
             var structureReader = Substitute.For<IExcelStructureReader>();
             structureReader.ReadRows(Arg.Any<string>(), "CLQ").Returns(
@@ -281,9 +333,7 @@ public sealed class TemplateDiffTaskTests
                     { ["C"] = new("Also outside", null, null) }),
             ]);
 
-            var excelWriter = Substitute.For<IExcelWriter>();
-            excelWriter.When(w => w.WriteWorkbook(Arg.Any<ExcelWorkbookData>(), Arg.Any<string>()))
-                .Do(ci => File.WriteAllBytes(ci.ArgAt<string>(1), []));
+            var htmlWriter = Substitute.For<IHtmlReportWriter>();
 
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
@@ -301,7 +351,7 @@ public sealed class TemplateDiffTaskTests
                 }
             };
 
-            var result = await MakeTask(structureReader, excelWriter).ExecuteAsync(ctx, CancellationToken.None);
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
 
             result.Succeeded.Should().BeTrue();
             result.Messages.Should().Contain(m =>
@@ -330,7 +380,7 @@ public sealed class TemplateDiffTaskTests
             await File.WriteAllTextAsync(currentConfigPath,
                 """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""");
 
-            var reportPath = Path.Combine(dir, "report.xlsx");
+            var reportPath = Path.Combine(dir, "report.html");
 
             var structureReader = Substitute.For<IExcelStructureReader>();
             structureReader.ReadRows(Arg.Any<string>(), "CLQ").Returns([]);
@@ -381,14 +431,12 @@ public sealed class TemplateDiffTaskTests
             await File.WriteAllTextAsync(currentConfigPath,
                 """{"sheetName":"CurrentSheet","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":[]}""");
 
-            var reportPath = Path.Combine(dir, "report.xlsx");
+            var reportPath = Path.Combine(dir, "report.html");
 
             var structureReader = Substitute.For<IExcelStructureReader>();
             structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
 
-            var excelWriter = Substitute.For<IExcelWriter>();
-            excelWriter.When(w => w.WriteWorkbook(Arg.Any<ExcelWorkbookData>(), Arg.Any<string>()))
-                .Do(ci => File.WriteAllBytes(ci.ArgAt<string>(1), []));
+            var htmlWriter = Substitute.For<IHtmlReportWriter>();
 
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
@@ -406,7 +454,7 @@ public sealed class TemplateDiffTaskTests
                 }
             };
 
-            var result = await MakeTask(structureReader, excelWriter).ExecuteAsync(ctx, CancellationToken.None);
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
 
             result.Succeeded.Should().BeTrue();
             // previousConfig (sheetName "PreviousSheet") used for previousPath
@@ -439,7 +487,7 @@ public sealed class TemplateDiffTaskTests
             var ctx = new TaskExecutionContext(
                 TaskId: "diff",
                 InputPaths: new Dictionary<string, string>(),
-                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "r.xlsx") },
+                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "r.html") },
                 Logger: NullLogger.Instance,
                 WorkingDirectory: dir)
             {

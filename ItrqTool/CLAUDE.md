@@ -223,6 +223,56 @@ public record ExcelCellStructure(
     string? ConditionalFormattingOperator
 );
 
+// ── Reporting ─────────────────────────────────────────────────────────────────
+
+// Namespace: ItrqTool.Domain.Reporting
+// Files: src/ItrqTool.Domain/Reporting/
+
+public record HtmlDiffReportData(
+    string PreviousWorkbookPath,
+    string CurrentWorkbookPath,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<HtmlDiffQuestion>         Added,
+    IReadOnlyList<HtmlDiffQuestion>         Removed,
+    IReadOnlyList<HtmlDiffChangedQuestion>  Changed,
+    IReadOnlyList<HtmlDiffValidationChange> ValidationChanges
+);
+
+public record HtmlDiffQuestion(
+    string Chapter,
+    string Section,
+    string QuestionText,
+    string? DvType,
+    string? CfOperator
+);
+
+public record HtmlDiffChangedQuestion(
+    string Chapter,
+    string Section,
+    string OldText,
+    string NewText,
+    double SimilarityScore,
+    bool   DvTypeChanged,
+    bool   CfOperatorChanged
+);
+
+public record HtmlDiffValidationChange(
+    string  Chapter,
+    string  Section,
+    string  QuestionText,
+    string? OldDvType,
+    string? NewDvType,
+    string? OldCfOperator,
+    string? NewCfOperator
+);
+
+public interface IHtmlReportWriter
+{
+    /// Generates a self-contained HTML report and writes it to filePath.
+    /// Overwrites if the file already exists. Creates the directory if needed.
+    void WriteReport(HtmlDiffReportData data, string filePath);
+}
+
 // ── Workflow loading ───────────────────────────────────────────────────────────
 
 public interface IWorkflowLoader

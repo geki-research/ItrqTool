@@ -2,7 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Application;
 using ItrqTool.Domain;
+using ItrqTool.Domain.Reporting;
 using ItrqTool.Infrastructure;
+using ItrqTool.Infrastructure.Reporting;
 using ItrqTool.Presentation.Logging;
 using ItrqTool.Presentation.ViewModels;
 using ItrqTool.Presentation.Views;
@@ -32,6 +34,7 @@ public static class CompositionRoot
         services.AddSingleton<IExcelReader, ClosedXmlExcelReader>();
         services.AddSingleton<IExcelStructureReader, ClosedXmlExcelStructureReader>();
         services.AddSingleton<IExcelWriter, ClosedXmlExcelWriter>();
+        services.AddSingleton<IHtmlReportWriter, HtmlTemplateDiffReportWriter>();
         services.AddSingleton<IWorkflowLoader>(sp =>
             new JsonWorkflowLoader(
                 workflowsDirectoryPath,

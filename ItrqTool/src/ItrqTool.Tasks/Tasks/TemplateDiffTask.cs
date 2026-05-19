@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
+using ItrqTool.Domain.Reporting;
 using ItrqTool.Tasks.TemplateDiff;
 
 namespace ItrqTool.Tasks;
@@ -14,16 +15,16 @@ public sealed class TemplateDiffTask : IWorkflowTask
     };
 
     private readonly IExcelStructureReader _structureReader;
-    private readonly IExcelWriter _excelWriter;
+    private readonly IHtmlReportWriter _htmlReportWriter;
     private readonly ILogger<TemplateDiffTask> _logger;
 
     public TemplateDiffTask(
         IExcelStructureReader structureReader,
-        IExcelWriter excelWriter,
+        IHtmlReportWriter htmlReportWriter,
         ILogger<TemplateDiffTask> logger)
     {
         _structureReader = structureReader;
-        _excelWriter = excelWriter;
+        _htmlReportWriter = htmlReportWriter;
         _logger = logger;
     }
 
@@ -104,12 +105,12 @@ public sealed class TemplateDiffTask : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            // 8. Build report workbook
+            // 8. Build report data
             var reportPath = ctx.OutputPaths["report"];
-            var workbookData = BuildReport(previousConfig, diff, previousQuestions.Count + currentQuestions.Count);
+            var reportData = BuildReportData(previousPath, currentPath, diff);
 
-            // 9. Write report
-            _excelWriter.WriteWorkbook(workbookData, reportPath);
+            // 9. Write HTML report
+            _htmlReportWriter.WriteReport(reportData, reportPath);
 
             // 10. Curated messages
             int totalCompared = previousQuestions.Count;
@@ -211,80 +212,58 @@ public sealed class TemplateDiffTask : IWorkflowTask
         return questions;
     }
 
-    private static ExcelWorkbookData BuildReport(
-        ControlLevelQuestionsConfig config,
-        DiffResult diff,
-        int totalQuestionsConsidered)
+    private static HtmlDiffReportData BuildReportData(
+        string previousWorkbookPath,
+        string currentWorkbookPath,
+        DiffResult diff)
     {
-        var sheets = new List<ExcelSheetData>
-        {
-            // Summary
-            new("Summary",
-                ["SheetName", "Added", "Removed", "Changed", "ValidationChanges"],
-                [[
-                    config.SheetName,
-                    diff.Added.Count.ToString(),
-                    diff.Removed.Count.ToString(),
-                    diff.Changed.Count.ToString(),
-                    diff.ValidationChanges.Count.ToString()
-                ]]),
+        var added = diff.Added
+            .Select(a => new HtmlDiffQuestion(
+                a.Question.ChapterName,
+                a.Question.SectionName,
+                a.Question.QuestionText,
+                a.Question.DvType,
+                a.Question.CfOperator))
+            .ToList();
 
-            // Added
-            new("Added",
-                ["Chapter", "Section", "QuestionText", "DvType", "CfOperator"],
-                diff.Added.Select(a => (IReadOnlyList<string>)[
-                    a.Question.ChapterName,
-                    a.Question.SectionName,
-                    a.Question.QuestionText,
-                    a.Question.DvType ?? "",
-                    a.Question.CfOperator ?? ""
-                ]).ToList()),
+        var removed = diff.Removed
+            .Select(r => new HtmlDiffQuestion(
+                r.Question.ChapterName,
+                r.Question.SectionName,
+                r.Question.QuestionText,
+                r.Question.DvType,
+                r.Question.CfOperator))
+            .ToList();
 
-            // Removed
-            new("Removed",
-                ["Chapter", "Section", "QuestionText", "DvType", "CfOperator"],
-                diff.Removed.Select(r => (IReadOnlyList<string>)[
-                    r.Question.ChapterName,
-                    r.Question.SectionName,
-                    r.Question.QuestionText,
-                    r.Question.DvType ?? "",
-                    r.Question.CfOperator ?? ""
-                ]).ToList()),
+        var changed = diff.Changed
+            .Select(c => new HtmlDiffChangedQuestion(
+                c.OldQuestion.ChapterName,
+                c.OldQuestion.SectionName,
+                c.OldQuestion.QuestionText,
+                c.NewQuestion.QuestionText,
+                c.SimilarityScore,
+                DvTypeChanged: c.OldQuestion.DvType != c.NewQuestion.DvType,
+                CfOperatorChanged: c.OldQuestion.CfOperator != c.NewQuestion.CfOperator))
+            .ToList();
 
-            // Changed
-            new("Changed",
-                ["Chapter", "Section", "OldText", "NewText", "SimilarityScore",
-                 "DvTypeChanged", "CfOperatorChanged"],
-                diff.Changed.Select(c =>
-                {
-                    bool dvChanged = c.OldQuestion.DvType != c.NewQuestion.DvType;
-                    bool cfChanged = c.OldQuestion.CfOperator != c.NewQuestion.CfOperator;
-                    return (IReadOnlyList<string>)[
-                        c.OldQuestion.ChapterName,
-                        c.OldQuestion.SectionName,
-                        c.OldQuestion.QuestionText,
-                        c.NewQuestion.QuestionText,
-                        c.SimilarityScore.ToString("F2"),
-                        dvChanged ? "Yes" : "No",
-                        cfChanged ? "Yes" : "No"
-                    ];
-                }).ToList()),
+        var validationChanges = diff.ValidationChanges
+            .Select(v => new HtmlDiffValidationChange(
+                v.OldQuestion.ChapterName,
+                v.OldQuestion.SectionName,
+                v.OldQuestion.QuestionText,
+                v.OldQuestion.DvType,
+                v.NewQuestion.DvType,
+                v.OldQuestion.CfOperator,
+                v.NewQuestion.CfOperator))
+            .ToList();
 
-            // Validation Changes
-            new("Validation Changes",
-                ["Chapter", "Section", "QuestionText", "OldDvType", "NewDvType",
-                 "OldCfOperator", "NewCfOperator"],
-                diff.ValidationChanges.Select(v => (IReadOnlyList<string>)[
-                    v.OldQuestion.ChapterName,
-                    v.OldQuestion.SectionName,
-                    v.OldQuestion.QuestionText,
-                    v.OldDvType ?? "",
-                    v.NewDvType ?? "",
-                    v.OldCfOperator ?? "",
-                    v.NewCfOperator ?? ""
-                ]).ToList())
-        };
-
-        return new ExcelWorkbookData(sheets);
+        return new HtmlDiffReportData(
+            previousWorkbookPath,
+            currentWorkbookPath,
+            DateTimeOffset.Now,
+            added,
+            removed,
+            changed,
+            validationChanges);
     }
 }
