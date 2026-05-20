@@ -79,6 +79,112 @@ if (-not (Test-Path $publishWorkflowsDir)) {
     Copy-Item -Path $sourceWorkflowsDir -Destination $publishDir -Recurse
 }
 
+# Strip all content from the published workflows folder.
+# The workflows shipped in /workflows are developer-side references only;
+# deployed users start with an empty workflows/ and receive real workflow
+# JSON files separately from the developer.
+if (Test-Path $publishWorkflowsDir) {
+    Remove-Item -Path (Join-Path $publishWorkflowsDir '*') -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# Generate README.txt for end users.
+$readmePath = Join-Path $publishDir 'README.txt'
+$readmeContent = @'
+ItrqTool - Quick start
+======================
+
+This is a proof-of-concept build of ItrqTool, an Excel
+audit questionnaire diff tool.
+
+Requirements
+------------
+- Windows 10 or later, 64-bit
+- .NET 10 Desktop Runtime installed system-wide
+  (download from https://dotnet.microsoft.com)
+
+Getting started
+---------------
+1. Unzip the entire folder anywhere on your machine.
+   Do not run from inside the zip.
+
+2. Create one or more workflow JSON files in the
+   workflows/ subdirectory. Each defines what the app
+   should do (e.g. compare two auditor questionnaires).
+
+   A workflow file looks like this:
+
+     {
+       "id": "control-level-question-diff",
+       "name": "Control Level Question Diff",
+       "tasks": [
+         {
+           "id": "diff-report",
+           "type": "ControlLevelQuestionDiff",
+           "inputs": {},
+           "outputs": {
+             "report": "control-level-question-diff.html"
+           },
+           "parameters": {
+             "previousWorkbookFullFilename":
+               "<path to previous year's workbook>",
+             "currentWorkbookFullFilename":
+               "<path to current year's workbook>",
+             "previousConfigurationFullFilename":
+               "<path to previous year's clq-structure.json>",
+             "currentConfigurationFullFilename":
+               "<path to current year's clq-structure.json>"
+           }
+         }
+       ]
+     }
+
+3. Create the clq-structure.json files that the workflow
+   references. Each describes the row layout of one
+   auditor workbook:
+
+     {
+       "sheetName": "Control Level Questions",
+       "textColumn": "C",
+       "inputColumn": "D",
+       "chapterRows": [3, 20, 35],
+       "sectionRows": [
+         "4:5-7",
+         "8:9-11"
+       ]
+     }
+
+   chapterRows: row numbers of chapter headers.
+   sectionRows: one entry per section, formatted
+     "<sectionHeaderRow>:<firstQuestionRow>-<lastQuestionRow>"
+
+4. Launch ItrqTool.exe. Your workflow appears in the
+   tree on the left. Select it, click Open, then click
+   "Run first task".
+
+Working files
+-------------
+Each workflow has a working folder under
+  %USERPROFILE%\Documents\ItrqTool\<workflow-id>
+
+Output files (HTML diff reports etc.) live there.
+Click "Open working folder" from the run view to open
+it in Explorer.
+
+Logs
+----
+Rolling log files (14 days retained) live under
+  %USERPROFILE%\Documents\ItrqTool\logs
+
+Inside the app, the log panel can be copied to the
+clipboard via the "Copy log" button.
+
+Support
+-------
+This is a proof-of-concept build. Report problems with
+the log content so issues can be diagnosed.
+'@
+$readmeContent | Out-File -FilePath $readmePath -Encoding ASCII
+
 $sizeMB = [Math]::Round((Get-Item $exePath).Length / 1MB, 2)
 Write-Host ""
 Write-Host "Publish complete." -ForegroundColor Green
