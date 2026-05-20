@@ -1,19 +1,17 @@
 {
-  "id": "template-diff",
-  "name": "Phase 0 Task 1 / Control Questions / Compare current with previous (ECB Format)",
-  "group": "ITRQ RefYear 2025:Stage 0",
+  "id": "control-level-question-diff",
+  "name": "Control Level Question Diff",
   "tasks": [
     {
-      "id": "Diff Report — Control Questions",
+      "id": "diff-report",
       "type": "ControlLevelQuestionDiff",
       "inputs": {},
-      "outputs": { "report": "diff-report__EcbFormat__ControlQuestions.html" },
+      "outputs": { "report": "control-level-question-diff.html" },
       "parameters": {
-        "previousWorkbookFullFilename": "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2024\\Templates\\EcbFormat\\ITRQ_RefYear2024_EcbFormat_Template_v2024-11-12.xlsx",
-        "currentWorkbookFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\ITRQ_RefYear2025_EcbFormat_Template_v2026-01-23.xlsx",
-        "previousConfigurationFullFilename": "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2024\\Templates\\EcbFormat\\clq-structure.json",
-        "currentConfigurationFullFilename":  "J:\\EGIT\\ERSTE\\ITRQ\\RefYear2025\\Templates\\EcbFormat\\clq-structure.json",
-        "reportTitle": "Diff Report — Control Questions — RefYear 2024 vs RefYear 2025"
+        "previousWorkbookFullFilename": "<path to previous year's workbook>",
+        "currentWorkbookFullFilename": "<path to current year's workbook>",
+        "previousConfigurationFullFilename": "<path to previous year's clq-structure.json>",
+        "currentConfigurationFullFilename": "<path to current year's clq-structure.json>"
       }
     }
   ]
