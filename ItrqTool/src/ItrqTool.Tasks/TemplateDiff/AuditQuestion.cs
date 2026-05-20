@@ -15,7 +15,7 @@ public sealed record AuditQuestion(
 )
 {
     private static readonly Regex PrefixPattern =
-        new(@"^\d+\.\d+\)\s*", RegexOptions.Compiled);
+        new(@"^\d+\.\d+\)?\s*", RegexOptions.Compiled);
 
     public static string StripPrefix(string text)
     {

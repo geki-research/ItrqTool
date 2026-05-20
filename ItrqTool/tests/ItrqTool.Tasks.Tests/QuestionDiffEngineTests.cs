@@ -414,6 +414,32 @@ public sealed class QuestionDiffEngineTests
         AuditQuestion.StripPrefix("What is risk?").Should().Be("What is risk?");
     }
 
+    // ── Optional-paren prefix tests ───────────────────────────────────────────
+
+    [Fact]
+    public void ExtractNumber_OptionalParen_AllCases()
+    {
+        // No paren — new behaviour
+        AuditQuestion.ExtractNumber("1.2 What is the risk?").Should().Be("1.2");
+        AuditQuestion.ExtractNumber("3.5  Two spaces after").Should().Be("3.5");
+        // With paren — existing behaviour preserved
+        AuditQuestion.ExtractNumber("1.2) Still with paren").Should().Be("1.2");
+        // Not numbered
+        AuditQuestion.ExtractNumber("Not numbered text").Should().BeNull();
+    }
+
+    [Fact]
+    public void StripPrefix_OptionalParen_AllCases()
+    {
+        // No paren — new behaviour
+        AuditQuestion.StripPrefix("1.2 What is the risk?").Should().Be("What is the risk?");
+        AuditQuestion.StripPrefix("3.5  Two spaces after").Should().Be("Two spaces after");
+        // With paren — existing behaviour preserved
+        AuditQuestion.StripPrefix("1.2) Still with paren").Should().Be("Still with paren");
+        // Not numbered
+        AuditQuestion.StripPrefix("Not numbered text").Should().Be("Not numbered text");
+    }
+
     // ── Contextual match bonuses ──────────────────────────────────────────────
 
     [Fact]
