@@ -202,6 +202,43 @@ public sealed class WorkflowListViewModelTests
     }
 
     [Fact]
+    public void Load_GroupWithSpacesInSegments_ProducesFullTwoLevelTree()
+    {
+        // Regression: "ITRQ RefYear 2025:Stage 0" must produce A → B → leaf, not A → leaf
+        var wf = new WorkflowDefinition("wf1", "Audit Task", "ITRQ RefYear 2025:Stage 0", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        vm.WorkflowGroups.Should().HaveCount(1);
+        var root = vm.WorkflowGroups[0];
+        root.GroupName.Should().Be("ITRQ RefYear 2025");
+        var sub = root.Children.OfType<WorkflowGroupItem>().Single();
+        sub.GroupName.Should().Be("Stage 0");
+        sub.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("Audit Task");
+    }
+
+    [Fact]
+    public void Load_ThreeLevelGroup_ProducesFullThreeLevelTree()
+    {
+        // "A:B:C" must produce A → B → C → leaf (not collapsed or missing intermediate levels)
+        var wf = new WorkflowDefinition("wf1", "Deep Task", "A:B:C", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        var root = vm.WorkflowGroups.Single();
+        root.GroupName.Should().Be("A");
+        var level2 = root.Children.OfType<WorkflowGroupItem>().Single();
+        level2.GroupName.Should().Be("B");
+        var level3 = level2.Children.OfType<WorkflowGroupItem>().Single();
+        level3.GroupName.Should().Be("C");
+        level3.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("Deep Task");
+    }
+
+    [Fact]
     public void Load_ResetsFailureDetailsToCollapsed()
     {
         var failure = new WorkflowLoadFailure(@"C:\some\path\bad.json", "Unexpected token");

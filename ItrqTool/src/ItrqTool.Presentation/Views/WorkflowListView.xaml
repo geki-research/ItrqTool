@@ -4,17 +4,6 @@
              xmlns:ui="clr-namespace:ItrqTool.Presentation.UIModels">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-
-        <!-- Group node template — Children contains WorkflowGroupItem and WorkflowListItem -->
-        <HierarchicalDataTemplate DataType="{x:Type ui:WorkflowGroupItem}"
-                                  ItemsSource="{Binding Children}">
-            <TextBlock Text="{Binding GroupName}" FontWeight="Bold"/>
-        </HierarchicalDataTemplate>
-
-        <!-- Workflow leaf template -->
-        <DataTemplate DataType="{x:Type ui:WorkflowListItem}">
-            <TextBlock Text="{Binding Name}"/>
-        </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel Margin="16">
@@ -78,11 +67,19 @@
         <TreeView x:Name="WorkflowTreeView"
                   ItemsSource="{Binding WorkflowGroups}"
                   SelectedItemChanged="WorkflowTreeView_SelectedItemChanged">
-            <TreeView.ItemContainerStyle>
+            <TreeView.Resources>
+                <!-- Implicit style: applies IsExpanded=True at every nesting level -->
                 <Style TargetType="TreeViewItem">
                     <Setter Property="IsExpanded" Value="True"/>
                 </Style>
-            </TreeView.ItemContainerStyle>
+                <HierarchicalDataTemplate DataType="{x:Type ui:WorkflowGroupItem}"
+                                          ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding GroupName}" FontWeight="Bold"/>
+                </HierarchicalDataTemplate>
+                <DataTemplate DataType="{x:Type ui:WorkflowListItem}">
+                    <TextBlock Text="{Binding Name}"/>
+                </DataTemplate>
+            </TreeView.Resources>
             <TreeView.InputBindings>
                 <KeyBinding Key="Enter" Command="{Binding SelectCurrentCommand}"/>
             </TreeView.InputBindings>
