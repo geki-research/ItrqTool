@@ -29,15 +29,16 @@ public static class QuestionDiffEngine
             return new DiffResult(added, removed, changed, unchanged);
         }
 
-        // Build similarity matrix: sim[i,j] = similarity of newQ[i] to oldQ[j]
-        var sim = new double[m, n];
+        // Base text similarity matrix — Levenshtein-based; used for scoring and reporting.
+        var baseSim = new double[m, n];
         for (int i = 0; i < m; i++)
             for (int j = 0; j < n; j++)
-                sim[i, j] = TextSimilarity.Score(newQuestions[i].QuestionText,
-                                                  oldQuestions[j].QuestionText);
+                baseSim[i, j] = TextSimilarity.Score(newQuestions[i].QuestionText,
+                                                      oldQuestions[j].QuestionText);
 
-        // Contextual bonuses: section match (+0.10) and number match (+0.10), capped at 1.0.
-        // Both bonuses can stack. Empty/null values do not earn the bonus.
+        // Adjusted similarity matrix — base + contextual bonuses; used for matching only.
+        // Keeping the two matrices separate ensures reported similarity is never inflated.
+        var adjSim = new double[m, n];
         const double SectionBonus = 0.10;
         const double NumberBonus  = 0.10;
 
@@ -56,29 +57,30 @@ public static class QuestionDiffEngine
                 string.Equals(nq.QuestionNumber, oq.QuestionNumber, StringComparison.Ordinal))
                 bonus += NumberBonus;
 
-            if (bonus > 0.0)
-                sim[i, j] = Math.Min(1.0, sim[i, j] + bonus);
+            adjSim[i, j] = bonus > 0.0
+                ? Math.Min(1.0, baseSim[i, j] + bonus)
+                : baseSim[i, j];
         }
 
-        // Optimal assignment via Hungarian algorithm
-        int[] assignment = HungarianAlgorithm.SolveMaximumAssignment(sim);
+        // Optimal assignment via Hungarian algorithm (uses adjusted scores for tie-breaking)
+        int[] assignment = HungarianAlgorithm.SolveMaximumAssignment(adjSim);
 
-        // Track which old questions were matched above the threshold
         var matchedOldIndices = new HashSet<int>();
 
         for (int i = 0; i < m; i++)
         {
-            int j     = assignment[i];
-            double score = j >= 0 ? sim[i, j] : 0.0;
-            double? secondBest = ComputeSecondBest(sim, i, j);
+            int j            = assignment[i];
+            double adjScore  = j >= 0 ? adjSim[i, j]  : 0.0;
+            double baseScore = j >= 0 ? baseSim[i, j] : 0.0;
+            double? secondBest = ComputeSecondBest(baseSim, i, j);
 
-            if (j >= 0 && score >= 0.5)
+            if (j >= 0 && adjScore >= 0.5)
             {
                 matchedOldIndices.Add(j);
                 var oldQ = oldQuestions[j];
                 var newQ = newQuestions[i];
 
-                bool textChanged   = score < 1.0;
+                bool textChanged   = baseScore < 1.0;
                 bool numberChanged = !string.Equals(oldQ.QuestionNumber, newQ.QuestionNumber,
                                                     StringComparison.Ordinal);
                 bool dvChanged     = IsDvChanged(oldQ, newQ);
@@ -87,7 +89,7 @@ public static class QuestionDiffEngine
                                                        StringComparison.Ordinal);
 
                 if (textChanged || numberChanged || dvChanged || cfChanged)
-                    changed.Add(new ChangedQuestion(oldQ, newQ, score, secondBest,
+                    changed.Add(new ChangedQuestion(oldQ, newQ, baseScore, secondBest,
                                                     textChanged, numberChanged, dvChanged, cfChanged));
                 else
                     unchanged.Add(new UnchangedQuestion(newQ, secondBest));
@@ -107,11 +109,11 @@ public static class QuestionDiffEngine
         return new DiffResult(added, removed, changed, unchanged);
     }
 
-    // Returns the next-highest similarity in row i excluding the assigned column j.
+    // Returns the next-highest BASE similarity in row i excluding the assigned column j.
     // Returns null when fewer than 2 old questions exist (no second candidate).
-    private static double? ComputeSecondBest(double[,] sim, int rowI, int assignedColJ)
+    private static double? ComputeSecondBest(double[,] baseSim, int rowI, int assignedColJ)
     {
-        int cols = sim.GetLength(1);
+        int cols = baseSim.GetLength(1);
         if (cols < 2) return null;
 
         double best = double.MinValue;
@@ -120,7 +122,7 @@ public static class QuestionDiffEngine
         for (int j = 0; j < cols; j++)
         {
             if (j == assignedColJ) continue;
-            if (!found || sim[rowI, j] > best) { best = sim[rowI, j]; found = true; }
+            if (!found || baseSim[rowI, j] > best) { best = baseSim[rowI, j]; found = true; }
         }
 
         return found ? best : null;

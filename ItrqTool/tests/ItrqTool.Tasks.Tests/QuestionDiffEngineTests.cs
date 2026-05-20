@@ -440,12 +440,13 @@ public sealed class QuestionDiffEngineTests
     }
 
     [Fact]
-    public void Diff_BothBonuses_Stack_CappedAt1()
+    public void Diff_BothBonuses_Stack_CappedAt1_MatchedWithBaseScore()
     {
         // "...control?" vs "...process?" → base = 33/40 = 0.825.
         // Same section + same number → +0.10 + +0.10 = +0.20.
-        // Adjusted = min(1.0, 0.825 + 0.20) = 1.0 — capped, not 1.025.
-        // textChanged = score < 1.0 = false → Unchanged despite texts differing.
+        // Adjusted = min(1.0, 0.825 + 0.20) = 1.0 — capped; pair is still matched.
+        // Reported SimilarityScore is BASE (0.825), not adjusted (1.0).
+        // textChanged = baseScore < 1.0 = true → Changed.
         var old  = new[] { Qs("What is the risk level for this control?", "SectionA", "1.1") };
         var newQ = new[] { Qs("What is the risk level for this process?",  "SectionA", "1.1") };
 
@@ -453,9 +454,12 @@ public sealed class QuestionDiffEngineTests
 
         result.Added.Should().BeEmpty();
         result.Removed.Should().BeEmpty();
-        result.Unchanged.Should().HaveCount(1,
-            because: "both bonuses applied; adjusted score capped at 1.0 so textChanged=false");
-        result.Changed.Should().BeEmpty();
+        result.Changed.Should().HaveCount(1,
+            because: "base score is 0.825 < 1.0 so textChanged=true → Changed");
+        result.Changed[0].TextChanged.Should().BeTrue();
+        result.Changed[0].SimilarityScore.Should().BeApproximately(0.825, 0.005,
+            because: "SimilarityScore is the base text similarity, not the bonus-adjusted score");
+        result.Unchanged.Should().BeEmpty();
     }
 
     [Fact]
@@ -486,9 +490,9 @@ public sealed class QuestionDiffEngineTests
         var resultNamed = QuestionDiffEngine.Diff(oldNamed, newNamed);
 
         resultEmpty.Changed.Should().HaveCount(1,
-            because: "no section bonus on empty names; score stays below 1.0");
-        resultNamed.Unchanged.Should().HaveCount(1,
-            because: "both bonuses fire on named section; score caps at 1.0");
+            because: "no section bonus on empty names; only number bonus → adjusted 0.925 < 1.0");
+        resultNamed.Changed.Should().HaveCount(1,
+            because: "base 0.825 < 1.0 → textChanged=true → Changed regardless of bonus count");
     }
 
     [Fact]
@@ -507,8 +511,99 @@ public sealed class QuestionDiffEngineTests
         var resultNum  = QuestionDiffEngine.Diff(oldNum,  newNum);
 
         resultNull.Changed.Should().HaveCount(1,
-            because: "no number bonus on null numbers; score stays below 1.0");
-        resultNum.Unchanged.Should().HaveCount(1,
-            because: "both bonuses fire with matching numbers; score caps at 1.0");
+            because: "no number bonus on null numbers; only section bonus → adjusted 0.925 < 1.0");
+        resultNum.Changed.Should().HaveCount(1,
+            because: "base 0.825 < 1.0 → textChanged=true → Changed regardless of bonus count");
+    }
+
+    // ── Base vs adjusted separation regression tests ──────────────────────────
+
+    [Fact]
+    public void Diff_TextChanged_BothBonuses_ReportedScoreIsBaseNotAdjusted()
+    {
+        // Base = 33/40 = 0.825. Both bonuses → adjusted = 1.0 (capped).
+        // Bug: textChanged = (adjusted < 1.0) = false → Unchanged (wrong).
+        // Fix: textChanged = (base < 1.0) = true → Changed (correct).
+        // SimilarityScore must be base (0.825), not adjusted (1.0).
+        var old  = new[] { Qs("What is the risk level for this control?", "SectionA", "1.1") };
+        var newQ = new[] { Qs("What is the risk level for this process?",  "SectionA", "1.1") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].TextChanged.Should().BeTrue();
+        result.Changed[0].SimilarityScore.Should().BeApproximately(0.825, 0.005);
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_IdenticalText_BothBonuses_IsUnchanged()
+    {
+        // Identical text → base = 1.0 regardless of bonuses; textChanged=false → Unchanged.
+        var old  = new[] { Qs("What is risk?", "SectionA", "1.1") };
+        var newQ = new[] { Qs("What is risk?", "SectionA", "1.1") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Unchanged.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_BonusPushesSubThresholdPairAboveThreshold_MatchedWithBaseScore()
+    {
+        // "abcdefghij" vs "123456ghij": dist=6, max=10 → base=0.40 (below 0.50 threshold).
+        // Same section + same number → +0.20 → adjusted=0.60 ≥ 0.50 → pair IS matched.
+        // SimilarityScore must be base (0.40), TextChanged=true.
+        var old  = new[] { Qs("abcdefghij", "SectionA", "1.1") };
+        var newQ = new[] { Qs("123456ghij", "SectionA", "1.1") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1,
+            because: "adjusted score 0.60 ≥ 0.50 so the pair is matched despite base < threshold");
+        result.Changed[0].TextChanged.Should().BeTrue();
+        result.Changed[0].SimilarityScore.Should().BeApproximately(0.40, 0.005,
+            because: "SimilarityScore is the base score, not the bonus-adjusted score");
+        result.Added.Should().BeEmpty();
+        result.Removed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_NoBonusSubThresholdPair_NotMatched_AddedAndRemoved()
+    {
+        // Same texts as above but different sections → no bonuses → adjusted=base=0.40 < 0.50.
+        // Pair is NOT matched: old → Removed, new → Added.
+        var old  = new[] { Qs("abcdefghij", "SectionX") };
+        var newQ = new[] { Qs("123456ghij", "SectionY") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Removed.Should().HaveCount(1);
+        result.Added.Should().HaveCount(1);
+        result.Changed.Should().BeEmpty();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_SecondBestSimilarity_IsBaseNotAdjusted()
+    {
+        // newQ is matched to oldQ0 (identical text → base=1.0 → Unchanged).
+        // oldQ1 shares section+number with newQ → adjusted gets +0.20,
+        // but SecondBestSimilarity must be the BASE score (0.0), not adjusted (0.20).
+        // "abcde" vs "fghij": all 5 chars differ → dist=5, max=5 → base=0.0 exactly.
+        //
+        // oldQ0 uses Q(qn:"1.1") so section="Section" ≠ "SectionA" (no section bonus),
+        // but qn="1.1"="1.1" (number bonus) and identical text → adj=1.0; numberChanged=false.
+        var newQ  = new[] { Qs("abcde", "SectionA", "1.1") };
+        var oldQ0 = Q("abcde", qn: "1.1");                        // identical text, qn matches; section differs
+        var oldQ1 = new AuditQuestion("Chapter", "SectionA",
+                        "fghij", "fghij", "1.1", 2, null, null, null); // base=0.0, adj=0.20
+
+        var result = QuestionDiffEngine.Diff([oldQ0, oldQ1], newQ);
+
+        result.Unchanged.Should().HaveCount(1, because: "newQ matches oldQ0 identically");
+        result.Unchanged[0].SecondBestSimilarity.Should().Be(0.0,
+            because: "SecondBestSimilarity is the base score (0.0), not the adjusted score (0.20)");
     }
 }
