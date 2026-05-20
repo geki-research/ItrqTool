@@ -187,8 +187,8 @@ public sealed class WorkflowListViewModelTests
     [Fact]
     public void Load_HierarchicalIdWithDerivedGroup_ProducesNestedNodes()
     {
-        // id="A:B:task" → derived group "A:B" → A > B > leaf
-        var wf = new WorkflowDefinition("A:B:task", "Task", "A:B", []);
+        // id="A:B:task" → derived group "A:B:task" → A > B > task > leaf
+        var wf = new WorkflowDefinition("A:B:task", "Task", "A:B:task", []);
         var loader = LoaderWith([wf], []);
         var vm = MakeVm(loader);
 
@@ -196,9 +196,87 @@ public sealed class WorkflowListViewModelTests
 
         var root = vm.WorkflowGroups.Single();
         root.GroupName.Should().Be("A");
+        var level2 = root.Children.OfType<WorkflowGroupItem>().Single();
+        level2.GroupName.Should().Be("B");
+        var level3 = level2.Children.OfType<WorkflowGroupItem>().Single();
+        level3.GroupName.Should().Be("task");
+        level3.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("Task");
+    }
+
+    [Fact]
+    public void Load_DerivedGroup_TwoSegmentId_ProducesFullTwoLevelTree()
+    {
+        // id="RefYear2025:Phase 0", derived group "RefYear2025:Phase 0" → 2 group levels + leaf
+        var wf = new WorkflowDefinition("RefYear2025:Phase 0", "Some Task", "RefYear2025:Phase 0", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        var root = vm.WorkflowGroups.Single();
+        root.GroupName.Should().Be("RefYear2025");
         var sub = root.Children.OfType<WorkflowGroupItem>().Single();
-        sub.GroupName.Should().Be("B");
-        sub.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("Task");
+        sub.GroupName.Should().Be("Phase 0");
+        sub.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("Some Task");
+    }
+
+    [Fact]
+    public void Load_DerivedGroup_FourSegmentId_ProducesFullFourLevelTree()
+    {
+        // id="A:B:C:task", derived group "A:B:C:task" → 4 group levels + leaf
+        var wf = new WorkflowDefinition("A:B:C:task", "My Task", "A:B:C:task", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        var root = vm.WorkflowGroups.Single();
+        root.GroupName.Should().Be("A");
+        var l2 = root.Children.OfType<WorkflowGroupItem>().Single();
+        l2.GroupName.Should().Be("B");
+        var l3 = l2.Children.OfType<WorkflowGroupItem>().Single();
+        l3.GroupName.Should().Be("C");
+        var l4 = l3.Children.OfType<WorkflowGroupItem>().Single();
+        l4.GroupName.Should().Be("task");
+        l4.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("My Task");
+    }
+
+    [Fact]
+    public void Load_NullName_FallsBackToIdLastSegment()
+    {
+        // name=null → leaf label falls back to last segment of id
+        var wf = new WorkflowDefinition("A:B:Phase 1", null!, "A:B:Phase 1", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        var root = vm.WorkflowGroups.Single();
+        root.GroupName.Should().Be("A");
+        var l2 = root.Children.OfType<WorkflowGroupItem>().Single();
+        l2.GroupName.Should().Be("B");
+        var l3 = l2.Children.OfType<WorkflowGroupItem>().Single();
+        l3.GroupName.Should().Be("Phase 1");
+        l3.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("Phase 1");
+    }
+
+    [Fact]
+    public void Load_EmptyName_FallsBackToIdLastSegment()
+    {
+        // name="" → leaf label falls back to last segment of id
+        var wf = new WorkflowDefinition("A:B:Phase 1", "", "A:B:Phase 1", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        var root = vm.WorkflowGroups.Single();
+        root.GroupName.Should().Be("A");
+        var l2 = root.Children.OfType<WorkflowGroupItem>().Single();
+        l2.GroupName.Should().Be("B");
+        var l3 = l2.Children.OfType<WorkflowGroupItem>().Single();
+        l3.GroupName.Should().Be("Phase 1");
+        l3.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("Phase 1");
     }
 
     [Fact]

@@ -42,7 +42,10 @@ public partial class WorkflowListViewModel : ObservableObject
             _definitionsById[wf.Id] = wf;
 
         var items = result.Workflows
-            .Select(wf => new WorkflowListItem(wf.Id, wf.Name, wf.Group))
+            .Select(wf => new WorkflowListItem(
+                wf.Id,
+                string.IsNullOrWhiteSpace(wf.Name) ? wf.Id.Split(':').Last() : wf.Name,
+                wf.Group))
             .ToList();
 
         WorkflowGroups = new ObservableCollection<WorkflowGroupItem>(BuildTree(items));

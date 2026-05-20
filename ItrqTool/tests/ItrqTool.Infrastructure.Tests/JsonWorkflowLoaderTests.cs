@@ -542,7 +542,7 @@ public sealed class JsonWorkflowLoaderTests
     // ── Hierarchical id — group derivation ────────────────────────────────────
 
     [Fact]
-    public void LoadAll_HierarchicalId_NoGroup_DeriveGroupByDroppingLastSegment()
+    public void LoadAll_HierarchicalId_NoGroup_DeriveGroupAsFullId()
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
@@ -554,13 +554,13 @@ public sealed class JsonWorkflowLoaderTests
             var result = Loader(dir).LoadAll();
 
             result.Failures.Should().BeEmpty();
-            result.Workflows[0].Group.Should().Be("A:B");
+            result.Workflows[0].Group.Should().Be("A:B:task");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
     [Fact]
-    public void LoadAll_TwoSegmentId_NoGroup_DerivesSingleSegmentGroup()
+    public void LoadAll_TwoSegmentId_NoGroup_DeriveGroupAsFullId()
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
@@ -572,7 +572,25 @@ public sealed class JsonWorkflowLoaderTests
             var result = Loader(dir).LoadAll();
 
             result.Failures.Should().BeEmpty();
-            result.Workflows[0].Group.Should().Be("Audit");
+            result.Workflows[0].Group.Should().Be("Audit:task");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_HierarchicalIdWithSpaces_NoGroup_DeriveGroupAsFullId()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "spaces.json"),
+                """{"id": "RefYear2025:Phase 0", "name": "WF", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Group.Should().Be("RefYear2025:Phase 0");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }

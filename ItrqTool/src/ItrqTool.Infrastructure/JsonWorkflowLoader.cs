@@ -131,10 +131,7 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
     }
 
     private static string? DeriveGroup(string id)
-    {
-        var lastColon = id.LastIndexOf(':');
-        return lastColon > 0 ? id[..lastColon] : null;
-    }
+        => id.Contains(':') ? id : null;
 
     // ── Private DTOs — not part of the public API ──────────────────────────────
     // Explicit public constructors are required so System.Text.Json can

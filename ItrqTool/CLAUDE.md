@@ -150,7 +150,10 @@ public enum MessageSeverity { Info, Warning, Error }
 public record WorkflowDefinition(
     string Id,
     string Name,
-    string? Group,                    // optional; null if absent or null in JSON
+    string? Group,                    // optional; null if absent or null in JSON.
+                                      // If absent and id contains ':', derived = full id
+                                      // (e.g. id "A:B:task" → Group "A:B:task").
+                                      // If absent and id has no ':': null (→ "Ungrouped").
     IReadOnlyList<TaskNode> Nodes
 );
 
@@ -350,6 +353,20 @@ Files live in `/workflows/*.json`. The loader reads all files in that directory 
 A task with no inputs declares `"inputs": {}`.
 Circular references and missing upstream keys are detected at load time and throw
 `WorkflowDefinitionException` before any task runs.
+
+**Hierarchical workflow IDs and group derivation:**
+A workflow `id` may contain `:` separators (e.g. `"ITRQ RefYear 2025:Stage 0:task"`).
+Each segment must be non-empty and must not contain `/` or `\`.
+
+`JsonWorkflowLoader` derives `Group` from `id` when the JSON `"group"` field is absent or `null`:
+- id contains `:` → derived Group = **full id** (all segments form the group hierarchy).
+  Example: id `"A:B:task"` → Group `"A:B:task"` → TreeView renders A → B → task → leaf.
+- id has no `:` → derived Group = `null` (workflow appears under "Ungrouped").
+- Explicit `"group"` field always wins; derivation is skipped.
+
+**Leaf label fallback:** `WorkflowListViewModel` uses `WorkflowDefinition.Name` as the
+TreeView leaf label. If `Name` is null or whitespace, the label falls back to the last
+segment of `id` (i.e. `id.Split(':').Last()`).
 
 ---
 
