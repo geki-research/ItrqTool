@@ -45,17 +45,7 @@ public partial class WorkflowListViewModel : ObservableObject
             .Select(wf => new WorkflowListItem(wf.Id, wf.Name, wf.Group))
             .ToList();
 
-        var groups = items
-            .GroupBy(wf => wf.Group ?? "Ungrouped")
-            .OrderBy(g => g.Key == "Ungrouped")
-            .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new WorkflowGroupItem(
-                g.Key,
-                new ObservableCollection<WorkflowListItem>(
-                    g.OrderBy(wf => wf.Name, StringComparer.OrdinalIgnoreCase))))
-            .ToList();
-
-        WorkflowGroups = new ObservableCollection<WorkflowGroupItem>(groups);
+        WorkflowGroups = new ObservableCollection<WorkflowGroupItem>(BuildTree(items));
         SelectedWorkflow = null;
 
         Failures.Clear();
@@ -90,4 +80,57 @@ public partial class WorkflowListViewModel : ObservableObject
 
     partial void OnSelectedWorkflowChanged(WorkflowListItem? value)
         => SelectCurrentCommand.NotifyCanExecuteChanged();
+
+    private static List<WorkflowGroupItem> BuildTree(List<WorkflowListItem> items)
+    {
+        var rootNodes = new Dictionary<string, GroupNode>(StringComparer.OrdinalIgnoreCase);
+        GroupNode? ungrouped = null;
+
+        foreach (var item in items)
+        {
+            if (item.Group is null)
+            {
+                ungrouped ??= new GroupNode("Ungrouped");
+                ungrouped.Workflows.Add(item);
+            }
+            else
+            {
+                var segments = item.Group.Split(':');
+                var dict = rootNodes;
+                GroupNode? node = null;
+                foreach (var seg in segments)
+                {
+                    if (!dict.TryGetValue(seg, out node))
+                    {
+                        node = new GroupNode(seg);
+                        dict[seg] = node;
+                    }
+                    dict = node.SubGroups;
+                }
+                node!.Workflows.Add(item);
+            }
+        }
+
+        var result = new List<WorkflowGroupItem>();
+        result.AddRange(
+            rootNodes.Values
+                .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.ToItem()));
+        if (ungrouped is not null) result.Add(ungrouped.ToItem());
+        return result;
+    }
+
+    private sealed class GroupNode(string name)
+    {
+        public string Name { get; } = name;
+        public Dictionary<string, GroupNode> SubGroups { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public List<WorkflowListItem> Workflows { get; } = [];
+
+        public WorkflowGroupItem ToItem() => new(
+            Name,
+            [.. SubGroups.Values
+                .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.ToItem())],
+            [.. Workflows.OrderBy(w => w.Name, StringComparer.OrdinalIgnoreCase)]);
+    }
 }

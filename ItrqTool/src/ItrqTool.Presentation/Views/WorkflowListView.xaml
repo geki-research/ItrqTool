@@ -5,9 +5,9 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
-        <!-- Group node template -->
+        <!-- Group node template — Children contains WorkflowGroupItem and WorkflowListItem -->
         <HierarchicalDataTemplate DataType="{x:Type ui:WorkflowGroupItem}"
-                                  ItemsSource="{Binding Workflows}">
+                                  ItemsSource="{Binding Children}">
             <TextBlock Text="{Binding GroupName}" FontWeight="Bold"/>
         </HierarchicalDataTemplate>
 

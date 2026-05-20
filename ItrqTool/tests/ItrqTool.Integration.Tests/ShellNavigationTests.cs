@@ -5,6 +5,7 @@ using Xunit;
 using ItrqTool.Application;
 using ItrqTool.Domain;
 using ItrqTool.Presentation.Logging;
+using ItrqTool.Presentation.UIModels;
 using ItrqTool.Presentation.ViewModels;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -49,7 +50,7 @@ public sealed class ShellNavigationTests
         var runVm = MakeRunVm();
         var shell = new ShellViewModel(listVm, runVm);
 
-        listVm.SelectedWorkflow = listVm.WorkflowGroups[0].Workflows[0];
+        listVm.SelectedWorkflow = listVm.WorkflowGroups[0].Children.OfType<WorkflowListItem>().First();
         listVm.SelectCurrentCommand.Execute(null);
 
         shell.CurrentViewModel.Should().BeSameAs(runVm);
@@ -68,7 +69,7 @@ public sealed class ShellNavigationTests
         var shell = new ShellViewModel(listVm, runVm);
 
         // Navigate forward
-        listVm.SelectedWorkflow = listVm.WorkflowGroups[0].Workflows[0];
+        listVm.SelectedWorkflow = listVm.WorkflowGroups[0].Children.OfType<WorkflowListItem>().First();
         listVm.SelectCurrentCommand.Execute(null);
         shell.CurrentViewModel.Should().BeSameAs(runVm);
 

@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using Xunit;
 using ItrqTool.Domain;
+using ItrqTool.Presentation.UIModels;
 using ItrqTool.Presentation.ViewModels;
 
 namespace ItrqTool.Integration.Tests;
@@ -97,7 +98,7 @@ public sealed class WorkflowListViewModelTests
 
         vm.WorkflowGroups.Should().HaveCount(1);
         vm.WorkflowGroups[0].GroupName.Should().Be("Audit 2025");
-        vm.WorkflowGroups[0].Workflows.Should().HaveCount(2);
+        vm.WorkflowGroups[0].Children.OfType<WorkflowListItem>().Should().HaveCount(2);
     }
 
     [Fact]
@@ -126,7 +127,7 @@ public sealed class WorkflowListViewModelTests
 
         vm.WorkflowGroups.Should().HaveCount(1);
         vm.WorkflowGroups[0].GroupName.Should().Be("Ungrouped");
-        vm.WorkflowGroups[0].Workflows.Should().HaveCount(1);
+        vm.WorkflowGroups[0].Children.OfType<WorkflowListItem>().Should().HaveCount(1);
     }
 
     [Fact]
@@ -159,9 +160,45 @@ public sealed class WorkflowListViewModelTests
         var loader = LoaderWith([wf], []);
         var vm = MakeVm(loader);
         vm.Load();
-        vm.SelectedWorkflow = vm.WorkflowGroups[0].Workflows[0];
+        vm.SelectedWorkflow = vm.WorkflowGroups[0].Children.OfType<WorkflowListItem>().First();
 
         vm.SelectCurrentCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    // ── Hierarchical grouping ──────────────────────────────────────────────────
+
+    [Fact]
+    public void Load_GroupWithColon_ProducesNestedGroupNodes()
+    {
+        var wf = new WorkflowDefinition("wf1", "Task", "Year:Audit", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        vm.WorkflowGroups.Should().HaveCount(1);
+        var root = vm.WorkflowGroups[0];
+        root.GroupName.Should().Be("Year");
+        var sub = root.Children.OfType<WorkflowGroupItem>().Single();
+        sub.GroupName.Should().Be("Audit");
+        sub.Children.OfType<WorkflowListItem>().Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void Load_HierarchicalIdWithDerivedGroup_ProducesNestedNodes()
+    {
+        // id="A:B:task" → derived group "A:B" → A > B > leaf
+        var wf = new WorkflowDefinition("A:B:task", "Task", "A:B", []);
+        var loader = LoaderWith([wf], []);
+        var vm = MakeVm(loader);
+
+        vm.Load();
+
+        var root = vm.WorkflowGroups.Single();
+        root.GroupName.Should().Be("A");
+        var sub = root.Children.OfType<WorkflowGroupItem>().Single();
+        sub.GroupName.Should().Be("B");
+        sub.Children.OfType<WorkflowListItem>().Single().Name.Should().Be("Task");
     }
 
     [Fact]

@@ -474,4 +474,142 @@ public sealed class JsonWorkflowLoaderTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Hierarchical id — validation ───────────────────────────────────────────
+
+    [Theory]
+    [InlineData("A::B", "a_empty.json")]
+    [InlineData(":B",   "b_leading.json")]
+    [InlineData("A:",   "c_trailing.json")]
+    public void LoadAll_IdWithEmptySegment_ReturnsAsFailure(string id, string file)
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, file),
+                $$"""{ "id": "{{id}}", "name": "WF", "tasks": [] }""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("empty segment");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Theory]
+    [InlineData("A/B:C")]
+    [InlineData("A:B/C")]
+    public void LoadAll_IdSegmentContainsForwardSlash_ReturnsAsFailure(string id)
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "slash.json"),
+                $$"""{ "id": "{{id}}", "name": "WF", "tasks": [] }""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("illegal");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_HierarchicalId_LoadsSuccessfully()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "hier.json"),
+                """{"id": "A:B:task", "name": "Hierarchical", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows.Should().HaveCount(1);
+            result.Workflows[0].Id.Should().Be("A:B:task");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Hierarchical id — group derivation ────────────────────────────────────
+
+    [Fact]
+    public void LoadAll_HierarchicalId_NoGroup_DeriveGroupByDroppingLastSegment()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "derive.json"),
+                """{"id": "A:B:task", "name": "WF", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Group.Should().Be("A:B");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_TwoSegmentId_NoGroup_DerivesSingleSegmentGroup()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "two.json"),
+                """{"id": "Audit:task", "name": "WF", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Group.Should().Be("Audit");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_HierarchicalId_ExplicitGroupNotOverridden()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "explicit.json"),
+                """{"id": "A:B:task", "name": "WF", "group": "Custom", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Group.Should().Be("Custom");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_FlatId_NoGroup_GroupRemainsNull()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "flat.json"),
+                """{"id": "simple", "name": "WF", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows[0].Group.Should().BeNull();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }

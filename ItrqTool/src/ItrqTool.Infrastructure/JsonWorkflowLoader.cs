@@ -66,6 +66,7 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
 
         if (string.IsNullOrEmpty(dto.Id))
             throw new ArgumentException("Workflow 'id' is required.");
+        ValidateIdSegments(dto.Id);
         if (string.IsNullOrEmpty(dto.Name))
             throw new ArgumentException("Workflow 'name' is required.");
         if (dto.Tasks is null)
@@ -111,7 +112,28 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
             });
         }
 
-        return new WorkflowDefinition(dto.Id, dto.Name, dto.Group, nodes);
+        var effectiveGroup = dto.Group ?? DeriveGroup(dto.Id);
+        return new WorkflowDefinition(dto.Id, dto.Name, effectiveGroup, nodes);
+    }
+
+    private static void ValidateIdSegments(string id)
+    {
+        var segments = id.Split(':');
+        foreach (var segment in segments)
+        {
+            if (segment.Length == 0)
+                throw new ArgumentException(
+                    $"Workflow id '{id}' contains an empty segment between ':' separators.");
+            if (segment.Contains('/') || segment.Contains('\\'))
+                throw new ArgumentException(
+                    $"Workflow id segment '{segment}' contains an illegal path character ('/' and '\\' are not allowed).");
+        }
+    }
+
+    private static string? DeriveGroup(string id)
+    {
+        var lastColon = id.LastIndexOf(':');
+        return lastColon > 0 ? id[..lastColon] : null;
     }
 
     // ── Private DTOs — not part of the public API ──────────────────────────────

@@ -25,7 +25,7 @@ public sealed class WorkflowSessionFactory
 
     public WorkflowSession Create(WorkflowDefinition workflow)
     {
-        var workingDirectory = Path.Combine(_workflowDataRoot, workflow.Id);
+        var workingDirectory = Path.Combine([_workflowDataRoot, .. workflow.Id.Split(':')]);
         return new WorkflowSession(workflow, _taskRegistry, workingDirectory, _logger);
     }
 }
