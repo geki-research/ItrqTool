@@ -36,6 +36,30 @@ public static class QuestionDiffEngine
                 sim[i, j] = TextSimilarity.Score(newQuestions[i].QuestionText,
                                                   oldQuestions[j].QuestionText);
 
+        // Contextual bonuses: section match (+0.10) and number match (+0.10), capped at 1.0.
+        // Both bonuses can stack. Empty/null values do not earn the bonus.
+        const double SectionBonus = 0.10;
+        const double NumberBonus  = 0.10;
+
+        for (int i = 0; i < m; i++)
+        for (int j = 0; j < n; j++)
+        {
+            double bonus = 0.0;
+            var nq = newQuestions[i];
+            var oq = oldQuestions[j];
+
+            if (!string.IsNullOrEmpty(nq.SectionName) &&
+                string.Equals(nq.SectionName, oq.SectionName, StringComparison.Ordinal))
+                bonus += SectionBonus;
+
+            if (!string.IsNullOrEmpty(nq.QuestionNumber) &&
+                string.Equals(nq.QuestionNumber, oq.QuestionNumber, StringComparison.Ordinal))
+                bonus += NumberBonus;
+
+            if (bonus > 0.0)
+                sim[i, j] = Math.Min(1.0, sim[i, j] + bonus);
+        }
+
         // Optimal assignment via Hungarian algorithm
         int[] assignment = HungarianAlgorithm.SolveMaximumAssignment(sim);
 

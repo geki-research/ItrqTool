@@ -9,6 +9,10 @@ public sealed class QuestionDiffEngineTests
     private static AuditQuestion Q(string text, string? dv = null, string? cf = null, int row = 1, string? qn = null, string? dvf = null)
         => new("Chapter", "Section", AuditQuestion.StripPrefix(text), text, qn, row, dv, dvf, cf);
 
+    // Helper that accepts an explicit section name (for bonus tests).
+    private static AuditQuestion Qs(string text, string section, string? qn = null)
+        => new("Chapter", section, AuditQuestion.StripPrefix(text), text, qn, 1, null, null, null);
+
     [Fact]
     public void Diff_AllIdentical_NoChanges()
     {
@@ -408,5 +412,103 @@ public sealed class QuestionDiffEngineTests
     {
         AuditQuestion.StripPrefix("  No prefix here  ").Should().Be("No prefix here");
         AuditQuestion.StripPrefix("What is risk?").Should().Be("What is risk?");
+    }
+
+    // ── Contextual match bonuses ──────────────────────────────────────────────
+
+    [Fact]
+    public void Diff_SectionBonus_ResolvesTieInFavourOfSameSection()
+    {
+        // 2×2: all four pairs have equal base text similarity (same texts used).
+        // Without bonus the matrix is a four-way tie; Hungarian may assign either way.
+        // With +0.10 on same-section pairs, Option A (X→X, Y→Y) scores 0.85+0.85=1.70
+        // vs Option B (X→Y, Y→X) scores 0.75+0.75=1.50 — Hungarian picks Option A.
+        var oldQ0 = Qs("alpha beta gamma", "SectionX");
+        var oldQ1 = Qs("alpha beta gamma", "SectionY");
+        var newQ0 = Qs("alpha beta delta", "SectionX");
+        var newQ1 = Qs("alpha beta delta", "SectionY");
+
+        var result = QuestionDiffEngine.Diff([oldQ0, oldQ1], [newQ0, newQ1]);
+
+        result.Changed.Should().HaveCount(2);
+        result.Added.Should().BeEmpty();
+        result.Removed.Should().BeEmpty();
+        result.Changed.Should().Contain(c =>
+            c.NewQuestion.SectionName == "SectionX" && c.OldQuestion.SectionName == "SectionX");
+        result.Changed.Should().Contain(c =>
+            c.NewQuestion.SectionName == "SectionY" && c.OldQuestion.SectionName == "SectionY");
+    }
+
+    [Fact]
+    public void Diff_BothBonuses_Stack_CappedAt1()
+    {
+        // "...control?" vs "...process?" → base = 33/40 = 0.825.
+        // Same section + same number → +0.10 + +0.10 = +0.20.
+        // Adjusted = min(1.0, 0.825 + 0.20) = 1.0 — capped, not 1.025.
+        // textChanged = score < 1.0 = false → Unchanged despite texts differing.
+        var old  = new[] { Qs("What is the risk level for this control?", "SectionA", "1.1") };
+        var newQ = new[] { Qs("What is the risk level for this process?",  "SectionA", "1.1") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Added.Should().BeEmpty();
+        result.Removed.Should().BeEmpty();
+        result.Unchanged.Should().HaveCount(1,
+            because: "both bonuses applied; adjusted score capped at 1.0 so textChanged=false");
+        result.Changed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_EmptySectionName_NoSectionBonus()
+    {
+        // Both questions have empty SectionName: the section bonus must NOT fire.
+        // Only the number bonus applies (+0.10); adjusted = 0.825 + 0.10 = 0.925 < 1.0
+        // → textChanged=true → Changed.
+        // With a named section both bonuses fire (+0.20); score caps at 1.0 → Unchanged.
+        var oldEmpty = new[]
+        {
+            new AuditQuestion("Ch", "",
+                "What is the risk level for this control?",
+                "What is the risk level for this control?",
+                "1.1", 1, null, null, null)
+        };
+        var newEmpty = new[]
+        {
+            new AuditQuestion("Ch", "",
+                "What is the risk level for this process?",
+                "What is the risk level for this process?",
+                "1.1", 1, null, null, null)
+        };
+        var oldNamed = new[] { Qs("What is the risk level for this control?", "SectionA", "1.1") };
+        var newNamed = new[] { Qs("What is the risk level for this process?",  "SectionA", "1.1") };
+
+        var resultEmpty = QuestionDiffEngine.Diff(oldEmpty, newEmpty);
+        var resultNamed = QuestionDiffEngine.Diff(oldNamed, newNamed);
+
+        resultEmpty.Changed.Should().HaveCount(1,
+            because: "no section bonus on empty names; score stays below 1.0");
+        resultNamed.Unchanged.Should().HaveCount(1,
+            because: "both bonuses fire on named section; score caps at 1.0");
+    }
+
+    [Fact]
+    public void Diff_NullQuestionNumber_NoNumberBonus()
+    {
+        // Both questions have null QuestionNumber: the number bonus must NOT fire.
+        // Only the section bonus applies (+0.10); adjusted = 0.825 + 0.10 = 0.925 < 1.0
+        // → textChanged=true → Changed.
+        // With a real shared number both bonuses fire (+0.20); score caps at 1.0 → Unchanged.
+        var oldNull = new[] { Qs("What is the risk level for this control?", "SectionA") };
+        var newNull = new[] { Qs("What is the risk level for this process?",  "SectionA") };
+        var oldNum  = new[] { Qs("What is the risk level for this control?", "SectionA", "1.1") };
+        var newNum  = new[] { Qs("What is the risk level for this process?",  "SectionA", "1.1") };
+
+        var resultNull = QuestionDiffEngine.Diff(oldNull, newNull);
+        var resultNum  = QuestionDiffEngine.Diff(oldNum,  newNum);
+
+        resultNull.Changed.Should().HaveCount(1,
+            because: "no number bonus on null numbers; score stays below 1.0");
+        resultNum.Unchanged.Should().HaveCount(1,
+            because: "both bonuses fire with matching numbers; score caps at 1.0");
     }
 }
