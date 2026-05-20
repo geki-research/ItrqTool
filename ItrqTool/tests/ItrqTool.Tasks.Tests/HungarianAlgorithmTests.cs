@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Xunit;
-using ItrqTool.Tasks.TemplateDiff;
+using ItrqTool.Tasks.ControlLevelQuestionDiff;
 
 namespace ItrqTool.Tasks.Tests;
 

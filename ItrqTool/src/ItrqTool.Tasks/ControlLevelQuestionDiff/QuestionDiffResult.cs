@@ -1,4 +1,4 @@
-namespace ItrqTool.Tasks.TemplateDiff;
+namespace ItrqTool.Tasks.ControlLevelQuestionDiff;
 
 public sealed record AddedQuestion(AuditQuestion Question);
 

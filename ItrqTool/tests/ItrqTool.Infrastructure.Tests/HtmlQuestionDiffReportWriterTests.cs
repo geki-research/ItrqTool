@@ -5,15 +5,15 @@ using ItrqTool.Infrastructure.Reporting;
 
 namespace ItrqTool.Infrastructure.Tests;
 
-public sealed class HtmlTemplateDiffReportWriterTests
+public sealed class HtmlQuestionDiffReportWriterTests
 {
     private static string TestWorkDir() =>
         Path.Combine(Path.GetTempPath(), "ItrqTool-html-report-tests", Guid.NewGuid().ToString("N"));
 
-    private static HtmlTemplateDiffReportWriter Writer() => new();
+    private static HtmlQuestionDiffReportWriter Writer() => new();
 
     private static HtmlDiffReportData EmptyReport() => new(
-        Title: "Audit Template Diff Report",
+        Title: "Question Diff Report",
         PreviousWorkbookPath: @"C:\prev\workbook.xlsx",
         CurrentWorkbookPath: @"C:\curr\workbook.xlsx",
         GeneratedAt: new DateTimeOffset(2025, 5, 19, 12, 0, 0, TimeSpan.Zero),

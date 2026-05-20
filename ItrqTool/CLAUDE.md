@@ -523,9 +523,9 @@ public sealed class MyExcelTask : IWorkflowTask
 
 ---
 
-## TemplateDiffTask — CLQ config file format
+## ControlLevelQuestionDiffTask — CLQ config file format
 
-`TemplateDiffTask` (TaskType `"TemplateDiff"`) accepts four task parameters:
+`ControlLevelQuestionDiffTask` (TaskType `"ControlLevelQuestionDiff"`) accepts four task parameters:
 
 | Parameter | Description |
 |---|---|
@@ -539,7 +539,7 @@ the two workbooks to have different sheet structures (e.g. across audit years).
 
 The config describes the structure of the "Control Level Questions" sheet in a workbook.
 
-**AuditQuestion** (in `ItrqTool.Tasks.TemplateDiff`):
+**AuditQuestion** (in `ItrqTool.Tasks.ControlLevelQuestionDiff`):
 
 ```csharp
 public sealed record AuditQuestion(
@@ -557,7 +557,7 @@ public sealed record AuditQuestion(
 // AuditQuestion.StripPrefix("1.2) text")   → "text"
 ```
 
-**DiffResult / ChangedQuestion** (in `ItrqTool.Tasks.TemplateDiff`):
+**DiffResult / ChangedQuestion** (in `ItrqTool.Tasks.ControlLevelQuestionDiff`):
 
 A matched question pair is either Changed or Unchanged — there is no separate ValidationChange
 category. CF changes are ignored when the old DvType is "List" (presentational noise on dropdowns).
@@ -587,7 +587,7 @@ public sealed record DiffResult(
 );
 ```
 
-**ControlLevelQuestionsConfig** (in `ItrqTool.Tasks.TemplateDiff`):
+**ControlLevelQuestionsConfig** (in `ItrqTool.Tasks.ControlLevelQuestionDiff`):
 
 ```csharp
 public sealed record SectionDefinition(int SectionRow, int FirstQuestionRow, int LastQuestionRow);
@@ -612,7 +612,7 @@ All numbers are 1-based Excel row numbers. Constraints:
 - `lastQuestionRow` must be ≥ `firstQuestionRow`.
 
 Rows not covered by any section range or chapter row are silently skipped during parsing.
-`ParsedSections` throws `FormatException` on the first invalid entry; `TemplateDiffTask`
+`ParsedSections` throws `FormatException` on the first invalid entry; `ControlLevelQuestionDiffTask`
 catches it and returns `Succeeded: false` with the error message.
 
 **Example CLQ config file:**

@@ -5,7 +5,7 @@
   "tasks": [
     {
       "id": "Diff Report — Control Questions",
-      "type": "TemplateDiff",
+      "type": "ControlLevelQuestionDiff",
       "inputs": {},
       "outputs": { "report": "diff-report__EcbFormat__ControlQuestions.html" },
       "parameters": {

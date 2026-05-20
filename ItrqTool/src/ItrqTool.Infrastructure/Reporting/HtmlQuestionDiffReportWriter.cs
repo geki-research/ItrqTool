@@ -4,7 +4,7 @@ using ItrqTool.Domain.Reporting;
 
 namespace ItrqTool.Infrastructure.Reporting;
 
-public sealed class HtmlTemplateDiffReportWriter : IHtmlReportWriter
+public sealed class HtmlQuestionDiffReportWriter : IHtmlReportWriter
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
     {

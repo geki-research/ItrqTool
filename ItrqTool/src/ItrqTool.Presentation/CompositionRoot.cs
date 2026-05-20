@@ -34,7 +34,7 @@ public static class CompositionRoot
         services.AddSingleton<IExcelReader, ClosedXmlExcelReader>();
         services.AddSingleton<IExcelStructureReader, ClosedXmlExcelStructureReader>();
         services.AddSingleton<IExcelWriter, ClosedXmlExcelWriter>();
-        services.AddSingleton<IHtmlReportWriter, HtmlTemplateDiffReportWriter>();
+        services.AddSingleton<IHtmlReportWriter, HtmlQuestionDiffReportWriter>();
         services.AddSingleton<IWorkflowLoader>(sp =>
             new JsonWorkflowLoader(
                 workflowsDirectoryPath,

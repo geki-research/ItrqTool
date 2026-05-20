@@ -3,13 +3,13 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Domain.Reporting;
-using ItrqTool.Tasks.TemplateDiff;
+using ItrqTool.Tasks.ControlLevelQuestionDiff;
 
 namespace ItrqTool.Tasks;
 
-public sealed class TemplateDiffTask : IWorkflowTask
+public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
 {
-    private const string DefaultReportTitle = "Audit Template Diff Report";
+    private const string DefaultReportTitle = "Control Level Questions Diff Report";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -18,19 +18,19 @@ public sealed class TemplateDiffTask : IWorkflowTask
 
     private readonly IExcelStructureReader _structureReader;
     private readonly IHtmlReportWriter _htmlReportWriter;
-    private readonly ILogger<TemplateDiffTask> _logger;
+    private readonly ILogger<ControlLevelQuestionDiffTask> _logger;
 
-    public TemplateDiffTask(
+    public ControlLevelQuestionDiffTask(
         IExcelStructureReader structureReader,
         IHtmlReportWriter htmlReportWriter,
-        ILogger<TemplateDiffTask> logger)
+        ILogger<ControlLevelQuestionDiffTask> logger)
     {
         _structureReader = structureReader;
         _htmlReportWriter = htmlReportWriter;
         _logger = logger;
     }
 
-    public string TaskType => "TemplateDiff";
+    public string TaskType => "ControlLevelQuestionDiff";
 
     public async Task<TaskResult> ExecuteAsync(TaskExecutionContext ctx, CancellationToken ct)
     {

@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace ItrqTool.Tasks.TemplateDiff;
+namespace ItrqTool.Tasks.ControlLevelQuestionDiff;
 
 public sealed record AuditQuestion(
     string  ChapterName,

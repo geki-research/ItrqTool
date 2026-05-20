@@ -9,18 +9,18 @@ using ItrqTool.Tasks;
 
 namespace ItrqTool.Tasks.Tests;
 
-public sealed class TemplateDiffTaskTests
+public sealed class ControlLevelQuestionDiffTaskTests
 {
     private static string TestWorkDir() =>
         Path.Combine(Path.GetTempPath(), "ItrqTool-tdiff-tests", Guid.NewGuid().ToString("N"));
 
-    private static TemplateDiffTask MakeTask(
+    private static ControlLevelQuestionDiffTask MakeTask(
         IExcelStructureReader? reader = null,
         IHtmlReportWriter? htmlWriter = null)
     {
         var r = reader ?? Substitute.For<IExcelStructureReader>();
         var w = htmlWriter ?? Substitute.For<IHtmlReportWriter>();
-        return new TemplateDiffTask(r, w, NullLogger<TemplateDiffTask>.Instance);
+        return new ControlLevelQuestionDiffTask(r, w, NullLogger<ControlLevelQuestionDiffTask>.Instance);
     }
 
     private static IReadOnlyList<ExcelRowStructure> MinimalRows() =>
@@ -514,7 +514,7 @@ public sealed class TemplateDiffTaskTests
 
             result.Succeeded.Should().BeTrue();
             captured.Should().NotBeNull();
-            captured!.Title.Should().Be("Audit Template Diff Report");
+            captured!.Title.Should().Be("Control Level Questions Diff Report");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
