@@ -5,8 +5,10 @@
 
 .DESCRIPTION
   Produces a framework-dependent single-file build of ItrqTool.Presentation
-  under publish/, stages appsettings.json alongside the exe, and copies
-  the /workflows directory into publish/workflows/.
+  under publish/, stages appsettings.json alongside the exe, wipes the
+  published workflows/ folder clean (developer-side workflows are reference
+  only and never ship to end users), and writes a README.txt quick-start
+  guide for end users.
 
   The contents of publish/ are zip-ready for handoff to a user. The user
   extracts the zip and runs ItrqTool.exe directly.
