@@ -1,0 +1,18 @@
+{
+  "id": "risk-level-question-diff",
+  "name": "Risk Level Question Diff",
+  "tasks": [
+    {
+      "id": "diff-report",
+      "type": "RiskLevelQuestionDiff",
+      "inputs": {},
+      "outputs": { "report": "risk-level-question-diff.html" },
+      "parameters": {
+        "previousWorkbookFullFilename": "<path to previous year's workbook>",
+        "currentWorkbookFullFilename": "<path to current year's workbook>",
+        "previousConfigurationFullFilename": "<path to previous year's rlq-structure.json>",
+        "currentConfigurationFullFilename": "<path to current year's rlq-structure.json>"
+      }
+    }
+  ]
+}
