@@ -21,3 +21,7 @@ publish/
 # OS
 Thumbs.db
 .DS_Store
+
+# Planner artifacts
+reports/
+diagnostics/
