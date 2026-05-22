@@ -55,6 +55,58 @@ These rules must never be broken, even when breaking them would be locally conve
 
 ---
 
+## Application posture: conservative input handling
+
+This application is a QA tool. Surfacing anomalies in input data is the
+primary goal; processing efficiency is secondary. The application is
+deployed in a chain involving multiple organisational units, each of
+whom may return workbooks with structural or content deviations from
+the expected template. These deviations are exactly what the user needs
+to see — never what the application should silently smooth over.
+
+Every task that consumes a workbook must:
+
+- Validate sheet existence and surface a clear error if a configured
+  sheet is missing.
+- Validate that expected columns are populated and surface row-level
+  anomalies (missing cells, wrong types, out-of-range values) rather
+  than coercing to defaults.
+- Surface unexpected structural conditions (extra rows in a section
+  range, populated cells outside any defined section, blank cells where
+  data is required) as warnings or errors in the task's TaskResult.
+- When in doubt between "log a warning and continue" and "stop and
+  surface", err toward surfacing. A failed task with a precise message
+  is more useful than a successful task with quietly wrong output.
+
+Severity gradient by input source:
+
+- **Auditor-supplied templates** (steps 1–2 of the lifecycle): less
+  acute but same default posture. Wrong template structure should be
+  caught at the first task that touches it.
+- **Organisational-unit responses** (steps 3–6): treated as untrusted.
+  Validation is the point.
+
+Severity model for input deviations:
+
+- **Error**: workbook deviates from config expectation (declared
+  question rows missing or blank, declared structural cells absent).
+  The workbook is the untrusted artifact; this is exactly the QA
+  finding the application exists to surface.
+- **Warning**: config under-specifies workbook (populated rows
+  outside any declared section range). The user authored the config;
+  the warning prompts them to check whether to extend ranges or
+  intentionally exclude content.
+- **Lower priority**: silent defaults that flow visibly into reports
+  (empty section names → blank in HTML; null DV/CF metadata → "—"
+  in display). Already observable in the report; the gain from
+  flagging is incremental.
+
+This posture is upstream of all task design. New tasks default to
+strict validation; relaxations require justification documented
+inline.
+
+---
+
 ## Solution structure
 
 ```
@@ -271,7 +323,10 @@ public record HtmlDiffChangedQuestion(
     bool    TextChanged,
     bool    NumberChanged,
     bool    DvChanged,
-    bool    CfChanged           // false when old DvType == "List" (presentational noise)
+    bool    CfChanged,          // false when old DvType == "List" (presentational noise)
+    string? OldExplanation     = null,   // explanation prompt from the previous-year question
+    string? NewExplanation     = null,   // explanation prompt from the current-year question
+    bool    ExplanationChanged = false   // true when old/new explanations differ; triggers diff block in writer
 );
 
 public record HtmlDiffUnchangedQuestion(
@@ -629,6 +684,108 @@ catches it and returns `Succeeded: false` with the error message.
 
 ---
 
+### RiskLevelQuestionDiffTask
+
+The second diff task. Compares the Risk Level Questions sheet between
+two reference years. Structurally similar to CLQ but with deliberate
+divergences.
+
+- **Task type**: `RiskLevelQuestionDiff`
+- **Namespace**: `ItrqTool.Tasks.RiskLevelQuestionDiff`
+- **Default sheet name**: `"Risk Level Questions"`
+- **Default output filename**: `risk-level-question-diff.html`
+- **Default report title**: `"Risk Level Questions Diff Report"`
+
+#### Records
+
+- `RiskLevelQuestion` — `(SectionName, QuestionText, ExplanationPrompt,
+  QuestionNumber, RowNumber, DvType, DvFormula, CfOperator)`. No
+  `ChapterName` (RLQ has sections only). No `OriginalText` (number is
+  in its own column, no prefix to strip).
+- `RiskLevelQuestionsConfig` — `SheetName`, `NumberColumn` (default
+  `"B"`), `TextColumn` (default `"C"`), `AnswerColumn` (default `"D"`),
+  `ExplanationColumn` (default `"E"`), `SectionRows`, computed
+  `ParsedSections`. No `ChapterRows`.
+- Result records `AddedQuestion`, `RemovedQuestion`, `ChangedQuestion`,
+  `UnchangedQuestion`, `DiffResult` live in the same namespace as
+  siblings to CLQ's. `ChangedQuestion` has an extra `ExplanationChanged`
+  flag compared to CLQ's.
+
+#### Configuration file format
+
+```json
+{
+  "sheetName": "Risk Level Questions",
+  "numberColumn": "B",
+  "textColumn": "C",
+  "answerColumn": "D",
+  "explanationColumn": "E",
+  "sectionRows": ["3:4-15", "16:17-42"]
+}
+```
+
+`sectionRows` uses the same `"<sectionRow>:<firstQuestionRow>-<lastQuestionRow>"`
+format as CLQ. Throws `FormatException` on invalid entries (propagates
+through `ExecuteAsync`'s outer catch as a `TaskResult.Succeeded: false`).
+
+#### Parser specifics
+
+- Question number read directly from column B. No regex. Trimmed string
+  stored as-is; `null` if cell missing or whitespace.
+- Question text from column C (no prefix strip).
+- Explanation prompt from column E.
+- DV/CF metadata from column D, same `IExcelStructureReader` contract
+  as CLQ.
+- Section name read from column C on the row indicated by
+  `SectionDefinition.SectionRow`.
+
+#### Diff engine
+
+`ItrqTool.Tasks.RiskLevelQuestionDiff.QuestionDiffEngine.Diff(prev, cur)`.
+Mirrors CLQ's engine with one structural difference: an
+`explanationChanged` flag is computed alongside `textChanged`,
+`numberChanged`, `dvChanged`, `cfChanged`, and flows into the result's
+`ChangedQuestion`.
+
+The matching matrix uses `QuestionText` only with the existing
++0.10 section-match and +0.10 number-match contextual bonuses.
+**`ExplanationPrompt` does NOT participate in the matching matrix.**
+This is a deliberate decision: keeping the matching surface narrow
+preserves the "reported similarity is base text similarity"
+invariant. If a future failure mode shows that explanation similarity
+would have disambiguated text-similar questions, adding an
+`ExplanationBonus` is a one-line matrix-construction change.
+
+**Matching surface narrowness — `ExplanationPrompt` in RLQ.** The RLQ
+diff engine's matching matrix uses `QuestionText` only, with the same
+section/number contextual bonuses as CLQ. `ExplanationPrompt` (the
+second text field per row in the RLQ schema) does NOT participate in
+matching; the `ExplanationChanged` flag is computed post-match from a
+separate `TextSimilarity.Score` call on the matched pair's
+explanation strings. Rationale: keeps the "reported similarity is
+base question-text similarity" invariant clean, and avoids the
+question of whether explanation similarity should affect the reported
+`SimilarityScore` (it should not). Symmetric extensions are reserved
+for the matching matrix only; secondary text fields stay outside it.
+
+#### Parameters
+
+Five, same shape as CLQ:
+
+- `previousWorkbookFullFilename` (required)
+- `currentWorkbookFullFilename` (required)
+- `previousConfigurationFullFilename` (required)
+- `currentConfigurationFullFilename` (required)
+- `reportTitle` (optional, defaults to "Risk Level Questions Diff Report")
+
+#### Workflow JSON
+
+Placeholder at `workflows/risk-level-question-diff.json`. Same shape
+as CLQ's workflow JSON with the task type, output filename, and
+placeholder parameter paths adapted for RLQ.
+
+---
+
 ## Presentation layer conventions
 
 - Framework: WPF on .NET 10. Target `net10.0-windows`.
@@ -832,6 +989,18 @@ Each task implementation must have:
 - A success path test with a representative input file (use temp files).
 - A failure path test (malformed input, missing expected column, etc.).
 - A cancellation test verifying `OperationCanceledException` propagates.
+
+Implemented tasks with test coverage:
+- `ControlLevelQuestionDiffTask` (TaskType `"ControlLevelQuestionDiff"`) — compares the
+  Control Level Questions sheet between two reference years; produces an interactive HTML
+  diff report.
+- `RiskLevelQuestionDiffTask` (TaskType `"RiskLevelQuestionDiff"`) — compares the Risk
+  Level Questions sheet between two reference years; produces the same interactive HTML
+  report shape as CLQ with the addition of an explanation diff block per changed question.
+
+**Current test counts (as of RLQ phase-F merge):**
+Architecture 14, Domain 13, Application 12, Tasks 185, Infrastructure 58, Integration 40
+— **322 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows
