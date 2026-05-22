@@ -36,7 +36,10 @@ public record HtmlDiffChangedQuestion(
     bool    TextChanged,
     bool    NumberChanged,
     bool    DvChanged,
-    bool    CfChanged           // false when old DvType == "List" (presentational noise)
+    bool    CfChanged,          // false when old DvType == "List" (presentational noise)
+    string? OldExplanation     = null,
+    string? NewExplanation     = null,
+    bool    ExplanationChanged = false
 );
 
 public record HtmlDiffUnchangedQuestion(

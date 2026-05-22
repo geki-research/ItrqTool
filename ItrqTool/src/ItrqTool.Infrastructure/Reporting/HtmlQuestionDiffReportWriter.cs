@@ -129,6 +129,10 @@ tbody tr:hover { background: #f1f5f9; }
 .sim-cell    { display: inline-flex; flex-direction: column; gap: 1px; }
 .sim-primary { font-weight: 600; }
 .sim-secondary { font-size: 11px; color: #94a3b8; }
+
+.explanation-block { margin-top: 6px; padding: 4px 8px; border-left: 3px solid #e2e8f0; font-size: 12px; color: #475569; }
+.explanation-label { font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; margin-bottom: 2px; }
+.explanation-diff  { display: flex; flex-direction: column; gap: 2px; }
 </style>
 </head>
 <body>
@@ -350,6 +354,17 @@ function renderChanged() {
       ? esc(c.oldCfOperator) + ' → ' + esc(c.newCfOperator)
       : '<span class="cell-unchanged">unchanged</span>';
 
+    let explanationOldCell = d.oldHtml;
+    let explanationNewCell = d.newHtml;
+    if (c.explanationChanged) {
+      const expD = renderDiff(c.oldExplanation || '', c.newExplanation || '');
+      const expBlock = '<div class="explanation-block"><div class="explanation-label">Explanation:</div>' +
+        '<div class="explanation-diff">' + expD.oldHtml + '</div>' +
+        '<div class="explanation-diff">' + expD.newHtml + '</div></div>';
+      explanationOldCell = d.oldHtml + expBlock;
+      explanationNewCell = d.newHtml;
+    }
+
     return '<tr>' +
       '<td>' + (i+1) + '</td>' +
       '<td>' + badges + '</td>' +
@@ -357,8 +372,8 @@ function renderChanged() {
       '<td>' + esc(c.section) + '</td>' +
       '<td' + numCls + '>' + esc(c.previousNumber) + '</td>' +
       '<td' + numCls + '>' + esc(c.currentNumber) + '</td>' +
-      '<td>' + d.oldHtml + '</td>' +
-      '<td>' + d.newHtml + '</td>' +
+      '<td>' + explanationOldCell + '</td>' +
+      '<td>' + explanationNewCell + '</td>' +
       '<td>' + simCell + '</td>' +
       '<td>' + dvCell + '</td>' +
       '<td>' + cfCell + '</td>' +

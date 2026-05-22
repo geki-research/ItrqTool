@@ -564,4 +564,177 @@ public sealed class HtmlQuestionDiffReportWriterTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Phase E: ExplanationChanged rendering ─────────────────────────────────
+
+    [Fact]
+    public void WriteReport_ChangedWithExplanationChangedTrue_RendersExplanationDiffBlock()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            const string oldExplanation = "previous explanation text";
+            const string newExplanation = "new explanation text";
+
+            var data = EmptyReport() with
+            {
+                Changed =
+                [
+                    new HtmlDiffChangedQuestion(
+                        Chapter: "Chapter 1",
+                        Section: "Section A",
+                        PreviousNumber: null,
+                        CurrentNumber: null,
+                        OldText: "Same question text",
+                        NewText: "Same question text",
+                        SimilarityScore: 1.0,
+                        SecondBestSimilarity: null,
+                        OldDvDisplay: "—",
+                        NewDvDisplay: "—",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: false,
+                        NumberChanged: false,
+                        DvChanged: false,
+                        CfChanged: false,
+                        OldExplanation: oldExplanation,
+                        NewExplanation: newExplanation,
+                        ExplanationChanged: true)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+
+            // Explanation text is serialised into the embedded REPORT_DATA JSON.
+            content.Should().Contain(oldExplanation,
+                because: "old explanation text must be serialized into REPORT_DATA");
+            content.Should().Contain(newExplanation,
+                because: "new explanation text must be serialized into REPORT_DATA");
+
+            // The renderChanged JS function body must contain the explanation rendering guard
+            // and the explanation-block CSS class used to wrap the diff output.
+            var fnStart = content.IndexOf("function renderChanged(", StringComparison.Ordinal);
+            fnStart.Should().BeGreaterThan(0, because: "renderChanged JS function must be present");
+            var fnEnd = content.IndexOf("\nfunction ", fnStart + 1, StringComparison.Ordinal);
+            if (fnEnd < 0) fnEnd = content.IndexOf("</script>", fnStart, StringComparison.OrdinalIgnoreCase);
+            var fnBody = content.Substring(fnStart, fnEnd - fnStart);
+
+            fnBody.Should().Contain("explanationChanged",
+                because: "renderChanged must guard on c.explanationChanged");
+            fnBody.Should().Contain("explanation-block",
+                because: "renderChanged must reference the explanation-block CSS class");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_ChangedWithExplanationChangedFalse_OmitsExplanationBlock()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            const string oldText = "What is risk tolerance?";
+            const string newText = "What is the risk tolerance threshold?";
+
+            var data = EmptyReport() with
+            {
+                Changed =
+                [
+                    new HtmlDiffChangedQuestion(
+                        Chapter: "Chapter 1",
+                        Section: "Section A",
+                        PreviousNumber: null,
+                        CurrentNumber: null,
+                        OldText: oldText,
+                        NewText: newText,
+                        SimilarityScore: 0.75,
+                        SecondBestSimilarity: null,
+                        OldDvDisplay: "—",
+                        NewDvDisplay: "—",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: true,
+                        NumberChanged: false,
+                        DvChanged: false,
+                        CfChanged: false,
+                        OldExplanation: null,
+                        NewExplanation: null,
+                        ExplanationChanged: false)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+
+            // The REPORT_DATA JSON must NOT carry explanationChanged:true for this question.
+            content.Should().NotContain("\"explanationChanged\":true",
+                because: "explanationChanged must be false in the serialized data");
+
+            // Existing question-text rendering must be unaffected — regression guard.
+            content.Should().Contain(oldText.Split(' ')[0],
+                because: "old question text must still be present in REPORT_DATA");
+            content.Should().Contain(newText.Split(' ')[0],
+                because: "new question text must still be present in REPORT_DATA");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_LegacyChangedQuestion_RendersWithoutExplanationMarkup()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            const string oldText = "Describe internal controls.";
+            const string newText = "Describe the internal control framework.";
+
+            var data = EmptyReport() with
+            {
+                Changed =
+                [
+                    new HtmlDiffChangedQuestion(
+                        Chapter: "Chapter 2",
+                        Section: "Section B",
+                        PreviousNumber: "2.1",
+                        CurrentNumber: "2.1",
+                        OldText: oldText,
+                        NewText: newText,
+                        SimilarityScore: 0.85,
+                        SecondBestSimilarity: null,
+                        OldDvDisplay: "—",
+                        NewDvDisplay: "—",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: true,
+                        NumberChanged: false,
+                        DvChanged: false,
+                        CfChanged: false)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+
+            // Existing question-text rendering must be unaffected — regression guard.
+            content.Should().Contain(oldText.Split(' ')[0],
+                because: "old question text must appear in legacy-shape output");
+            content.Should().Contain(newText.Split(' ')[0],
+                because: "new question text must appear in legacy-shape output");
+
+            // ExplanationChanged defaults to false; the JSON must not carry the true flag.
+            content.Should().NotContain("\"explanationChanged\":true",
+                because: "default ExplanationChanged=false must serialize as false, not true");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }
