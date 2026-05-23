@@ -60,7 +60,7 @@ public sealed class HtmlQuestionDiffReportWriterTests
             {
                 Added =
                 [
-                    new HtmlDiffQuestion(null, "Chapter 1", "Section A", questionText, "List", null)
+                    new HtmlDiffQuestion(null, "Chapter 1", "Section A", 1, questionText, "List", null)
                 ]
             };
 
@@ -92,6 +92,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 2",
                         Section: "Section B",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
                         PreviousNumber: null,
                         CurrentNumber: null,
                         OldText: oldText,
@@ -175,7 +177,7 @@ public sealed class HtmlQuestionDiffReportWriterTests
             {
                 Unchanged =
                 [
-                    new HtmlDiffUnchangedQuestion("Chapter 1", "Section A", null, questionText, "—", null, 1.0, null)
+                    new HtmlDiffUnchangedQuestion("Chapter 1", "Section A", 1, 1, null, questionText, "—", null, 1.0, null)
                 ]
             };
 
@@ -247,6 +249,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 1",
                         Section: "Section A",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
                         PreviousNumber: "1.1",
                         CurrentNumber: "1.1",
                         OldText: "What is risk?",
@@ -289,6 +293,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 1",
                         Section: "Section A",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
                         PreviousNumber: null,
                         CurrentNumber: null,
                         OldText: "What is risk?",
@@ -331,6 +337,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 1",
                         Section: "Section A",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
                         PreviousNumber: null,
                         CurrentNumber: null,
                         OldText: "What is risk?",
@@ -373,7 +381,7 @@ public sealed class HtmlQuestionDiffReportWriterTests
             {
                 Unchanged =
                 [
-                    new HtmlDiffUnchangedQuestion("Chapter 2", "Section B", "2.1", questionText, "List: Yes | No", null, 1.0, null)
+                    new HtmlDiffUnchangedQuestion("Chapter 2", "Section B", 1, 1, "2.1", questionText, "List: Yes | No", null, 1.0, null)
                 ]
             };
 
@@ -479,6 +487,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 1",
                         Section: "Section A",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
                         PreviousNumber: null,
                         CurrentNumber: null,
                         OldText: "What is risk?",
@@ -585,6 +595,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 1",
                         Section: "Section A",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
                         PreviousNumber: null,
                         CurrentNumber: null,
                         OldText: "Same question text",
@@ -649,6 +661,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 1",
                         Section: "Section A",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
                         PreviousNumber: null,
                         CurrentNumber: null,
                         OldText: oldText,
@@ -704,6 +718,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                     new HtmlDiffChangedQuestion(
                         Chapter: "Chapter 2",
                         Section: "Section B",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
                         PreviousNumber: "2.1",
                         CurrentNumber: "2.1",
                         OldText: oldText,

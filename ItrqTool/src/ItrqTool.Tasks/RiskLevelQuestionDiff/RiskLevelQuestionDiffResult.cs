@@ -18,7 +18,8 @@ public sealed record ChangedQuestion(
 
 public sealed record UnchangedQuestion(
     RiskLevelQuestion Question,
-    double? SecondBestSimilarity
+    double? SecondBestSimilarity,
+    int PreviousRowNumber
 );
 
 public sealed record DiffResult(

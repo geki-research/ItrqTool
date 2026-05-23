@@ -96,7 +96,7 @@ public static class QuestionDiffEngine
                                                     textChanged, explanationChanged,
                                                     numberChanged, dvChanged, cfChanged));
                 else
-                    unchanged.Add(new UnchangedQuestion(newQ, secondBest));
+                    unchanged.Add(new UnchangedQuestion(newQ, secondBest, oldQ.RowNumber));
             }
             else
             {

@@ -226,6 +226,7 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
                 a.Question.QuestionNumber,
                 Chapter: "",
                 a.Question.SectionName,
+                a.Question.RowNumber,
                 a.Question.QuestionText,
                 a.Question.DvType,
                 a.Question.CfOperator))
@@ -236,6 +237,7 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
                 r.Question.QuestionNumber,
                 Chapter: "",
                 r.Question.SectionName,
+                r.Question.RowNumber,
                 r.Question.QuestionText,
                 r.Question.DvType,
                 r.Question.CfOperator))
@@ -245,6 +247,8 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
             .Select(c => new HtmlDiffChangedQuestion(
                 Chapter:              "",
                 Section:              c.OldQuestion.SectionName,
+                PreviousRowNumber:    c.OldQuestion.RowNumber,
+                CurrentRowNumber:     c.NewQuestion.RowNumber,
                 PreviousNumber:       c.OldQuestion.QuestionNumber,
                 CurrentNumber:        c.NewQuestion.QuestionNumber,
                 c.OldQuestion.QuestionText,
@@ -268,6 +272,8 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
             .Select(u => new HtmlDiffUnchangedQuestion(
                 Chapter: "",
                 u.Question.SectionName,
+                u.PreviousRowNumber,
+                u.Question.RowNumber,
                 u.Question.QuestionNumber,
                 u.Question.QuestionText,
                 DvDisplayFormatter.FormatDv(u.Question.DvType, u.Question.DvFormula),

@@ -17,7 +17,8 @@ public sealed record ChangedQuestion(
 
 public sealed record UnchangedQuestion(
     AuditQuestion Question,
-    double? SecondBestSimilarity
+    double? SecondBestSimilarity,
+    int PreviousRowNumber
 );
 
 public sealed record DiffResult(

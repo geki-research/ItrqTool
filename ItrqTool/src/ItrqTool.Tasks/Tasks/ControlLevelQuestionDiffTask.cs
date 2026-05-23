@@ -228,6 +228,7 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
                 a.Question.QuestionNumber,
                 a.Question.ChapterName,
                 a.Question.SectionName,
+                a.Question.RowNumber,
                 a.Question.QuestionText,
                 a.Question.DvType,
                 a.Question.CfOperator))
@@ -238,6 +239,7 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
                 r.Question.QuestionNumber,
                 r.Question.ChapterName,
                 r.Question.SectionName,
+                r.Question.RowNumber,
                 r.Question.QuestionText,
                 r.Question.DvType,
                 r.Question.CfOperator))
@@ -247,6 +249,8 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
             .Select(c => new HtmlDiffChangedQuestion(
                 c.OldQuestion.ChapterName,
                 c.OldQuestion.SectionName,
+                PreviousRowNumber:    c.OldQuestion.RowNumber,
+                CurrentRowNumber:     c.NewQuestion.RowNumber,
                 PreviousNumber:       c.OldQuestion.QuestionNumber,
                 CurrentNumber:        c.NewQuestion.QuestionNumber,
                 c.OldQuestion.QuestionText,
@@ -267,6 +271,8 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
             .Select(u => new HtmlDiffUnchangedQuestion(
                 u.Question.ChapterName,
                 u.Question.SectionName,
+                u.PreviousRowNumber,
+                u.Question.RowNumber,
                 u.Question.QuestionNumber,
                 u.Question.QuestionText,
                 DvDisplayFormatter.FormatDv(u.Question.DvType, u.Question.DvFormula),

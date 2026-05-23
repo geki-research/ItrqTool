@@ -302,6 +302,7 @@ public record HtmlDiffQuestion(
     string? QuestionNumber,
     string  Chapter,
     string  Section,
+    int     RowNumber,          // row in the sheet the question came from
     string  QuestionText,
     string? DvType,
     string? CfOperator
@@ -310,6 +311,8 @@ public record HtmlDiffQuestion(
 public record HtmlDiffChangedQuestion(
     string  Chapter,
     string  Section,
+    int     PreviousRowNumber,
+    int     CurrentRowNumber,
     string? PreviousNumber,
     string? CurrentNumber,
     string  OldText,
@@ -332,6 +335,8 @@ public record HtmlDiffChangedQuestion(
 public record HtmlDiffUnchangedQuestion(
     string  Chapter,
     string  Section,
+    int     PreviousRowNumber,
+    int     CurrentRowNumber,
     string? QuestionNumber,
     string  QuestionText,
     string  DvDisplay,          // formatted: "—", type name, or "List: A | B | C"

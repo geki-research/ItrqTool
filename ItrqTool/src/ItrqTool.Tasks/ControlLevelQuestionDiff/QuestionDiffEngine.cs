@@ -92,7 +92,7 @@ public static class QuestionDiffEngine
                     changed.Add(new ChangedQuestion(oldQ, newQ, baseScore, secondBest,
                                                     textChanged, numberChanged, dvChanged, cfChanged));
                 else
-                    unchanged.Add(new UnchangedQuestion(newQ, secondBest));
+                    unchanged.Add(new UnchangedQuestion(newQ, secondBest, oldQ.RowNumber));
             }
             else
             {
