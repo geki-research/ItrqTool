@@ -133,6 +133,35 @@ tbody tr:hover { background: #f1f5f9; }
 .explanation-block { margin-top: 6px; padding: 4px 8px; border-left: 3px solid #e2e8f0; font-size: 12px; color: #475569; }
 .explanation-label { font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; margin-bottom: 2px; }
 .explanation-diff  { display: flex; flex-direction: column; gap: 2px; }
+
+/* Sheet-order tab styles */
+.sheet-entry-row { cursor: pointer; }
+.sheet-entry-row:hover { background: #eef2ff; }
+.sheet-entry-row.expanded { background: #e0e7ff; }
+.sheet-entry-detail { background: #f8fafc; }
+.sheet-entry-detail > td { padding: 12px 16px; border-top: none; }
+.sheet-separator-row > td {
+  background: #e2e8f0; color: #475569;
+  font-weight: 600; font-size: 12px;
+  padding: 6px 12px; text-transform: uppercase; letter-spacing: .04em;
+}
+.sheet-separator-row.sheet-separator-chapter > td {
+  background: #cbd5e1; color: #1e293b;
+}
+
+.status-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
+}
+.status-badge-added     { background: #dcfce7; color: #166534; }
+.status-badge-removed   { background: #fee2e2; color: #991b1b; }
+.status-badge-changed   { background: #fef3c7; color: #92400e; }
+.status-badge-unchanged { background: #e5e7eb; color: #374151; }
+
+.entry-card { padding: 4px 0; }
+.entry-card dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; margin: 0; }
+.entry-card dt { font-weight: 600; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding-top: 2px; }
+.entry-card dd { font-size: 13px; color: #1e293b; }
 </style>
 </head>
 <body>
@@ -171,6 +200,8 @@ tbody tr:hover { background: #f1f5f9; }
   <button class="tab-btn" onclick="showTab('removed')">Removed</button>
   <button class="tab-btn" onclick="showTab('changed')">Changed</button>
   <button class="tab-btn" onclick="showTab('unchanged')">Unchanged</button>
+  <button class="tab-btn" onclick="showTab('current-sheet')">Current sheet</button>
+  <button class="tab-btn" onclick="showTab('previous-sheet')">Previous sheet</button>
 </div>
 
 <div id="tab-added" class="tab-panel active">
@@ -201,6 +232,20 @@ tbody tr:hover { background: #f1f5f9; }
   </table></div>
 </div>
 
+<div id="tab-current-sheet" class="tab-panel">
+  <div class="tbl-wrap"><table id="tbl-current-sheet">
+    <thead><tr><th>Status</th><th>Row</th><th>Number</th><th>Question Text</th></tr></thead>
+    <tbody id="tbody-current-sheet"></tbody>
+  </table></div>
+</div>
+
+<div id="tab-previous-sheet" class="tab-panel">
+  <div class="tbl-wrap"><table id="tbl-previous-sheet">
+    <thead><tr><th>Status</th><th>Row</th><th>Number</th><th>Question Text</th></tr></thead>
+    <tbody id="tbody-previous-sheet"></tbody>
+  </table></div>
+</div>
+
 <script>
 const REPORT_DATA = {{embeddedJson}};
 
@@ -211,7 +256,7 @@ function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   const buttons = document.querySelectorAll('.tab-btn');
-  const labels = ['added','removed','changed','unchanged'];
+  const labels = ['added','removed','changed','unchanged','current-sheet','previous-sheet'];
   buttons[labels.indexOf(name)].classList.add('active');
   currentTab = name;
   applyFilter();
@@ -405,18 +450,184 @@ function renderUnchanged() {
 function applyFilter() {
   const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
   const tbodyId = {
-    added:     'tbody-added',
-    removed:   'tbody-removed',
-    changed:   'tbody-changed',
-    unchanged: 'tbody-unchanged'
+    added:            'tbody-added',
+    removed:          'tbody-removed',
+    changed:          'tbody-changed',
+    unchanged:        'tbody-unchanged',
+    'current-sheet':  'tbody-current-sheet',
+    'previous-sheet': 'tbody-previous-sheet'
   }[currentTab];
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   Array.from(tbody.rows).forEach(row => {
+    // Detail rows: visibility is managed in lockstep with their parent entry row.
+    if (row.classList.contains('sheet-entry-detail')) return;
+    // Colspan-only rows (separators, no-data placeholders): always visible.
     if (row.cells.length === 1 && row.cells[0].colSpan > 1) { row.style.display = ''; return; }
+    // Regular data row: filter by concatenated text.
     const text = Array.from(row.cells).map(c => c.textContent).join(' ').toLowerCase();
-    row.style.display = (!q || text.includes(q)) ? '' : 'none';
+    const visible = !q || text.includes(q);
+    row.style.display = visible ? '' : 'none';
+    // For sheet entry rows, sync the corresponding detail row.
+    if (row.classList.contains('sheet-entry-row')) {
+      const detailId = row.getAttribute('data-detail-id');
+      if (detailId) {
+        const detail = document.getElementById(detailId);
+        if (detail) {
+          detail.style.display = (!visible) ? 'none' : (row.classList.contains('expanded') ? '' : 'none');
+        }
+      }
+    }
   });
+}
+
+// ── Sheet-order tabs ──────────────────────────────────────────────────────────
+function buildSheetEntries(side) {
+  const entries = [];
+  if (side === 'current') {
+    REPORT_DATA.added.forEach(q => entries.push({
+      status: 'added', rowNumber: q.rowNumber,
+      chapter: q.chapter, section: q.section,
+      questionNumber: q.questionNumber, questionText: q.questionText, q: q
+    }));
+    REPORT_DATA.changed.forEach(c => entries.push({
+      status: 'changed', rowNumber: c.currentRowNumber,
+      chapter: c.chapter, section: c.section,
+      questionNumber: c.currentNumber, questionText: c.newText, q: c
+    }));
+    REPORT_DATA.unchanged.forEach(u => entries.push({
+      status: 'unchanged', rowNumber: u.currentRowNumber,
+      chapter: u.chapter, section: u.section,
+      questionNumber: u.questionNumber, questionText: u.questionText, q: u
+    }));
+  } else {
+    REPORT_DATA.removed.forEach(q => entries.push({
+      status: 'removed', rowNumber: q.rowNumber,
+      chapter: q.chapter, section: q.section,
+      questionNumber: q.questionNumber, questionText: q.questionText, q: q
+    }));
+    REPORT_DATA.changed.forEach(c => entries.push({
+      status: 'changed', rowNumber: c.previousRowNumber,
+      chapter: c.chapter, section: c.section,
+      questionNumber: c.previousNumber, questionText: c.oldText, q: c
+    }));
+    REPORT_DATA.unchanged.forEach(u => entries.push({
+      status: 'unchanged', rowNumber: u.previousRowNumber,
+      chapter: u.chapter, section: u.section,
+      questionNumber: u.questionNumber, questionText: u.questionText, q: u
+    }));
+  }
+  entries.sort((a, b) => a.rowNumber - b.rowNumber);
+  return entries;
+}
+
+function renderAddedRemovedCard(q) {
+  return '<div class="entry-card"><dl>' +
+    '<dt>Number</dt><dd>' + esc(q.questionNumber) + '</dd>' +
+    '<dt>Chapter</dt><dd>' + esc(q.chapter) + '</dd>' +
+    '<dt>Section</dt><dd>' + esc(q.section) + '</dd>' +
+    '<dt>Text</dt><dd>' + esc(q.questionText) + '</dd>' +
+    '<dt>DV Type</dt><dd>' + esc(q.dvType) + '</dd>' +
+    '<dt>CF Operator</dt><dd>' + esc(q.cfOperator) + '</dd>' +
+    '</dl></div>';
+}
+
+function renderChangedCard(c) {
+  const d = renderDiff(c.oldText, c.newText);
+  const sim = renderSimCell(c.similarityScore, c.secondBestSimilarity);
+  let badges = '';
+  if (c.textChanged)   badges += '<span class="badge badge-text">T</span>';
+  if (c.numberChanged) badges += '<span class="badge badge-num">#</span>';
+  if (c.dvChanged)     badges += '<span class="badge badge-dv">DV</span>';
+  if (c.cfChanged)     badges += '<span class="badge badge-cf">CF</span>';
+  const dvCell = c.dvChanged
+    ? esc(c.oldDvDisplay) + ' → ' + esc(c.newDvDisplay)
+    : '<span class="cell-unchanged">unchanged</span>';
+  const cfCell = c.cfChanged
+    ? esc(c.oldCfOperator) + ' → ' + esc(c.newCfOperator)
+    : '<span class="cell-unchanged">unchanged</span>';
+  let html = '<div class="entry-card"><dl>' +
+    '<dt>Changes</dt><dd>' + (badges || '<span class="em">—</span>') + '</dd>' +
+    '<dt>Chapter</dt><dd>' + esc(c.chapter) + '</dd>' +
+    '<dt>Section</dt><dd>' + esc(c.section) + '</dd>' +
+    '<dt>Prev №</dt><dd>' + esc(c.previousNumber) + '</dd>' +
+    '<dt>Curr №</dt><dd>' + esc(c.currentNumber) + '</dd>' +
+    '<dt>Old Text</dt><dd>' + d.oldHtml + '</dd>' +
+    '<dt>New Text</dt><dd>' + d.newHtml + '</dd>' +
+    '<dt>Similarity</dt><dd>' + sim + '</dd>' +
+    '<dt>DV</dt><dd>' + dvCell + '</dd>' +
+    '<dt>CF</dt><dd>' + cfCell + '</dd>';
+  if (c.explanationChanged) {
+    const expD = renderDiff(c.oldExplanation || '', c.newExplanation || '');
+    html += '<dt>Explanation (old)</dt><dd>' + expD.oldHtml + '</dd>';
+    html += '<dt>Explanation (new)</dt><dd>' + expD.newHtml + '</dd>';
+  }
+  html += '</dl></div>';
+  return html;
+}
+
+function renderUnchangedCard(u) {
+  return '<div class="entry-card"><dl>' +
+    '<dt>Number</dt><dd>' + esc(u.questionNumber) + '</dd>' +
+    '<dt>Chapter</dt><dd>' + esc(u.chapter) + '</dd>' +
+    '<dt>Section</dt><dd>' + esc(u.section) + '</dd>' +
+    '<dt>Text</dt><dd>' + esc(u.questionText) + '</dd>' +
+    '<dt>DV</dt><dd>' + esc(u.dvDisplay) + '</dd>' +
+    '<dt>CF Operator</dt><dd>' + esc(u.cfOperator) + '</dd>' +
+    '<dt>Similarity</dt><dd>' + renderSimCell(u.similarityScore, u.secondBestSimilarity) + '</dd>' +
+    '</dl></div>';
+}
+
+function renderEntryDetailCard(entry) {
+  if (entry.status === 'added' || entry.status === 'removed') return renderAddedRemovedCard(entry.q);
+  if (entry.status === 'changed')   return renderChangedCard(entry.q);
+  if (entry.status === 'unchanged') return renderUnchangedCard(entry.q);
+  return '';
+}
+
+function toggleDetail(rowId, detailId) {
+  const row = document.getElementById(rowId);
+  const detail = document.getElementById(detailId);
+  if (!row || !detail) return;
+  const expanded = row.classList.toggle('expanded');
+  detail.style.display = expanded ? '' : 'none';
+}
+
+function renderSheetTab(side) {
+  const tbodyId = 'tbody-' + side + '-sheet';
+  const tbody = document.getElementById(tbodyId);
+  const entries = buildSheetEntries(side);
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="no-data">No questions on this sheet.</td></tr>';
+    return;
+  }
+  let html = '';
+  let lastChapter = null;
+  let lastSection = null;
+  let idCounter = 0;
+  entries.forEach(entry => {
+    if (entry.chapter && entry.chapter !== lastChapter) {
+      html += '<tr class="sheet-separator-row sheet-separator-chapter"><td colspan="4">' + esc(entry.chapter) + '</td></tr>';
+      lastChapter = entry.chapter;
+      lastSection = null;
+    }
+    if (entry.section !== lastSection) {
+      html += '<tr class="sheet-separator-row"><td colspan="4">' + esc(entry.section) + '</td></tr>';
+      lastSection = entry.section;
+    }
+    const rowId = side + '-row-' + idCounter;
+    const detailId = side + '-detail-' + idCounter;
+    idCounter++;
+    const statusBadge = '<span class="status-badge status-badge-' + entry.status + '">' + entry.status + '</span>';
+    html += '<tr id="' + rowId + '" class="sheet-entry-row" data-detail-id="' + detailId + '" onclick="toggleDetail(\'' + rowId + '\',\'' + detailId + '\')">' +
+      '<td>' + statusBadge + '</td>' +
+      '<td>' + entry.rowNumber + '</td>' +
+      '<td>' + esc(entry.questionNumber) + '</td>' +
+      '<td>' + esc(entry.questionText) + '</td>' +
+      '</tr>';
+    html += '<tr id="' + detailId + '" class="sheet-entry-detail" style="display:none"><td colspan="4">' + renderEntryDetailCard(entry) + '</td></tr>';
+  });
+  tbody.innerHTML = html;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -424,6 +635,8 @@ renderAdded();
 renderRemoved();
 renderChanged();
 renderUnchanged();
+renderSheetTab('current');
+renderSheetTab('previous');
 </script>
 </body>
 </html>

@@ -352,6 +352,15 @@ public interface IHtmlReportWriter
     void WriteReport(HtmlDiffReportData data, string filePath);
 }
 
+**Sheet-order tabs**: two additional tabs ("Current sheet", "Previous sheet")
+render every question of the respective workbook in sheet-row order, with a
+status badge per entry (added/changed/unchanged on the current side;
+removed/changed/unchanged on the previous side), inline section/chapter
+separator rows, and click-to-expand detail cards. Entry data is derived in
+JS at init time from the existing `added`/`removed`/`changed`/`unchanged`
+arrays; no new JSON fields. Filter behaviour: separators always visible,
+detail rows track their parent entry's filter state.
+
 // ── Workflow loading ───────────────────────────────────────────────────────────
 
 public interface IWorkflowLoader

@@ -753,4 +753,154 @@ public sealed class HtmlQuestionDiffReportWriterTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Phase B: Current sheet / Previous sheet tabs ───────────────────────────
+
+    [Fact]
+    public void WriteReport_OutputContainsCurrentSheetTabButton()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("onclick=\"showTab('current-sheet')\"",
+                because: "the Current sheet tab button must be present");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_OutputContainsPreviousSheetTabButton()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("onclick=\"showTab('previous-sheet')\"",
+                because: "the Previous sheet tab button must be present");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_OutputContainsCurrentSheetTabPanel()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("id=\"tab-current-sheet\"",
+                because: "the Current sheet tab panel div must be present");
+            content.Should().Contain("id=\"tbody-current-sheet\"",
+                because: "the Current sheet tbody must be present");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_OutputContainsPreviousSheetTabPanel()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("id=\"tab-previous-sheet\"",
+                because: "the Previous sheet tab panel div must be present");
+            content.Should().Contain("id=\"tbody-previous-sheet\"",
+                because: "the Previous sheet tbody must be present");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_OutputContainsStatusBadgeCssClasses()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain(".status-badge-added",
+                because: "CSS class for added status badge must be defined");
+            content.Should().Contain(".status-badge-removed",
+                because: "CSS class for removed status badge must be defined");
+            content.Should().Contain(".status-badge-changed",
+                because: "CSS class for changed status badge must be defined");
+            content.Should().Contain(".status-badge-unchanged",
+                because: "CSS class for unchanged status badge must be defined");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_OutputContainsSheetTabJavaScriptFunctions()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("function buildSheetEntries(",
+                because: "buildSheetEntries JS function must be present");
+            content.Should().Contain("function renderSheetTab(",
+                because: "renderSheetTab JS function must be present");
+            content.Should().Contain("function toggleDetail(",
+                because: "toggleDetail JS function must be present");
+            content.Should().Contain("function renderEntryDetailCard(",
+                because: "renderEntryDetailCard JS function must be present");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_ApplyFilterMapsCurrentAndPreviousSheetTabs()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("'current-sheet':",
+                because: "applyFilter tbodyId map must include 'current-sheet' key");
+            content.Should().Contain("'previous-sheet':",
+                because: "applyFilter tbodyId map must include 'previous-sheet' key");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void WriteReport_InitCallsRenderSheetTabForBothSides()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(EmptyReport(), filePath);
+            var content = File.ReadAllText(filePath);
+            content.Should().Contain("renderSheetTab('current')",
+                because: "init block must call renderSheetTab for the current side");
+            content.Should().Contain("renderSheetTab('previous')",
+                because: "init block must call renderSheetTab for the previous side");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }
