@@ -800,6 +800,87 @@ placeholder parameter paths adapted for RLQ.
 
 ---
 
+## General Data Diff
+
+The third diff task. Compares the General Data sheet between two reference years; produces an interactive HTML report. Unlike CLQ and RLQ (one question per sheet row), a General Data question can span multiple sheet rows with a variable number of template-label cells across columns D/E/F per row and an explanation cell in column G.
+
+- **Default sheet name**: `"General Data"`
+- **Default columns**: B=question number, C=text/section header, D/E/F=answer template labels, G=explanation prompt
+- **Default report title**: `"General Data Diff Report"` (Phase 2)
+- **Matching**: question-text-based with section bonus, mirroring RLQ; question numbers are display-only.
+
+### Workflow JSON
+
+```json
+{
+  "id": "general-data-diff",
+  "name": "General Data Diff",
+  "tasks": [
+    {
+      "id": "diff-report",
+      "type": "GeneralDataDiff",
+      "inputs": {},
+      "outputs": { "report": "general-data-diff.html" },
+      "parameters": {
+        "previousWorkbookFullFilename": "<path to previous year's workbook>",
+        "currentWorkbookFullFilename": "<path to current year's workbook>",
+        "previousConfigurationFullFilename": "<path to previous year's general-data-structure.json>",
+        "currentConfigurationFullFilename": "<path to current year's general-data-structure.json>"
+      }
+    }
+  ]
+}
+```
+
+### Structure JSON (per-year, runtime input)
+
+```json
+{
+  "sheetName": "General Data",
+  "numberColumn": "B",
+  "textColumn": "C",
+  "answerColumns": ["D", "E", "F"],
+  "explanationColumn": "G",
+  "sectionRows": [
+    "13:14(1), 15(1), 16(1), 17(1), 18(3), 21(2)",
+    "26:27(4), 31(1)"
+  ]
+}
+```
+
+Each `sectionRows` entry has the format `"<sectionRow>:<startRow>(<rowspan>), <startRow>(<rowspan>), ..."` where `rowspan` is inclusive of the start row (so `18(3)` spans rows 18, 19, 20).
+
+### Canonical Domain types
+
+```csharp
+public sealed record GeneralDataAnswerCell(
+    int RowOffset, string Column, string Text,
+    string? DvType, string? DvFormula, string? CfOperator);
+
+public sealed record GeneralDataExplanationCell(
+    int RowOffset, string Text,
+    string? DvType, string? DvFormula, string? CfOperator);
+
+public sealed record GeneralDataQuestion(
+    string SectionName,
+    string QuestionText,
+    string? QuestionNumber,
+    int RowNumber,
+    IReadOnlyList<string> RowNumberLabels,
+    IReadOnlyList<GeneralDataAnswerCell> AnswerCells,
+    IReadOnlyList<GeneralDataExplanationCell> ExplanationCells);
+```
+
+### Config and parser
+
+`GeneralDataConfig` (in `ItrqTool.Tasks.GeneralDataDiff`) parses its `SectionRows` strings into `IReadOnlyList<SectionDefinition>` via the `ParsedSections` derived property. `GeneralDataQuestionParser.Parse(rows, config)` is a public static method that walks each section's enumerated questions and produces the list of `GeneralDataQuestion`. Cell inclusion: a D/E/F or G cell joins its list iff `TextValue` is non-empty after trimming (DV/CF on otherwise empty cells does NOT trigger inclusion). Question text comes from column C of the question's first row only; continuation rows' column C is ignored.
+
+Architectural note: General Data deviates from the RLQ pattern by exposing the parser as a standalone public static class (`GeneralDataQuestionParser`) rather than embedding it as a private static method on the task class. Rationale: enables independent testing of the parser before the task orchestrator (Phase 2) exists. Phase 2's `GeneralDataDiffTask` will call `GeneralDataQuestionParser.Parse` directly.
+
+The "third-sibling abstraction trigger" did NOT fire at this point: General Data's multi-row question structure is sufficiently different from CLQ/RLQ's one-row-per-question model that sharing parser code would force accidental coupling. Re-evaluate at the fourth sheet (Risk Level Exposure).
+
+---
+
 ## Presentation layer conventions
 
 - Framework: WPF on .NET 10. Target `net10.0-windows`.

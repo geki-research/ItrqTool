@@ -1,0 +1,18 @@
+{
+  "id": "general-data-diff",
+  "name": "General Data Diff",
+  "tasks": [
+    {
+      "id": "diff-report",
+      "type": "GeneralDataDiff",
+      "inputs": {},
+      "outputs": { "report": "general-data-diff.html" },
+      "parameters": {
+        "previousWorkbookFullFilename": "<path to previous year's workbook>",
+        "currentWorkbookFullFilename": "<path to current year's workbook>",
+        "previousConfigurationFullFilename": "<path to previous year's general-data-structure.json>",
+        "currentConfigurationFullFilename": "<path to current year's general-data-structure.json>"
+      }
+    }
+  ]
+}
