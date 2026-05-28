@@ -200,6 +200,11 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
                 string? dvType     = answerCell?.DataValidationType;
                 string? dvFormula  = answerCell?.DataValidationFormula;
                 string? cfOperator = answerCell?.ConditionalFormattingOperator;
+                string? dvOperator = answerCell?.DataValidationOperator;
+                string? dvFormula2 = answerCell?.DataValidationFormula2;
+                string? cfType     = answerCell?.ConditionalFormattingType;
+                string? cfValue    = answerCell?.ConditionalFormattingValue;
+                string? cfValue2   = answerCell?.ConditionalFormattingValue2;
 
                 questions.Add(new RiskLevelQuestion(
                     sectionText,
@@ -209,7 +214,12 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
                     rowNum,
                     dvType,
                     dvFormula,
-                    cfOperator));
+                    cfOperator,
+                    dvOperator,
+                    dvFormula2,
+                    cfType,
+                    cfValue,
+                    cfValue2));
             }
         }
 

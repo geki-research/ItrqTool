@@ -31,6 +31,8 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
 
                 string? dvType = null;
                 string? dvFormula = null;
+                string? dvOperator = null;
+                string? dvFormula2 = null;
                 try
                 {
                     foreach (var dv in worksheet.DataValidations)
@@ -41,6 +43,12 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
                             {
                                 dvType = dv.AllowedValues.ToString();
                                 dvFormula = dv.Value;
+                                dvOperator = dv.AllowedValues is XLAllowedValues.List
+                                                                or XLAllowedValues.Custom
+                                                                or XLAllowedValues.AnyValue
+                                    ? null
+                                    : dv.Operator.ToString();
+                                dvFormula2 = string.IsNullOrEmpty(dv.MaxValue) ? null : dv.MaxValue;
                                 goto dvFound;
                             }
                         }
@@ -54,6 +62,9 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
                 }
 
                 string? cfOperator = null;
+                string? cfType = null;
+                string? cfValue = null;
+                string? cfValue2 = null;
                 try
                 {
                     foreach (var cf in worksheet.ConditionalFormats)
@@ -63,6 +74,9 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
                             if (range.Contains(cell))
                             {
                                 cfOperator = cf.Operator.ToString();
+                                cfType = cf.ConditionalFormatType.ToString();
+                                cfValue = cf.Values.ContainsKey(1) ? cf.Values[1].Value : null;
+                                cfValue2 = cf.Values.ContainsKey(2) ? cf.Values[2].Value : null;
                                 goto cfFound;
                             }
                         }
@@ -75,7 +89,9 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
                         "Could not read conditional format for cell {Address}", cell.Address);
                 }
 
-                cellsByColumn[colLetter] = new ExcelCellStructure(textValue, dvType, dvFormula, cfOperator);
+                cellsByColumn[colLetter] = new ExcelCellStructure(
+                    textValue, dvType, dvFormula, cfOperator,
+                    dvOperator, dvFormula2, cfType, cfValue, cfValue2);
             }
 
             if (hasContent)

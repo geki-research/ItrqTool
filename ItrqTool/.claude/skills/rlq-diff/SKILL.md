@@ -18,9 +18,11 @@ Shared matching/DV/CF machinery is in the `diff-task-conventions` skill.
 ## Records
 
 - `RiskLevelQuestion` — `(SectionName, QuestionText, ExplanationPrompt,
-  QuestionNumber, RowNumber, DvType, DvFormula, CfOperator)`. No `ChapterName`
-  (RLQ has sections only). No `OriginalText` (number is in its own column, no
-  prefix to strip).
+  QuestionNumber, RowNumber, DvType, DvFormula, CfOperator, DvOperator = null,
+  DvFormula2 = null, CfType = null, CfValue = null, CfValue2 = null)`. No
+  `ChapterName` (RLQ has sections only). No `OriginalText` (number is in its own
+  column, no prefix to strip). The five new fields mirror the same capture fields
+  on `ExcelCellStructure`; see `diff-task-conventions` for semantics.
 - `RiskLevelQuestionsConfig` — `SheetName`, `NumberColumn` (default `"B"`),
   `TextColumn` (default `"C"`), `AnswerColumn` (default `"D"`),
   `ExplanationColumn` (default `"E"`), `SectionRows`, computed `ParsedSections`.

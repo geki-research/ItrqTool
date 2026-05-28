@@ -96,11 +96,15 @@ is inclusive of the start row (so `18(3)` spans rows 18, 19, 20). The
 ```csharp
 public sealed record GeneralDataAnswerCell(
     int RowOffset, string Column, string Text,
-    string? DvType, string? DvFormula, string? CfOperator);
+    string? DvType, string? DvFormula, string? CfOperator,
+    string? DvOperator = null, string? DvFormula2 = null,
+    string? CfType = null, string? CfValue = null, string? CfValue2 = null);
 
 public sealed record GeneralDataExplanationCell(
     int RowOffset, string Text,
-    string? DvType, string? DvFormula, string? CfOperator);
+    string? DvType, string? DvFormula, string? CfOperator,
+    string? DvOperator = null, string? DvFormula2 = null,
+    string? CfType = null, string? CfValue = null, string? CfValue2 = null);
 
 public sealed record GeneralDataQuestion(
     string SectionName,

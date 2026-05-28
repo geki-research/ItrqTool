@@ -60,11 +60,23 @@ Diff tasks read raw cell content and Excel structural metadata via
 
 - `DataValidationType` — name of the ClosedXML `XLAllowedValues` enum value, or
   null if no data validation applies to the cell.
-- `DataValidationFormula` — raw DV formula string (`dv.Value` from ClosedXML).
-  Inline lists look like `"\"Yes,No,N/A\""`; range refs look like
-  `"Sheet!$A$1:$A$5"`. Null if no DV rule applies.
+- `DataValidationFormula` — raw DV formula string (`dv.Value` == `dv.MinValue`
+  from ClosedXML). Inline lists look like `"\"Yes,No,N/A\""`; range refs look
+  like `"Sheet!$A$1:$A$5"`. Null if no DV rule applies.
 - `ConditionalFormattingOperator` — name of the ClosedXML `XLCFOperator` enum
   value for the first matching conditional format, or null if none applies.
+- `DataValidationOperator` — `dv.Operator.ToString()`; **null for `List`,
+  `Custom`, and `AnyValue` DV types** (ClosedXML reports a meaningless `Between`
+  sentinel for those, so we suppress it). Non-null for `WholeNumber`, `Decimal`,
+  `Date`, `Time`, `TextLength` etc. with a real operator.
+- `DataValidationFormula2` — `dv.MaxValue` when non-empty (populated for
+  `Between`/`NotBetween` operators); null for single-value operators.
+- `ConditionalFormattingType` — `cf.ConditionalFormatType.ToString()` (e.g.
+  `"CellIs"`, `"Expression"`, `"ColorScale"`); null when no CF applies.
+- `ConditionalFormattingValue` — first CF comparison value (`cf.Values[1].Value`
+  when key 1 exists); null when no CF or no value (e.g. ColorScale/DataBar).
+- `ConditionalFormattingValue2` — second CF comparison value (`cf.Values[2].Value`
+  when key 2 exists); populated for `Between`/`NotBetween` CF; null otherwise.
 
 (`ExcelCellStructure` / `ExcelRowStructure` signatures:
 `src/ItrqTool.Domain/IExcelStructureReader.cs`.)

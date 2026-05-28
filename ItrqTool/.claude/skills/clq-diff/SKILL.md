@@ -39,7 +39,12 @@ public sealed record AuditQuestion(
     int     RowNumber,
     string? DvType,
     string? DvFormula,         // raw DV formula from ExcelCellStructure.DataValidationFormula
-    string? CfOperator
+    string? CfOperator,
+    string? DvOperator = null, // null for List/Custom/AnyValue; operator string for others
+    string? DvFormula2 = null, // upper-bound DV formula (Between/NotBetween only); else null
+    string? CfType = null,     // CF type string (e.g. "CellIs", "Expression"); null if no CF
+    string? CfValue = null,    // first CF comparison value; null if no CF or value-less type
+    string? CfValue2 = null    // second CF value (Between/NotBetween); null otherwise
 );
 // AuditQuestion.ExtractNumber("1.2) text") → "1.2"; no prefix → null
 // AuditQuestion.StripPrefix("1.2) text")   → "text"

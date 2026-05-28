@@ -202,6 +202,11 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
             string? dvType     = inputCell?.DataValidationType;
             string? dvFormula  = inputCell?.DataValidationFormula;
             string? cfOperator = inputCell?.ConditionalFormattingOperator;
+            string? dvOperator = inputCell?.DataValidationOperator;
+            string? dvFormula2 = inputCell?.DataValidationFormula2;
+            string? cfType     = inputCell?.ConditionalFormattingType;
+            string? cfValue    = inputCell?.ConditionalFormattingValue;
+            string? cfValue2   = inputCell?.ConditionalFormattingValue2;
 
             questions.Add(new AuditQuestion(
                 chapterText,
@@ -212,7 +217,12 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
                 row.RowNumber,
                 dvType,
                 dvFormula,
-                cfOperator));
+                cfOperator,
+                dvOperator,
+                dvFormula2,
+                cfType,
+                cfValue,
+                cfValue2));
         }
 
         return questions;

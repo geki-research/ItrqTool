@@ -9,7 +9,12 @@ public sealed record GeneralDataAnswerCell(
     string  Text,         // template label, e.g. "<# of Group FTEs>"
     string? DvType,
     string? DvFormula,
-    string? CfOperator
+    string? CfOperator,
+    string? DvOperator = null,
+    string? DvFormula2 = null,
+    string? CfType = null,
+    string? CfValue = null,
+    string? CfValue2 = null
 );
 
 /// <summary>
@@ -22,7 +27,12 @@ public sealed record GeneralDataExplanationCell(
     string  Text,
     string? DvType,
     string? DvFormula,
-    string? CfOperator
+    string? CfOperator,
+    string? DvOperator = null,
+    string? DvFormula2 = null,
+    string? CfType = null,
+    string? CfValue = null,
+    string? CfValue2 = null
 );
 
 /// <summary>

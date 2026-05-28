@@ -77,7 +77,12 @@ public static class GeneralDataQuestionParser
                                     offset, col, text,
                                     cell.DataValidationType,
                                     cell.DataValidationFormula,
-                                    cell.ConditionalFormattingOperator));
+                                    cell.ConditionalFormattingOperator,
+                                    cell.DataValidationOperator,
+                                    cell.DataValidationFormula2,
+                                    cell.ConditionalFormattingType,
+                                    cell.ConditionalFormattingValue,
+                                    cell.ConditionalFormattingValue2));
                             }
                         }
                     }
@@ -92,7 +97,12 @@ public static class GeneralDataQuestionParser
                                 offset, text,
                                 expCell.DataValidationType,
                                 expCell.DataValidationFormula,
-                                expCell.ConditionalFormattingOperator));
+                                expCell.ConditionalFormattingOperator,
+                                expCell.DataValidationOperator,
+                                expCell.DataValidationFormula2,
+                                expCell.ConditionalFormattingType,
+                                expCell.ConditionalFormattingValue,
+                                expCell.ConditionalFormattingValue2));
                         }
                     }
                 }

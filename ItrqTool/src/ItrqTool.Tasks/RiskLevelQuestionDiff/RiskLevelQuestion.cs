@@ -8,5 +8,10 @@ public sealed record RiskLevelQuestion(
     int     RowNumber,
     string? DvType,
     string? DvFormula,
-    string? CfOperator
+    string? CfOperator,
+    string? DvOperator = null,
+    string? DvFormula2 = null,
+    string? CfType = null,
+    string? CfValue = null,
+    string? CfValue2 = null
 );

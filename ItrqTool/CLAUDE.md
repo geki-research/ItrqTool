@@ -215,7 +215,7 @@ the file. Index of type family → location:
 | Workflow graph: `WorkflowDefinition`, `TaskNode`, `TaskOutputRef` | `WorkflowDefinition.cs`, `TaskNode.cs`, `TaskOutputRef.cs` |
 | Workflow loading: `IWorkflowLoader`, `WorkflowLoadResult`, `WorkflowLoadFailure` | `IWorkflowLoader.cs`, `WorkflowLoadResult.cs`, `WorkflowLoadFailure.cs` |
 | Excel I/O: `IExcelReader`, `ExcelSheet`, `ExcelCellValue`, `IExcelWriter`, `ExcelWorkbookData`, `ExcelSheetData` | `IExcelReader.cs`, `ExcelSheet.cs`, `ExcelCellValue.cs`, `IExcelWriter.cs` |
-| Excel structure metadata: `IExcelStructureReader`, `ExcelRowStructure`, `ExcelCellStructure` (DV type/formula, CF operator) | `IExcelStructureReader.cs` |
+| Excel structure metadata: `IExcelStructureReader`, `ExcelRowStructure`, `ExcelCellStructure` (DV type/formula/operator/formula2, CF operator/type/value/value2) | `IExcelStructureReader.cs` |
 | CLQ/RLQ reporting: `HtmlDiffReportData`, `HtmlDiffQuestion`, `HtmlDiffChangedQuestion`, `HtmlDiffUnchangedQuestion`, `IHtmlReportWriter` | `Reporting/HtmlDiffReportData.cs`, `Reporting/IHtmlReportWriter.cs` |
 | General Data reporting: `HtmlDiffGeneralDataReportData` + `HtmlDiffGeneralData*` members, `IHtmlGeneralDataDiffReportWriter` | `Reporting/HtmlDiffGeneralDataReportData.cs`, `Reporting/IHtmlGeneralDataDiffReportWriter.cs` |
 
@@ -623,8 +623,8 @@ Per-sheet diff-task test specifics are documented in the relevant sheet skill
 (`.claude/skills/{clq-diff,rlq-diff,gd-diff}/`).
 
 **Current test counts (baseline — the always-on verification anchor):**
-Architecture 14, Domain 13, Application 12, Tasks 304, Infrastructure 89, Integration 40
-— **472 total**.
+Architecture 14, Domain 13, Application 12, Tasks 304, Infrastructure 98, Integration 40
+— **481 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows

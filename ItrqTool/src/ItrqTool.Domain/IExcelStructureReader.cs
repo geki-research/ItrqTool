@@ -32,5 +32,16 @@ public record ExcelCellStructure(
     // Name of the ClosedXML XLConditionalFormattingOperatorValues
     // enum value for the first matching conditional format,
     // or null if no conditional format applies.
-    string? ConditionalFormattingOperator
+    string? ConditionalFormattingOperator,
+    // DV operator (dv.Operator.ToString()); null for List/Custom/AnyValue types
+    // (ClosedXML reports a meaningless Between sentinel for those).
+    string? DataValidationOperator = null,
+    // Upper-bound DV formula (dv.MaxValue); null when empty (i.e. single-value operators).
+    string? DataValidationFormula2 = null,
+    // CF type (cf.ConditionalFormatType.ToString()); null when no CF applies.
+    string? ConditionalFormattingType = null,
+    // First CF comparison value; null when no CF or no value.
+    string? ConditionalFormattingValue = null,
+    // Second CF comparison value (Between/NotBetween); null otherwise.
+    string? ConditionalFormattingValue2 = null
 );

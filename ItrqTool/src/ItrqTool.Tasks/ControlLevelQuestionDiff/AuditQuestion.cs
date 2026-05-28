@@ -11,7 +11,12 @@ public sealed record AuditQuestion(
     int     RowNumber,
     string? DvType,
     string? DvFormula,         // raw DV formula from ExcelCellStructure.DataValidationFormula
-    string? CfOperator
+    string? CfOperator,
+    string? DvOperator = null,
+    string? DvFormula2 = null,
+    string? CfType = null,
+    string? CfValue = null,
+    string? CfValue2 = null
 )
 {
     private static readonly Regex PrefixPattern =
