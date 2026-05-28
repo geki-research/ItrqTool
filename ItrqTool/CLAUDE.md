@@ -958,13 +958,13 @@ The third diff task. Compares the General Data sheet between two reference years
   "answerColumns": ["D", "E", "F"],
   "explanationColumn": "G",
   "sectionRows": [
-    "13:14(1), 15(1), 16(1), 17(1), 18(3), 21(2)",
-    "26:27(4), 31(1)"
+    "13:14, 15, 16(1), 17(1), 18(3), 21(2)",
+    "26:27(4), 31"
   ]
 }
 ```
 
-Each `sectionRows` entry has the format `"<sectionRow>:<startRow>(<rowspan>), <startRow>(<rowspan>), ..."` where `rowspan` is inclusive of the start row (so `18(3)` spans rows 18, 19, 20).
+Each `sectionRows` entry has the format `"<sectionRow>:<startRow>(<rowspan>), <startRow>(<rowspan>), ..."` where `rowspan` is inclusive of the start row (so `18(3)` spans rows 18, 19, 20). The `(<rowspan>)` is optional and defaults to 1, so `21` is equivalent to `21(1)`.
 
 ### Canonical Domain types
 

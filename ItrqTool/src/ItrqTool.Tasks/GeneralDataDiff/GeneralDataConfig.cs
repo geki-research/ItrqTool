@@ -58,18 +58,31 @@ public sealed class GeneralDataConfig
         foreach (var token in questionTokens)
         {
             var openIdx = token.IndexOf('(');
-            var closeIdx = token.IndexOf(')');
-            if (openIdx < 1 || closeIdx <= openIdx + 1 || closeIdx != token.Length - 1)
-                throw new FormatException(
-                    $"Section entry '{entry}': question token '{token}' must be in format '<startRow>(<rowspan>)'.");
+            int startRow, rowspan;
 
-            if (!int.TryParse(token[..openIdx].Trim(), out int startRow) || startRow <= 0)
-                throw new FormatException(
-                    $"Section entry '{entry}': question startRow must be a positive integer (token '{token}').");
+            if (openIdx < 0)
+            {
+                // Bare form: "21" → startRow=21, rowspan=1
+                if (!int.TryParse(token, out startRow) || startRow <= 0)
+                    throw new FormatException(
+                        $"Section entry '{entry}': question startRow must be a positive integer (token '{token}').");
+                rowspan = 1;
+            }
+            else
+            {
+                var closeIdx = token.IndexOf(')');
+                if (openIdx < 1 || closeIdx <= openIdx + 1 || closeIdx != token.Length - 1)
+                    throw new FormatException(
+                        $"Section entry '{entry}': question token '{token}' must be in format '<startRow>(<rowspan>)'.");
 
-            if (!int.TryParse(token[(openIdx + 1)..closeIdx].Trim(), out int rowspan) || rowspan <= 0)
-                throw new FormatException(
-                    $"Section entry '{entry}': question rowspan must be a positive integer (token '{token}').");
+                if (!int.TryParse(token[..openIdx].Trim(), out startRow) || startRow <= 0)
+                    throw new FormatException(
+                        $"Section entry '{entry}': question startRow must be a positive integer (token '{token}').");
+
+                if (!int.TryParse(token[(openIdx + 1)..closeIdx].Trim(), out rowspan) || rowspan <= 0)
+                    throw new FormatException(
+                        $"Section entry '{entry}': question rowspan must be a positive integer (token '{token}').");
+            }
 
             if (startRow <= sectionRow)
                 throw new FormatException(

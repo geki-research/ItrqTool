@@ -100,9 +100,94 @@ public sealed class GeneralDataConfigTests
     }
 
     [Fact]
-    public void ParsedSections_MissingRowspanParen_Throws()
+    public void ParsedSections_BareToken_RowspanDefaultsToOne()
     {
+        // Previously expected a throw; bare tokens are now valid (rowspan = 1).
         var cfg = new GeneralDataConfig { SectionRows = ["13:14"] };
+
+        var sections = cfg.ParsedSections;
+
+        sections.Should().HaveCount(1);
+        sections[0].Questions.Should().HaveCount(1);
+        sections[0].Questions[0].Should().Be(new QuestionDefinition(14, 1));
+    }
+
+    // ── Optional-rowspan cases ────────────────────────────────────────────────
+
+    [Fact]
+    public void ParsedSections_BareEquivalentToExplicitRowspanOne()
+    {
+        var bare     = new GeneralDataConfig { SectionRows = ["13:17, 18(3), 21"] };
+        var explicit_ = new GeneralDataConfig { SectionRows = ["13:17(1), 18(3), 21(1)"] };
+
+        bare.ParsedSections.Should().BeEquivalentTo(explicit_.ParsedSections);
+    }
+
+    [Fact]
+    public void ParsedSections_AllBareTokens_ParseToSpanOneGroups()
+    {
+        var cfg = new GeneralDataConfig { SectionRows = ["13:14, 15, 16"] };
+
+        var sections = cfg.ParsedSections;
+
+        sections.Should().HaveCount(1);
+        sections[0].Questions.Should().HaveCount(3);
+        sections[0].Questions[0].Should().Be(new QuestionDefinition(14, 1));
+        sections[0].Questions[1].Should().Be(new QuestionDefinition(15, 1));
+        sections[0].Questions[2].Should().Be(new QuestionDefinition(16, 1));
+    }
+
+    [Fact]
+    public void ParsedSections_MixedBareAndExplicit_ParsesCorrectly()
+    {
+        var cfg = new GeneralDataConfig { SectionRows = ["13:14, 15(2), 17"] };
+
+        var sections = cfg.ParsedSections;
+
+        sections.Should().HaveCount(1);
+        sections[0].Questions.Should().HaveCount(3);
+        sections[0].Questions[0].Should().Be(new QuestionDefinition(14, 1));
+        sections[0].Questions[1].Should().Be(new QuestionDefinition(15, 2));
+        sections[0].Questions[2].Should().Be(new QuestionDefinition(17, 1));
+    }
+
+    [Fact]
+    public void ParsedSections_BareToken_StartRowBelowSectionRow_Throws()
+    {
+        var cfg = new GeneralDataConfig { SectionRows = ["13:12"] };
+        var act = () => cfg.ParsedSections;
+        act.Should().Throw<FormatException>();
+    }
+
+    [Fact]
+    public void ParsedSections_BareToken_OverlapWithPrecedingExplicit_Throws()
+    {
+        // Q1 spans 17-19 (rowspan 3), Q2 is bare at row 18 → overlap
+        var cfg = new GeneralDataConfig { SectionRows = ["13:17(3), 18"] };
+        var act = () => cfg.ParsedSections;
+        act.Should().Throw<FormatException>();
+    }
+
+    [Fact]
+    public void ParsedSections_EmptyParens_Throws()
+    {
+        var cfg = new GeneralDataConfig { SectionRows = ["13:21()"] };
+        var act = () => cfg.ParsedSections;
+        act.Should().Throw<FormatException>();
+    }
+
+    [Fact]
+    public void ParsedSections_ZeroRowspanExplicit_Throws()
+    {
+        var cfg = new GeneralDataConfig { SectionRows = ["13:21(0)"] };
+        var act = () => cfg.ParsedSections;
+        act.Should().Throw<FormatException>();
+    }
+
+    [Fact]
+    public void ParsedSections_NonNumericBareToken_Throws()
+    {
+        var cfg = new GeneralDataConfig { SectionRows = ["13:abc"] };
         var act = () => cfg.ParsedSections;
         act.Should().Throw<FormatException>();
     }
