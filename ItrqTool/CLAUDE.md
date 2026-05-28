@@ -4,6 +4,11 @@ Read this file fully before writing any code, creating any file, or adding any N
 This document is the authoritative source of truth for every structural and convention decision
 in this codebase. When in doubt, follow what is written here rather than general .NET conventions.
 
+This file holds always-on governance: hard constraints, architecture overview, conventions,
+build/test commands, and the test-count baseline. Task-specific reference (per-sheet diff specs,
+publishing) lives in on-demand **skills** under `.claude/skills/<name>/SKILL.md` — see
+"Per-sheet specifics" below and "Maintaining this file" for the layering rule.
+
 ---
 
 ## What this application does
@@ -159,9 +164,10 @@ Do not add NuGet packages not listed here without documenting the reason in this
 
 ---
 
-## Domain model — canonical type definitions
+## Domain model
 
-These types live in `ItrqTool.Domain`. Do not alter their signatures without updating this file.
+The **core task contract** every task touches is kept inline here. Set the
+`TaskType` string to exactly match the workflow JSON `"type"` (non-negotiable rule 4).
 
 ```csharp
 // ── Task contract ──────────────────────────────────────────────────────────────
@@ -196,289 +202,35 @@ public record TaskMessage(
 );
 
 public enum MessageSeverity { Info, Warning, Error }
-
-// ── Workflow graph ─────────────────────────────────────────────────────────────
-
-public record WorkflowDefinition(
-    string Id,
-    string Name,
-    string? Group,                    // optional; null if absent or null in JSON.
-                                      // If absent and id contains ':', derived = full id
-                                      // (e.g. id "A:B:task" → Group "A:B:task").
-                                      // If absent and id has no ':': null (→ "Ungrouped").
-    IReadOnlyList<TaskNode> Nodes
-);
-
-public record TaskNode(
-    string Id,
-    string TaskType,
-    IReadOnlyDictionary<string, TaskOutputRef> Inputs,       // localKey → (upstreamTaskId, outputKey)
-    IReadOnlyDictionary<string, string> OutputFileNames,     // logicalKey → filename
-    IReadOnlyDictionary<string, string> Parameters           // static config values, case-insensitive
-);
-
-public record TaskOutputRef(string TaskId, string OutputKey);
-
-// ── Excel I/O ──────────────────────────────────────────────────────────────────
-
-public interface IExcelReader
-{
-    IReadOnlyList<string> GetSheetNames(string filePath);
-    ExcelSheet ReadSheet(string filePath, string sheetName, bool firstRowIsHeader = true);
-    IReadOnlyList<ExcelSheet> ReadAllSheets(string filePath, bool firstRowIsHeader = true);
-}
-
-public record ExcelSheet(
-    string Name,
-    IReadOnlyList<string> Headers,
-    IReadOnlyList<IReadOnlyList<ExcelCellValue>> Rows
-);
-
-public record ExcelCellValue(object? Value, Type? ClrType)
-{
-    public T? As<T>() => Value is T v ? v : default;
-}
-
-public interface IExcelWriter
-{
-    void WriteWorkbook(ExcelWorkbookData data, string filePath);
-}
-
-public record ExcelWorkbookData(IReadOnlyList<ExcelSheetData> Sheets);
-
-public record ExcelSheetData(
-    string Name,
-    IReadOnlyList<string> Headers,
-    IReadOnlyList<IReadOnlyList<string>> Rows
-);
-
-/// <summary>
-/// Reads raw cell content and Excel structural metadata (data
-/// validation type, conditional formatting operator) that
-/// IExcelReader does not expose.
-/// </summary>
-public interface IExcelStructureReader
-{
-    IReadOnlyList<ExcelRowStructure> ReadRows(string filePath, string sheetName);
-}
-
-public record ExcelRowStructure(
-    int RowNumber,
-    // Key = uppercase column letter, e.g. "C", "D"
-    IReadOnlyDictionary<string, ExcelCellStructure> CellsByColumn
-);
-
-public record ExcelCellStructure(
-    string? TextValue,
-    // Name of the ClosedXML XLAllowedValues enum value,
-    // or null if no data validation is applied to this cell.
-    string? DataValidationType,
-    // Raw formula string from the DV rule (dv.Value from ClosedXML).
-    // Inline lists: e.g. "\"Yes,No,N/A\"". Range refs: e.g. "Sheet!$A$1:$A$5".
-    // Null if no DV rule applies.
-    string? DataValidationFormula,
-    // Name of the ClosedXML XLCFOperator enum value for the first matching
-    // conditional format, or null if no conditional format applies.
-    string? ConditionalFormattingOperator
-);
-
-// ── Reporting ─────────────────────────────────────────────────────────────────
-
-// Namespace: ItrqTool.Domain.Reporting
-// Files: src/ItrqTool.Domain/Reporting/
-
-public record HtmlDiffReportData(
-    string Title,
-    string PreviousWorkbookPath,
-    string CurrentWorkbookPath,
-    DateTimeOffset GeneratedAt,
-    IReadOnlyList<HtmlDiffQuestion>           Added,
-    IReadOnlyList<HtmlDiffQuestion>           Removed,
-    IReadOnlyList<HtmlDiffChangedQuestion>    Changed,
-    IReadOnlyList<HtmlDiffUnchangedQuestion>  Unchanged
-);
-
-public record HtmlDiffQuestion(
-    string? QuestionNumber,
-    string  Chapter,
-    string  Section,
-    int     RowNumber,          // row in the sheet the question came from
-    string  QuestionText,
-    string? DvType,
-    string? CfOperator
-);
-
-public record HtmlDiffChangedQuestion(
-    string  Chapter,
-    string  Section,
-    int     PreviousRowNumber,
-    int     CurrentRowNumber,
-    string? PreviousNumber,
-    string? CurrentNumber,
-    string  OldText,
-    string  NewText,
-    double  SimilarityScore,
-    double? SecondBestSimilarity,
-    string  OldDvDisplay,       // "—" if no DV
-    string  NewDvDisplay,
-    string? OldCfOperator,
-    string? NewCfOperator,
-    bool    TextChanged,
-    bool    NumberChanged,
-    bool    DvChanged,
-    bool    CfChanged,          // false when old DvType == "List" (presentational noise)
-    string? OldExplanation     = null,   // explanation prompt from the previous-year question
-    string? NewExplanation     = null,   // explanation prompt from the current-year question
-    bool    ExplanationChanged = false   // true when old/new explanations differ; triggers diff block in writer
-);
-
-public record HtmlDiffUnchangedQuestion(
-    string  Chapter,
-    string  Section,
-    int     PreviousRowNumber,
-    int     CurrentRowNumber,
-    string? QuestionNumber,
-    string  QuestionText,
-    string  DvDisplay,          // formatted: "—", type name, or "List: A | B | C"
-    string? CfOperator,
-    double  SimilarityScore,    // always 1.0
-    double? SecondBestSimilarity
-);
-
-public interface IHtmlReportWriter
-{
-    /// Generates a self-contained HTML report and writes it to filePath.
-    /// Overwrites if the file already exists. Creates the directory if needed.
-    void WriteReport(HtmlDiffReportData data, string filePath);
-}
-
-// ── General Data diff reporting ───────────────────────────────────────────────
-// Namespace: ItrqTool.Domain.Reporting
-// Files: src/ItrqTool.Domain/Reporting/HtmlDiffGeneralDataReportData.cs
-//        src/ItrqTool.Domain/Reporting/IHtmlGeneralDataDiffReportWriter.cs
-
-public record HtmlDiffGeneralDataReportData(
-    string Title,
-    string PreviousWorkbookPath,
-    string CurrentWorkbookPath,
-    DateTimeOffset GeneratedAt,
-    IReadOnlyList<HtmlDiffGeneralDataQuestion>          Added,
-    IReadOnlyList<HtmlDiffGeneralDataQuestion>          Removed,
-    IReadOnlyList<HtmlDiffGeneralDataChangedQuestion>   Changed,
-    IReadOnlyList<HtmlDiffGeneralDataUnchangedQuestion> Unchanged
-);
-
-public record HtmlDiffGeneralDataQuestion(
-    string? QuestionNumber,
-    string  Section,
-    int     RowNumber,
-    string  QuestionText,
-    IReadOnlyList<string>                         RowNumberLabels,
-    IReadOnlyList<HtmlDiffGeneralDataAnswerCell>      AnswerCells,
-    IReadOnlyList<HtmlDiffGeneralDataExplanationCell> ExplanationCells
-);
-
-public record HtmlDiffGeneralDataAnswerCell(
-    int     RowOffset,
-    string  Column,
-    string  Text,
-    string  DvDisplay,      // formatted: "—", type name, or "List: A | B | C"
-    string? CfOperator
-);
-
-public record HtmlDiffGeneralDataExplanationCell(
-    int     RowOffset,
-    string  Text,
-    string  DvDisplay,
-    string? CfOperator
-);
-
-public record HtmlDiffGeneralDataChangedQuestion(
-    string  Section,
-    int     PreviousRowNumber,
-    int     CurrentRowNumber,
-    string? PreviousNumber,
-    string? CurrentNumber,
-    string  OldText,
-    string  NewText,
-    double  SimilarityScore,
-    double? SecondBestSimilarity,
-    bool    TextChanged,
-    bool    NumberChanged,
-    bool    AnswerCellsChanged,
-    bool    ExplanationCellsChanged,
-    IReadOnlyList<HtmlDiffAnswerCellChange>      AnswerCellChanges,
-    IReadOnlyList<HtmlDiffExplanationCellChange> ExplanationCellChanges
-);
-
-public record HtmlDiffAnswerCellChange(
-    int     RowOffset,
-    string  Column,
-    string? OldText,
-    string? NewText,
-    string  OldDvDisplay,
-    string  NewDvDisplay,
-    string? OldCfOperator,
-    string? NewCfOperator,
-    bool    TextChanged,
-    bool    DvChanged,
-    bool    CfChanged
-);
-
-public record HtmlDiffExplanationCellChange(
-    int     RowOffset,
-    string? OldText,
-    string? NewText,
-    string  OldDvDisplay,
-    string  NewDvDisplay,
-    string? OldCfOperator,
-    string? NewCfOperator,
-    bool    TextChanged,
-    bool    DvChanged,
-    bool    CfChanged
-);
-
-public record HtmlDiffGeneralDataUnchangedQuestion(
-    string  Section,
-    int     PreviousRowNumber,
-    int     CurrentRowNumber,
-    string? QuestionNumber,
-    string  QuestionText,
-    IReadOnlyList<string>                         RowNumberLabels,
-    IReadOnlyList<HtmlDiffGeneralDataAnswerCell>      AnswerCells,
-    IReadOnlyList<HtmlDiffGeneralDataExplanationCell> ExplanationCells,
-    double  SimilarityScore,        // always 1.0
-    double? SecondBestSimilarity
-);
-
-public interface IHtmlGeneralDataDiffReportWriter
-{
-    void WriteReport(HtmlDiffGeneralDataReportData data, string filePath);
-}
-
-**Sheet-order tabs**: two additional tabs ("Current sheet", "Previous sheet")
-render every question of the respective workbook in sheet-row order, with a
-status badge per entry (added/changed/unchanged on the current side;
-removed/changed/unchanged on the previous side), inline section/chapter
-separator rows, and click-to-expand detail cards. Entry data is derived in
-JS at init time from the existing `added`/`removed`/`changed`/`unchanged`
-arrays; no new JSON fields. Filter behaviour: separators always visible,
-detail rows track their parent entry's filter state.
-
-// ── Workflow loading ───────────────────────────────────────────────────────────
-
-public interface IWorkflowLoader
-{
-    WorkflowLoadResult LoadAll();
-}
-
-public record WorkflowLoadResult(
-    IReadOnlyList<WorkflowDefinition> Workflows,
-    IReadOnlyList<WorkflowLoadFailure> Failures
-);
-
-public record WorkflowLoadFailure(string FilePath, string ErrorMessage);
 ```
+
+### Other Domain types — source is authoritative
+
+For every other Domain type, the source under `src/ItrqTool.Domain/` is the
+authoritative definition of signatures. Do not maintain a second copy here; read
+the file. Index of type family → location:
+
+| Type family | Source file(s) |
+|---|---|
+| Workflow graph: `WorkflowDefinition`, `TaskNode`, `TaskOutputRef` | `WorkflowDefinition.cs`, `TaskNode.cs`, `TaskOutputRef.cs` |
+| Workflow loading: `IWorkflowLoader`, `WorkflowLoadResult`, `WorkflowLoadFailure` | `IWorkflowLoader.cs`, `WorkflowLoadResult.cs`, `WorkflowLoadFailure.cs` |
+| Excel I/O: `IExcelReader`, `ExcelSheet`, `ExcelCellValue`, `IExcelWriter`, `ExcelWorkbookData`, `ExcelSheetData` | `IExcelReader.cs`, `ExcelSheet.cs`, `ExcelCellValue.cs`, `IExcelWriter.cs` |
+| Excel structure metadata: `IExcelStructureReader`, `ExcelRowStructure`, `ExcelCellStructure` (DV type/formula, CF operator) | `IExcelStructureReader.cs` |
+| CLQ/RLQ reporting: `HtmlDiffReportData`, `HtmlDiffQuestion`, `HtmlDiffChangedQuestion`, `HtmlDiffUnchangedQuestion`, `IHtmlReportWriter` | `Reporting/HtmlDiffReportData.cs`, `Reporting/IHtmlReportWriter.cs` |
+| General Data reporting: `HtmlDiffGeneralDataReportData` + `HtmlDiffGeneralData*` members, `IHtmlGeneralDataDiffReportWriter` | `Reporting/HtmlDiffGeneralDataReportData.cs`, `Reporting/IHtmlGeneralDataDiffReportWriter.cs` |
+
+Semantic notes that are NOT obvious from the signatures (the `WorkflowDefinition`
+group-derivation rules, the `CfChanged` "false when DvType == List" rule, the
+DV/CF capture-and-display rules, and the sheet-order-tabs report behaviour) are
+documented where they apply: group derivation under "Workflow definition format"
+below; DV/CF and sheet-order-tabs in the diff skills (see next note).
+
+### Per-sheet specifics
+
+CLQ / RLQ / GD per-sheet diff specs and the cross-sheet diff conventions are
+documented in skills, loaded on demand:
+`.claude/skills/{clq-diff,rlq-diff,gd-diff,diff-task-conventions}/SKILL.md`.
+A prompt may name a skill explicitly to force-load it.
 
 ---
 
@@ -694,378 +446,10 @@ public sealed class MyExcelTask : IWorkflowTask
 
 **Never reference ClosedXML in `ItrqTool.Tasks`.** This will be caught by the architecture tests.
 
----
-
-## ControlLevelQuestionDiffTask — CLQ config file format
-
-`ControlLevelQuestionDiffTask` (TaskType `"ControlLevelQuestionDiff"`) accepts four task parameters:
-
-| Parameter | Description |
-|---|---|
-| `previousWorkbookFullFilename` | Absolute path to the previous-year auditor-questionnaire workbook |
-| `currentWorkbookFullFilename` | Absolute path to the current-year auditor-questionnaire workbook |
-| `previousConfigurationFullFilename` | Absolute path to the CLQ config JSON for the previous workbook |
-| `currentConfigurationFullFilename` | Absolute path to the CLQ config JSON for the current workbook |
-
-Each config file is deserialized independently and applied only to its own workbook, allowing
-the two workbooks to have different sheet structures (e.g. across audit years).
-
-The config describes the structure of the "Control Level Questions" sheet in a workbook.
-
-**AuditQuestion** (in `ItrqTool.Tasks.ControlLevelQuestionDiff`):
-
-```csharp
-public sealed record AuditQuestion(
-    string  ChapterName,
-    string  SectionName,
-    string  QuestionText,      // prefix stripped
-    string  OriginalText,      // raw cell text
-    string? QuestionNumber,    // e.g. "1.2", null if no prefix present
-    int     RowNumber,
-    string? DvType,
-    string? DvFormula,         // raw DV formula from ExcelCellStructure.DataValidationFormula
-    string? CfOperator
-);
-// AuditQuestion.ExtractNumber("1.2) text") → "1.2"; no prefix → null
-// AuditQuestion.StripPrefix("1.2) text")   → "text"
-```
-
-**DiffResult / ChangedQuestion** (in `ItrqTool.Tasks.ControlLevelQuestionDiff`):
-
-A matched question pair is either Changed or Unchanged — there is no separate ValidationChange
-category. CF changes are ignored when the old DvType is "List" (presentational noise on dropdowns).
-
-```csharp
-public sealed record ChangedQuestion(
-    AuditQuestion OldQuestion,
-    AuditQuestion NewQuestion,
-    double  SimilarityScore,
-    double? SecondBestSimilarity,
-    bool    TextChanged,        // SimilarityScore < 1.0
-    bool    NumberChanged,
-    bool    DvChanged,
-    bool    CfChanged           // false when old DvType == "List"
-);
-
-public sealed record UnchangedQuestion(
-    AuditQuestion Question,
-    double? SecondBestSimilarity
-);
-
-public sealed record DiffResult(
-    IReadOnlyList<AddedQuestion>      Added,
-    IReadOnlyList<RemovedQuestion>    Removed,
-    IReadOnlyList<ChangedQuestion>    Changed,
-    IReadOnlyList<UnchangedQuestion>  Unchanged
-);
-```
-
-**ControlLevelQuestionsConfig** (in `ItrqTool.Tasks.ControlLevelQuestionDiff`):
-
-```csharp
-public sealed record SectionDefinition(int SectionRow, int FirstQuestionRow, int LastQuestionRow);
-
-public sealed class ControlLevelQuestionsConfig
-{
-    public string SheetName { get; init; } = "Control Level Questions";
-    public string TextColumn { get; init; } = "C";
-    public string InputColumn { get; init; } = "D";
-    public IReadOnlyList<int> ChapterRows { get; init; } = [];
-    // Each entry: "<sectionRow>:<firstQuestionRow>-<lastQuestionRow>"
-    public IReadOnlyList<string> SectionRows { get; init; } = [];
-    // ParsedSections parses SectionRows; throws FormatException on invalid entries
-    public IReadOnlyList<SectionDefinition> ParsedSections { get; }
-}
-```
-
-**SectionRows format:** Each string is `"<sectionRow>:<firstQuestionRow>-<lastQuestionRow>"`.
-All numbers are 1-based Excel row numbers. Constraints:
-- `sectionRow` must be a positive integer.
-- `firstQuestionRow` must be greater than `sectionRow`.
-- `lastQuestionRow` must be ≥ `firstQuestionRow`.
-
-Rows not covered by any section range or chapter row are silently skipped during parsing.
-`ParsedSections` throws `FormatException` on the first invalid entry; `ControlLevelQuestionDiffTask`
-catches it and returns `Succeeded: false` with the error message.
-
-**Example CLQ config file:**
-
-```json
-{
-  "sheetName": "Control Level Questions",
-  "textColumn": "C",
-  "inputColumn": "D",
-  "chapterRows": [1, 15, 30],
-  "sectionRows": ["2:3-14", "16:17-29", "31:32-50"]
-}
-```
-
----
-
-### RiskLevelQuestionDiffTask
-
-The second diff task. Compares the Risk Level Questions sheet between
-two reference years. Structurally similar to CLQ but with deliberate
-divergences.
-
-- **Task type**: `RiskLevelQuestionDiff`
-- **Namespace**: `ItrqTool.Tasks.RiskLevelQuestionDiff`
-- **Default sheet name**: `"Risk Level Questions"`
-- **Default output filename**: `risk-level-question-diff.html`
-- **Default report title**: `"Risk Level Questions Diff Report"`
-
-#### Records
-
-- `RiskLevelQuestion` — `(SectionName, QuestionText, ExplanationPrompt,
-  QuestionNumber, RowNumber, DvType, DvFormula, CfOperator)`. No
-  `ChapterName` (RLQ has sections only). No `OriginalText` (number is
-  in its own column, no prefix to strip).
-- `RiskLevelQuestionsConfig` — `SheetName`, `NumberColumn` (default
-  `"B"`), `TextColumn` (default `"C"`), `AnswerColumn` (default `"D"`),
-  `ExplanationColumn` (default `"E"`), `SectionRows`, computed
-  `ParsedSections`. No `ChapterRows`.
-- Result records `AddedQuestion`, `RemovedQuestion`, `ChangedQuestion`,
-  `UnchangedQuestion`, `DiffResult` live in the same namespace as
-  siblings to CLQ's. `ChangedQuestion` has an extra `ExplanationChanged`
-  flag compared to CLQ's.
-
-#### Configuration file format
-
-```json
-{
-  "sheetName": "Risk Level Questions",
-  "numberColumn": "B",
-  "textColumn": "C",
-  "answerColumn": "D",
-  "explanationColumn": "E",
-  "sectionRows": ["3:4-15", "16:17-42"]
-}
-```
-
-`sectionRows` uses the same `"<sectionRow>:<firstQuestionRow>-<lastQuestionRow>"`
-format as CLQ. Throws `FormatException` on invalid entries (propagates
-through `ExecuteAsync`'s outer catch as a `TaskResult.Succeeded: false`).
-
-#### Parser specifics
-
-- Question number read directly from column B. No regex. Trimmed string
-  stored as-is; `null` if cell missing or whitespace.
-- Question text from column C (no prefix strip).
-- Explanation prompt from column E.
-- DV/CF metadata from column D, same `IExcelStructureReader` contract
-  as CLQ.
-- Section name read from column C on the row indicated by
-  `SectionDefinition.SectionRow`.
-
-#### Diff engine
-
-`ItrqTool.Tasks.RiskLevelQuestionDiff.QuestionDiffEngine.Diff(prev, cur)`.
-Mirrors CLQ's engine with one structural difference: an
-`explanationChanged` flag is computed alongside `textChanged`,
-`numberChanged`, `dvChanged`, `cfChanged`, and flows into the result's
-`ChangedQuestion`.
-
-The matching matrix uses `QuestionText` only with the existing
-+0.10 section-match and +0.10 number-match contextual bonuses.
-**`ExplanationPrompt` does NOT participate in the matching matrix.**
-This is a deliberate decision: keeping the matching surface narrow
-preserves the "reported similarity is base text similarity"
-invariant. If a future failure mode shows that explanation similarity
-would have disambiguated text-similar questions, adding an
-`ExplanationBonus` is a one-line matrix-construction change.
-
-**Matching surface narrowness — `ExplanationPrompt` in RLQ.** The RLQ
-diff engine's matching matrix uses `QuestionText` only, with the same
-section/number contextual bonuses as CLQ. `ExplanationPrompt` (the
-second text field per row in the RLQ schema) does NOT participate in
-matching; the `ExplanationChanged` flag is computed post-match from a
-separate `TextSimilarity.Score` call on the matched pair's
-explanation strings. Rationale: keeps the "reported similarity is
-base question-text similarity" invariant clean, and avoids the
-question of whether explanation similarity should affect the reported
-`SimilarityScore` (it should not). Symmetric extensions are reserved
-for the matching matrix only; secondary text fields stay outside it.
-
-#### Parameters
-
-Five, same shape as CLQ:
-
-- `previousWorkbookFullFilename` (required)
-- `currentWorkbookFullFilename` (required)
-- `previousConfigurationFullFilename` (required)
-- `currentConfigurationFullFilename` (required)
-- `reportTitle` (optional, defaults to "Risk Level Questions Diff Report")
-
-#### Workflow JSON
-
-Placeholder at `workflows/risk-level-question-diff.json`. Same shape
-as CLQ's workflow JSON with the task type, output filename, and
-placeholder parameter paths adapted for RLQ.
-
----
-
-## General Data Diff
-
-The third diff task. Compares the General Data sheet between two reference years; produces an interactive HTML report. Unlike CLQ and RLQ (one question per sheet row), a General Data question can span multiple sheet rows with a variable number of template-label cells across columns D/E/F per row and an explanation cell in column G.
-
-- **Default sheet name**: `"General Data"`
-- **Default columns**: B=question number, C=text/section header, D/E/F=answer template labels, G=explanation prompt
-- **Task type**: `GeneralDataDiff`
-- **Namespace**: `ItrqTool.Tasks.GeneralDataDiff` (engine, records, parser, formatter)
-  and `ItrqTool.Tasks` (task orchestrator `GeneralDataDiffTask`)
-- **Default report title**: `"General Data Diff Report"`
-- **Default output filename**: `general-data-diff.html`
-- **Matching**: question-text-based with section (+0.10) and number (+0.10) bonuses,
-  match threshold 0.5 — mirrors RLQ engine. `QuestionText` only in the matrix.
-- **Per-cell diffing** (novel vs CLQ/RLQ): answer cells keyed by `(RowOffset, Column)`;
-  explanation cells keyed by `RowOffset`. A `ChangedQuestion` may have
-  `AnswerCellsChanged = true` and/or `ExplanationCellsChanged = true` independently of
-  `TextChanged` and `NumberChanged`.
-### Writer
-
-`HtmlGeneralDataDiffReportWriter` (in `ItrqTool.Infrastructure.Reporting`) renders `HtmlDiffGeneralDataReportData` to a self-contained interactive HTML report — same JS-derives pattern and visual language as the CLQ/RLQ `HtmlQuestionDiffReportWriter`, with its own copy of the CSS/JS scaffold (duplicate-and-defer; not shared). Six tabs: added / removed / changed / unchanged / current-sheet / previous-sheet. Multi-row questions render their answer (D/E/F) and explanation (G) cells as a compact per-cell list; changed questions render a per-cell diff grid (cell coord, label old→new with word-diff, DV old→new, CF old→new). Registered in CompositionRoot. The Phase 2a `StubHtmlGeneralDataDiffReportWriter` has been removed.
-
-### Workflow JSON
-
-```json
-{
-  "id": "general-data-diff",
-  "name": "General Data Diff",
-  "tasks": [
-    {
-      "id": "diff-report",
-      "type": "GeneralDataDiff",
-      "inputs": {},
-      "outputs": { "report": "general-data-diff.html" },
-      "parameters": {
-        "previousWorkbookFullFilename": "<path to previous year's workbook>",
-        "currentWorkbookFullFilename": "<path to current year's workbook>",
-        "previousConfigurationFullFilename": "<path to previous year's general-data-structure.json>",
-        "currentConfigurationFullFilename": "<path to current year's general-data-structure.json>"
-      }
-    }
-  ]
-}
-```
-
-### Structure JSON (per-year, runtime input)
-
-```json
-{
-  "sheetName": "General Data",
-  "numberColumn": "B",
-  "textColumn": "C",
-  "answerColumns": ["D", "E", "F"],
-  "explanationColumn": "G",
-  "sectionRows": [
-    "13:14, 15, 16(1), 17(1), 18(3), 21(2)",
-    "26:27(4), 31"
-  ]
-}
-```
-
-Each `sectionRows` entry has the format `"<sectionRow>:<startRow>(<rowspan>), <startRow>(<rowspan>), ..."` where `rowspan` is inclusive of the start row (so `18(3)` spans rows 18, 19, 20). The `(<rowspan>)` is optional and defaults to 1, so `21` is equivalent to `21(1)`.
-
-### Canonical Domain types
-
-```csharp
-public sealed record GeneralDataAnswerCell(
-    int RowOffset, string Column, string Text,
-    string? DvType, string? DvFormula, string? CfOperator);
-
-public sealed record GeneralDataExplanationCell(
-    int RowOffset, string Text,
-    string? DvType, string? DvFormula, string? CfOperator);
-
-public sealed record GeneralDataQuestion(
-    string SectionName,
-    string QuestionText,
-    string? QuestionNumber,
-    int RowNumber,
-    IReadOnlyList<string> RowNumberLabels,
-    IReadOnlyList<GeneralDataAnswerCell> AnswerCells,
-    IReadOnlyList<GeneralDataExplanationCell> ExplanationCells);
-```
-
-### Config and parser
-
-`GeneralDataConfig` (in `ItrqTool.Tasks.GeneralDataDiff`) parses its `SectionRows` strings into `IReadOnlyList<SectionDefinition>` via the `ParsedSections` derived property. `GeneralDataQuestionParser.Parse(rows, config)` is a public static method that walks each section's enumerated questions and produces the list of `GeneralDataQuestion`. Cell inclusion: a D/E/F or G cell joins its list iff `TextValue` is non-empty after trimming (DV/CF on otherwise empty cells does NOT trigger inclusion). Question text comes from column C of the question's first row only; continuation rows' column C is ignored.
-
-### Task-internal records (`ItrqTool.Tasks.GeneralDataDiff`)
-
-```csharp
-public sealed record AddedQuestion(GeneralDataQuestion Question);
-public sealed record RemovedQuestion(GeneralDataQuestion Question);
-
-public sealed record AnswerCellChange(
-    int RowOffset, string Column,
-    string? OldText, string? NewText,
-    string? OldDvType, string? OldDvFormula, string? OldCfOperator,
-    string? NewDvType, string? NewDvFormula, string? NewCfOperator,
-    bool TextChanged, bool DvChanged, bool CfChanged);
-
-public sealed record ExplanationCellChange(
-    int RowOffset,
-    string? OldText, string? NewText,
-    string? OldDvType, string? OldDvFormula, string? OldCfOperator,
-    string? NewDvType, string? NewDvFormula, string? NewCfOperator,
-    bool TextChanged, bool DvChanged, bool CfChanged);
-
-public sealed record ChangedQuestion(
-    GeneralDataQuestion OldQuestion,
-    GeneralDataQuestion NewQuestion,
-    double SimilarityScore,
-    double? SecondBestSimilarity,
-    bool TextChanged, bool NumberChanged,
-    bool AnswerCellsChanged, bool ExplanationCellsChanged,
-    IReadOnlyList<AnswerCellChange>      AnswerCellChanges,
-    IReadOnlyList<ExplanationCellChange> ExplanationCellChanges);
-
-public sealed record UnchangedQuestion(
-    GeneralDataQuestion Question,   // new-year question
-    double? SecondBestSimilarity,
-    int PreviousRowNumber);         // old-year question's row number
-
-public sealed record DiffResult(
-    IReadOnlyList<AddedQuestion>     Added,
-    IReadOnlyList<RemovedQuestion>   Removed,
-    IReadOnlyList<ChangedQuestion>   Changed,
-    IReadOnlyList<UnchangedQuestion> Unchanged);
-```
-
-### Diff engine
-
-`GeneralDataDiffEngine.Diff(oldQuestions, newQuestions)` in `ItrqTool.Tasks.GeneralDataDiff`.
-Mirrors the RLQ engine: base similarity matrix on `QuestionText`, contextual bonuses
-(section +0.10, number +0.10), Hungarian assignment, match threshold 0.5.
-`SimilarityScore` in results is always the **base** score (no bonuses).
-
-Per-cell diffing is invoked post-match via `DiffAnswerCells` and `DiffExplanationCells`:
-- Answer cells keyed by `(RowOffset, Column)`.
-- Explanation cells keyed by `RowOffset`.
-- DV comparison and CF muting (List DV → CF ignored) mirror RLQ/CLQ logic.
-- A cell present on one side but absent on the other is reported as an add/remove
-  change entry with a null `OldText` or `NewText`.
-
-### Parameters
-
-Five, same shape as CLQ and RLQ:
-- `previousWorkbookFullFilename` (required)
-- `currentWorkbookFullFilename` (required)
-- `previousConfigurationFullFilename` (required)
-- `currentConfigurationFullFilename` (required)
-- `reportTitle` (optional, defaults to "General Data Diff Report")
-
-### DI registration
-
-`HtmlGeneralDataDiffReportWriter` is registered in `CompositionRoot.AddItrqToolServices`:
-```csharp
-services.AddSingleton<IHtmlGeneralDataDiffReportWriter, HtmlGeneralDataDiffReportWriter>();
-```
-
-Architectural note: General Data deviates from the RLQ pattern by exposing the parser as a standalone public static class (`GeneralDataQuestionParser`) rather than embedding it as a private static method on the task class. The "third-sibling abstraction trigger" did NOT fire: GD's multi-row question structure is sufficiently different from CLQ/RLQ's one-row-per-question model that sharing parser code would force accidental coupling. Re-evaluate at the fourth sheet (Risk Level Exposure).
-
-**Shared DV helpers** (`ItrqTool.Tasks/Shared/`): `DvDisplayFormatter` (formatting) and `DvComparer` (comparison logic: `IsDvChanged`, list equality, inline-list detection) were extracted from the three per-sheet copies into `ItrqTool.Tasks.Shared` after proving the three copies were byte-identical. The remaining per-sibling helpers (Hungarian algorithm, TextSimilarity, question parser, diff engine) remain duplicated per-sibling — their structures diverge too much for safe shared extraction. CSS/JS scaffold in the HTML writers also remains duplicate-and-defer (not shared).
+Raw cell content plus Excel structural metadata (data-validation type/formula,
+conditional-formatting operator) that `IExcelReader` does not expose is read via
+`IExcelStructureReader` — used by the diff tasks. See the diff skills for the
+DV/CF capture, display, and comparison rules.
 
 ---
 
@@ -1077,53 +461,15 @@ Architectural note: General Data deviates from the RLQ pattern by exposing the p
 - ViewModels are in `ItrqTool.Presentation/ViewModels/`.
 - Views (XAML) are in `ItrqTool.Presentation/Views/`.
 
-**UI model records** (never expose domain types to the view layer):
-
-```csharp
-// Bindable surrogate for WorkflowDefinition in list views
-public record WorkflowListItem(string Id, string Name);
-
-// Bindable projection of a WorkflowLoadFailure for the list-view banner
-public record WorkflowLoadFailureItem(string FileName, string ErrorMessage);
-// FileName is the file name only (no directory path); ErrorMessage forwarded verbatim.
-
-// One row in the task list panel
-public record TaskRowItem(
-    string TaskId,
-    string DisplayName,
-    TaskRowStatus Status,    // Pending, Ready, Running, Completed, Failed
-    string? Duration         // null until completed, e.g. "1.2s"
-);
-
-public enum TaskRowStatus { Pending, Ready, Running, Completed, Failed }
-
-// The right-hand result panel
-public record TaskResultViewModel(
-    string TaskName,
-    bool Succeeded,
-    string Duration,
-    IReadOnlyList<TaskMessageViewModel> Messages
-);
-
-// Presentation-side mirror of ItrqTool.Domain.MessageSeverity — keeps Domain out of XAML bindings
-public enum TaskMessageSeverity { Info, Warning, Error }
-
-public record TaskMessageViewModel(
-    TaskMessageSeverity Severity,   // Info, Warning, Error
-    string Text,
-    string Timestamp                // formatted for display
-);
-
-// One row in the live in-app log panel
-// Category is the full source context ("ItrqTool.Tasks.NoOpTask");
-// ShortCategory is the last segment ("NoOpTask").
-public record LogEntry(
-    DateTimeOffset Timestamp,
-    LogLevel Level,
-    string Category,
-    string ShortCategory,
-    string Message);
-```
+**UI model records** (never expose domain types to the view layer — non-negotiable
+rule 5). These bindable surrogate types live in `src/ItrqTool.Presentation/UIModels/`
+(authoritative for signatures): `WorkflowListItem`, `WorkflowGroupItem`,
+`WorkflowLoadFailureItem`, `TaskRowItem` + `TaskRowStatus`, `TaskParameterItem`,
+`LogEntry`. The result-panel view models (`TaskResultViewModel`,
+`TaskMessageViewModel`, and the Presentation-side `TaskMessageSeverity` mirror of
+`MessageSeverity`) live alongside the run view model. Read the source for fields;
+the load-bearing rule is that none of these leak a Domain type onto a bindable
+surface.
 
 **WorkflowRunViewModel responsibilities:**
 
@@ -1273,15 +619,10 @@ Each task implementation must have:
 - A failure path test (malformed input, missing expected column, etc.).
 - A cancellation test verifying `OperationCanceledException` propagates.
 
-Implemented tasks with test coverage:
-- `ControlLevelQuestionDiffTask` (TaskType `"ControlLevelQuestionDiff"`) — compares the
-  Control Level Questions sheet between two reference years; produces an interactive HTML
-  diff report.
-- `RiskLevelQuestionDiffTask` (TaskType `"RiskLevelQuestionDiff"`) — compares the Risk
-  Level Questions sheet between two reference years; produces the same interactive HTML
-  report shape as CLQ with the addition of an explanation diff block per changed question.
+Per-sheet diff-task test specifics are documented in the relevant sheet skill
+(`.claude/skills/{clq-diff,rlq-diff,gd-diff}/`).
 
-**Current test counts (current):**
+**Current test counts (baseline — the always-on verification anchor):**
 Architecture 14, Domain 13, Application 12, Tasks 304, Infrastructure 89, Integration 40
 — **472 total**.
 
@@ -1338,6 +679,9 @@ services.AddSingleton<MainWindow>();
 `IWorkflowTaskMarker` is an empty marker interface in `ItrqTool.Tasks` used solely
 to give Scrutor an assembly anchor. It has no members.
 
+The diff-report writers (`IHtmlReportWriter`, `IHtmlGeneralDataDiffReportWriter`)
+are also registered here as singletons — see the diff skills.
+
 ---
 
 ## Adding new capabilities — checklists
@@ -1363,72 +707,50 @@ to give Scrutor an assembly anchor. It has no members.
 4. Update this file: add the package to the technology stack table, document the interface.
 
 ### Changing a domain type signature
-1. Update the canonical definition in this file first.
-2. Then update the code.
+1. Update the source in `src/ItrqTool.Domain/` (authoritative for signatures).
+2. Update the relevant call sites.
 3. Architecture tests and unit tests will identify all call sites that need updating.
 
 ---
 
 ## Deployment
 
-The application is published as a framework-dependent, single-file
-executable for win-x64. Target machines must have
-Microsoft.WindowsDesktop.App 10.0.x installed (verified on all
-intended deployment machines).
-
-Publish configuration:
-  - Target framework: net10.0-windows
-  - Runtime identifier: win-x64
-  - Self-contained: false (framework-dependent)
-  - PublishSingleFile: true
-  - EnableCompressionInSingleFile: false (compression requires self-contained;
-    not supported for framework-dependent single-file builds — NETSDK1176)
-  - PublishReadyToRun: true
-  - DebugType: embedded (PDB embedded in the single-file exe)
-  - PublishTrimmed: false (trimming disabled — WPF, Scrutor reflection
-    scanning, System.Text.Json reflection, and CommunityToolkit.Mvvm
-    source generators are not safe to trim)
-
-Publish output layout (under `publish/` at the repo root):
-
-    publish/
-      ItrqTool.exe          single-file, PDB embedded
-      appsettings.json
-      workflows/            empty — deployed users start with no workflows
-      README.txt            quick-start guide generated by publish.ps1
-
-The `publish/` directory is .gitignore'd. After publishing, the
-contents of that directory are zipped and handed to the user. The
-user extracts the zip anywhere they have write access and runs the
-exe directly — no installer, no admin rights.
-
-Publishing is driven by `publish.ps1` at the repo root, which invokes
-`dotnet publish` with the canonical flags, stages `appsettings.json`
-alongside the exe, wipes the published `workflows/` directory clean
-(developer-side workflow JSONs are reference-only and never ship to
-end users), and writes a `README.txt` quick-start guide for end users.
-Never invoke `dotnet publish` manually for a release build; always go
-through `publish.ps1` so the output is reproducible.
-
-Runtime paths on a deployed install:
-  - `AppContext.BaseDirectory` resolves to the directory containing
-    ItrqTool.exe. This is where the app looks for `appsettings.json`
-    and the `workflows/` subdirectory.
-  - Working data and logs live under the paths configured in
-    appsettings.json (defaults: %USERPROFILE%\Documents\ItrqTool
-    and %USERPROFILE%\Documents\ItrqTool\logs). These persist across
-    app installs and upgrades.
+Publishing & runtime paths: see `.claude/skills/deployment/SKILL.md`.
 
 ---
 
 ## Maintaining this file
 
+This codebase uses Claude Code's layered documentation model:
+
+- **CLAUDE.md = always-on governance.** Loaded every session. Holds: the hard
+  constraints, architecture overview, conventions, build/test commands, and the
+  test-count baseline. The "why" and "where," not the "what."
+- **Skills (`.claude/skills/<name>/SKILL.md`) = on-demand task knowledge.** Only a
+  skill's `name` + `description` are loaded at startup; the body loads when Claude
+  judges the task relevant, or when a prompt names the skill explicitly to
+  force-load it. Sheet-specific specs and infrequent task guides (publishing) live
+  here. Current skills: `diff-task-conventions`, `clq-diff`, `rlq-diff`, `gd-diff`,
+  `deployment`.
+
+**Hard constraints never move to a skill.** Every non-negotiable rule, the
+conservative-input posture, and the detect-everything principle stay in CLAUDE.md
+verbatim. A skill that failed to trigger would leave a load-bearing constraint out
+of context — so they must always be in the always-on file.
+
 Update `CLAUDE.md` whenever:
-- A new domain type is introduced or an existing one changes signature.
+- A new domain type is introduced or an existing one changes signature (update the
+  inline core-contract block or the source-pointer index; full signatures live in
+  the source).
 - A new NuGet package is added to any project.
 - A new project is added to the solution.
 - A new convention is established (e.g. a new naming rule, a new file location).
 - A rule is intentionally relaxed or tightened.
+
+Update the relevant **skill** when sheet-specific or task-specific reference
+changes (a config format, a parser detail, a report shape, publish flags). Add a
+new skill when a new sheet or lifecycle step arrives; keep its `description`
+concrete and keyword-rich so it triggers reliably.
 
 `CLAUDE.md` is read at the start of every session. If it is out of date,
 subsequent sessions will drift from the established architecture.
