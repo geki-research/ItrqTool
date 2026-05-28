@@ -352,6 +352,110 @@ public interface IHtmlReportWriter
     void WriteReport(HtmlDiffReportData data, string filePath);
 }
 
+// ── General Data diff reporting ───────────────────────────────────────────────
+// Namespace: ItrqTool.Domain.Reporting
+// Files: src/ItrqTool.Domain/Reporting/HtmlDiffGeneralDataReportData.cs
+//        src/ItrqTool.Domain/Reporting/IHtmlGeneralDataDiffReportWriter.cs
+
+public record HtmlDiffGeneralDataReportData(
+    string Title,
+    string PreviousWorkbookPath,
+    string CurrentWorkbookPath,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<HtmlDiffGeneralDataQuestion>          Added,
+    IReadOnlyList<HtmlDiffGeneralDataQuestion>          Removed,
+    IReadOnlyList<HtmlDiffGeneralDataChangedQuestion>   Changed,
+    IReadOnlyList<HtmlDiffGeneralDataUnchangedQuestion> Unchanged
+);
+
+public record HtmlDiffGeneralDataQuestion(
+    string? QuestionNumber,
+    string  Section,
+    int     RowNumber,
+    string  QuestionText,
+    IReadOnlyList<string>                         RowNumberLabels,
+    IReadOnlyList<HtmlDiffGeneralDataAnswerCell>      AnswerCells,
+    IReadOnlyList<HtmlDiffGeneralDataExplanationCell> ExplanationCells
+);
+
+public record HtmlDiffGeneralDataAnswerCell(
+    int     RowOffset,
+    string  Column,
+    string  Text,
+    string  DvDisplay,      // formatted: "—", type name, or "List: A | B | C"
+    string? CfOperator
+);
+
+public record HtmlDiffGeneralDataExplanationCell(
+    int     RowOffset,
+    string  Text,
+    string  DvDisplay,
+    string? CfOperator
+);
+
+public record HtmlDiffGeneralDataChangedQuestion(
+    string  Section,
+    int     PreviousRowNumber,
+    int     CurrentRowNumber,
+    string? PreviousNumber,
+    string? CurrentNumber,
+    string  OldText,
+    string  NewText,
+    double  SimilarityScore,
+    double? SecondBestSimilarity,
+    bool    TextChanged,
+    bool    NumberChanged,
+    bool    AnswerCellsChanged,
+    bool    ExplanationCellsChanged,
+    IReadOnlyList<HtmlDiffAnswerCellChange>      AnswerCellChanges,
+    IReadOnlyList<HtmlDiffExplanationCellChange> ExplanationCellChanges
+);
+
+public record HtmlDiffAnswerCellChange(
+    int     RowOffset,
+    string  Column,
+    string? OldText,
+    string? NewText,
+    string  OldDvDisplay,
+    string  NewDvDisplay,
+    string? OldCfOperator,
+    string? NewCfOperator,
+    bool    TextChanged,
+    bool    DvChanged,
+    bool    CfChanged
+);
+
+public record HtmlDiffExplanationCellChange(
+    int     RowOffset,
+    string? OldText,
+    string? NewText,
+    string  OldDvDisplay,
+    string  NewDvDisplay,
+    string? OldCfOperator,
+    string? NewCfOperator,
+    bool    TextChanged,
+    bool    DvChanged,
+    bool    CfChanged
+);
+
+public record HtmlDiffGeneralDataUnchangedQuestion(
+    string  Section,
+    int     PreviousRowNumber,
+    int     CurrentRowNumber,
+    string? QuestionNumber,
+    string  QuestionText,
+    IReadOnlyList<string>                         RowNumberLabels,
+    IReadOnlyList<HtmlDiffGeneralDataAnswerCell>      AnswerCells,
+    IReadOnlyList<HtmlDiffGeneralDataExplanationCell> ExplanationCells,
+    double  SimilarityScore,        // always 1.0
+    double? SecondBestSimilarity
+);
+
+public interface IHtmlGeneralDataDiffReportWriter
+{
+    void WriteReport(HtmlDiffGeneralDataReportData data, string filePath);
+}
+
 **Sheet-order tabs**: two additional tabs ("Current sheet", "Previous sheet")
 render every question of the respective workbook in sheet-row order, with a
 status badge per entry (added/changed/unchanged on the current side;
@@ -806,8 +910,20 @@ The third diff task. Compares the General Data sheet between two reference years
 
 - **Default sheet name**: `"General Data"`
 - **Default columns**: B=question number, C=text/section header, D/E/F=answer template labels, G=explanation prompt
-- **Default report title**: `"General Data Diff Report"` (Phase 2)
-- **Matching**: question-text-based with section bonus, mirroring RLQ; question numbers are display-only.
+- **Task type**: `GeneralDataDiff`
+- **Namespace**: `ItrqTool.Tasks.GeneralDataDiff` (engine, records, parser, formatter)
+  and `ItrqTool.Tasks` (task orchestrator `GeneralDataDiffTask`)
+- **Default report title**: `"General Data Diff Report"`
+- **Default output filename**: `general-data-diff.html`
+- **Matching**: question-text-based with section (+0.10) and number (+0.10) bonuses,
+  match threshold 0.5 — mirrors RLQ engine. `QuestionText` only in the matrix.
+- **Per-cell diffing** (novel vs CLQ/RLQ): answer cells keyed by `(RowOffset, Column)`;
+  explanation cells keyed by `RowOffset`. A `ChangedQuestion` may have
+  `AnswerCellsChanged = true` and/or `ExplanationCellsChanged = true` independently of
+  `TextChanged` and `NumberChanged`.
+- **Writer status**: Phase 2a uses `StubHtmlGeneralDataDiffReportWriter`
+  (`ItrqTool.Infrastructure.Reporting`) — emits JSON dump + Phase 2a banner.
+  Phase 2b will replace with `HtmlGeneralDataDiffReportWriter`.
 
 ### Workflow JSON
 
@@ -875,9 +991,80 @@ public sealed record GeneralDataQuestion(
 
 `GeneralDataConfig` (in `ItrqTool.Tasks.GeneralDataDiff`) parses its `SectionRows` strings into `IReadOnlyList<SectionDefinition>` via the `ParsedSections` derived property. `GeneralDataQuestionParser.Parse(rows, config)` is a public static method that walks each section's enumerated questions and produces the list of `GeneralDataQuestion`. Cell inclusion: a D/E/F or G cell joins its list iff `TextValue` is non-empty after trimming (DV/CF on otherwise empty cells does NOT trigger inclusion). Question text comes from column C of the question's first row only; continuation rows' column C is ignored.
 
-Architectural note: General Data deviates from the RLQ pattern by exposing the parser as a standalone public static class (`GeneralDataQuestionParser`) rather than embedding it as a private static method on the task class. Rationale: enables independent testing of the parser before the task orchestrator (Phase 2) exists. Phase 2's `GeneralDataDiffTask` will call `GeneralDataQuestionParser.Parse` directly.
+### Task-internal records (`ItrqTool.Tasks.GeneralDataDiff`)
 
-The "third-sibling abstraction trigger" did NOT fire at this point: General Data's multi-row question structure is sufficiently different from CLQ/RLQ's one-row-per-question model that sharing parser code would force accidental coupling. Re-evaluate at the fourth sheet (Risk Level Exposure).
+```csharp
+public sealed record AddedQuestion(GeneralDataQuestion Question);
+public sealed record RemovedQuestion(GeneralDataQuestion Question);
+
+public sealed record AnswerCellChange(
+    int RowOffset, string Column,
+    string? OldText, string? NewText,
+    string? OldDvType, string? OldDvFormula, string? OldCfOperator,
+    string? NewDvType, string? NewDvFormula, string? NewCfOperator,
+    bool TextChanged, bool DvChanged, bool CfChanged);
+
+public sealed record ExplanationCellChange(
+    int RowOffset,
+    string? OldText, string? NewText,
+    string? OldDvType, string? OldDvFormula, string? OldCfOperator,
+    string? NewDvType, string? NewDvFormula, string? NewCfOperator,
+    bool TextChanged, bool DvChanged, bool CfChanged);
+
+public sealed record ChangedQuestion(
+    GeneralDataQuestion OldQuestion,
+    GeneralDataQuestion NewQuestion,
+    double SimilarityScore,
+    double? SecondBestSimilarity,
+    bool TextChanged, bool NumberChanged,
+    bool AnswerCellsChanged, bool ExplanationCellsChanged,
+    IReadOnlyList<AnswerCellChange>      AnswerCellChanges,
+    IReadOnlyList<ExplanationCellChange> ExplanationCellChanges);
+
+public sealed record UnchangedQuestion(
+    GeneralDataQuestion Question,   // new-year question
+    double? SecondBestSimilarity,
+    int PreviousRowNumber);         // old-year question's row number
+
+public sealed record DiffResult(
+    IReadOnlyList<AddedQuestion>     Added,
+    IReadOnlyList<RemovedQuestion>   Removed,
+    IReadOnlyList<ChangedQuestion>   Changed,
+    IReadOnlyList<UnchangedQuestion> Unchanged);
+```
+
+### Diff engine
+
+`GeneralDataDiffEngine.Diff(oldQuestions, newQuestions)` in `ItrqTool.Tasks.GeneralDataDiff`.
+Mirrors the RLQ engine: base similarity matrix on `QuestionText`, contextual bonuses
+(section +0.10, number +0.10), Hungarian assignment, match threshold 0.5.
+`SimilarityScore` in results is always the **base** score (no bonuses).
+
+Per-cell diffing is invoked post-match via `DiffAnswerCells` and `DiffExplanationCells`:
+- Answer cells keyed by `(RowOffset, Column)`.
+- Explanation cells keyed by `RowOffset`.
+- DV comparison and CF muting (List DV → CF ignored) mirror RLQ/CLQ logic.
+- A cell present on one side but absent on the other is reported as an add/remove
+  change entry with a null `OldText` or `NewText`.
+
+### Parameters
+
+Five, same shape as CLQ and RLQ:
+- `previousWorkbookFullFilename` (required)
+- `currentWorkbookFullFilename` (required)
+- `previousConfigurationFullFilename` (required)
+- `currentConfigurationFullFilename` (required)
+- `reportTitle` (optional, defaults to "General Data Diff Report")
+
+### DI registration
+
+`StubHtmlGeneralDataDiffReportWriter` is registered in `CompositionRoot.AddItrqToolServices`:
+```csharp
+services.AddSingleton<IHtmlGeneralDataDiffReportWriter, StubHtmlGeneralDataDiffReportWriter>();
+```
+Phase 2b replaces the stub with `HtmlGeneralDataDiffReportWriter`. Only the DI binding changes; no task or domain code changes.
+
+Architectural note: General Data deviates from the RLQ pattern by exposing the parser as a standalone public static class (`GeneralDataQuestionParser`) rather than embedding it as a private static method on the task class. The "third-sibling abstraction trigger" did NOT fire: GD's multi-row question structure is sufficiently different from CLQ/RLQ's one-row-per-question model that sharing parser code would force accidental coupling. Re-evaluate at the fourth sheet (Risk Level Exposure).
 
 ---
 
@@ -1093,9 +1280,9 @@ Implemented tasks with test coverage:
   Level Questions sheet between two reference years; produces the same interactive HTML
   report shape as CLQ with the addition of an explanation diff block per changed question.
 
-**Current test counts (as of RLQ phase-F merge):**
-Architecture 14, Domain 13, Application 12, Tasks 185, Infrastructure 58, Integration 40
-— **322 total**.
+**Current test counts (as of GD Phase 2a merge):**
+Architecture 14, Domain 13, Application 12, Tasks 296, Infrastructure 66, Integration 40
+— **441 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows
