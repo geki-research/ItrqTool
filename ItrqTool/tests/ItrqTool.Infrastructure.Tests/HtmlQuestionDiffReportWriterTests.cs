@@ -754,6 +754,68 @@ public sealed class HtmlQuestionDiffReportWriterTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
+    // ── Phase F: Explanation diff two-column layout ───────────────────────────
+
+    [Fact]
+    public void WriteReport_ChangedWithExplanationChanged_ExplanationBlockAppearsInBothColumns()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "report.html");
+            const string oldExplanation = "Explain the previous control approach.";
+            const string newExplanation = "Explain the updated control methodology.";
+
+            var data = EmptyReport() with
+            {
+                Changed =
+                [
+                    new HtmlDiffChangedQuestion(
+                        Chapter: "Chapter 1",
+                        Section: "Section A",
+                        PreviousRowNumber: 1,
+                        CurrentRowNumber: 1,
+                        PreviousNumber: null,
+                        CurrentNumber: null,
+                        OldText: "Same question text",
+                        NewText: "Same question text",
+                        SimilarityScore: 1.0,
+                        SecondBestSimilarity: null,
+                        OldDvDisplay: "—",
+                        NewDvDisplay: "—",
+                        OldCfOperator: null,
+                        NewCfOperator: null,
+                        TextChanged: false,
+                        NumberChanged: false,
+                        DvChanged: false,
+                        CfChanged: false,
+                        OldExplanation: oldExplanation,
+                        NewExplanation: newExplanation,
+                        ExplanationChanged: true)
+                ]
+            };
+
+            Writer().WriteReport(data, filePath);
+
+            var content = File.ReadAllText(filePath);
+
+            // The new two-column structure produces two separate expOldBlock / expNewBlock
+            // string literals in the JS source, each containing class="explanation-block".
+            // Count occurrences — two proves old and new explanation diffs land in separate cells.
+            var occurrences = 0;
+            var idx = 0;
+            while ((idx = content.IndexOf("class=\"explanation-block\"", idx, StringComparison.Ordinal)) >= 0)
+            {
+                occurrences++;
+                idx++;
+            }
+            occurrences.Should().Be(2,
+                because: "old explanation diff block goes in the old-text cell and new explanation diff block goes in the new-text cell");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
     // ── Phase B: Current sheet / Previous sheet tabs ───────────────────────────
 
     [Fact]

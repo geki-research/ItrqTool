@@ -1279,9 +1279,9 @@ Implemented tasks with test coverage:
   Level Questions sheet between two reference years; produces the same interactive HTML
   report shape as CLQ with the addition of an explanation diff block per changed question.
 
-**Current test counts (as of GD Phase 2b merge):**
-Architecture 14, Domain 13, Application 12, Tasks 296, Infrastructure 86, Integration 40
-— **461 total**.
+**Current test counts (current):**
+Architecture 14, Domain 13, Application 12, Tasks 304, Infrastructure 87, Integration 40
+— **470 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows

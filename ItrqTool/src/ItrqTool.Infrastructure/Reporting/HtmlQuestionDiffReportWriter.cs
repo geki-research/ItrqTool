@@ -132,7 +132,7 @@ tbody tr:hover { background: #f1f5f9; }
 
 .explanation-block { margin-top: 6px; padding: 4px 8px; border-left: 3px solid #e2e8f0; font-size: 12px; color: #475569; }
 .explanation-label { font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; margin-bottom: 2px; }
-.explanation-diff  { display: flex; flex-direction: column; gap: 2px; }
+.explanation-diff  { margin-top: 2px; }
 
 /* Sheet-order tab styles */
 .sheet-entry-row { cursor: pointer; }
@@ -403,11 +403,12 @@ function renderChanged() {
     let explanationNewCell = d.newHtml;
     if (c.explanationChanged) {
       const expD = renderDiff(c.oldExplanation || '', c.newExplanation || '');
-      const expBlock = '<div class="explanation-block"><div class="explanation-label">Explanation:</div>' +
-        '<div class="explanation-diff">' + expD.oldHtml + '</div>' +
+      const expOldBlock = '<div class="explanation-block"><div class="explanation-label">Explanation:</div>' +
+        '<div class="explanation-diff">' + expD.oldHtml + '</div></div>';
+      const expNewBlock = '<div class="explanation-block"><div class="explanation-label">Explanation:</div>' +
         '<div class="explanation-diff">' + expD.newHtml + '</div></div>';
-      explanationOldCell = d.oldHtml + expBlock;
-      explanationNewCell = d.newHtml;
+      explanationOldCell = d.oldHtml + expOldBlock;
+      explanationNewCell = d.newHtml + expNewBlock;
     }
 
     return '<tr>' +
