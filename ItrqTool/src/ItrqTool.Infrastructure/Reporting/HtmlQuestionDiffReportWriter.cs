@@ -17,8 +17,7 @@ public sealed class HtmlQuestionDiffReportWriter : IHtmlReportWriter
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        var json = JsonSerializer.Serialize(data, JsonOpts)
-            .Replace("</script>", @"<\/script>");
+        var json = JsonSerializer.Serialize(data, JsonOpts);
 
         var html = BuildHtml(data, json);
         File.WriteAllText(filePath, html, Encoding.UTF8);

@@ -1280,8 +1280,8 @@ Implemented tasks with test coverage:
   report shape as CLQ with the addition of an explanation diff block per changed question.
 
 **Current test counts (current):**
-Architecture 14, Domain 13, Application 12, Tasks 304, Infrastructure 87, Integration 40
-— **470 total**.
+Architecture 14, Domain 13, Application 12, Tasks 304, Infrastructure 89, Integration 40
+— **472 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows

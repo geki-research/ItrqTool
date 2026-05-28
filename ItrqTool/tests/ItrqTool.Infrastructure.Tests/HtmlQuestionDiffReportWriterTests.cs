@@ -965,4 +965,40 @@ public sealed class HtmlQuestionDiffReportWriterTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Security / encoding ────────────────────────────────────────────────────
+
+    [Fact]
+    public void WriteReport_XssPayloadInQuestionText_IsNotRawInjectedIntoHtml()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var data = EmptyReport() with
+            {
+                Added =
+                [
+                    new HtmlDiffQuestion(
+                        QuestionNumber: null,
+                        Chapter: "Ch1",
+                        Section: "Sec1",
+                        RowNumber: 1,
+                        QuestionText: "<script>alert('PWN')</script>",
+                        DvType: null,
+                        CfOperator: null)
+                ]
+            };
+            var filePath = Path.Combine(dir, "report.html");
+            Writer().WriteReport(data, filePath);
+            var content = File.ReadAllText(filePath);
+            // System.Text.Json HTML-encodes < and > in string values by default,
+            // so the raw XSS payload never appears verbatim; the word PWN does.
+            content.Should().NotContain("<script>alert('PWN')</script>",
+                because: "raw XSS payload must not appear verbatim in the output");
+            content.Should().Contain("PWN",
+                because: "the question text content must still be present (unicode-escaped)");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }
