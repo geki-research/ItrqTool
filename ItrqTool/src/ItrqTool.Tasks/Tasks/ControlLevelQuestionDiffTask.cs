@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Domain.Reporting;
 using ItrqTool.Tasks.ControlLevelQuestionDiff;
+using ItrqTool.Tasks.Shared;
 
 namespace ItrqTool.Tasks;
 

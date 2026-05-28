@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Xunit;
-using ItrqTool.Tasks.RiskLevelQuestionDiff;
+using ItrqTool.Tasks.Shared;
 
 namespace ItrqTool.Tasks.Tests;
 

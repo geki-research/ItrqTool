@@ -1,4 +1,4 @@
-namespace ItrqTool.Tasks.RiskLevelQuestionDiff;
+namespace ItrqTool.Tasks.Shared;
 
 public static class DvDisplayFormatter
 {

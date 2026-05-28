@@ -1065,6 +1065,8 @@ services.AddSingleton<IHtmlGeneralDataDiffReportWriter, HtmlGeneralDataDiffRepor
 
 Architectural note: General Data deviates from the RLQ pattern by exposing the parser as a standalone public static class (`GeneralDataQuestionParser`) rather than embedding it as a private static method on the task class. The "third-sibling abstraction trigger" did NOT fire: GD's multi-row question structure is sufficiently different from CLQ/RLQ's one-row-per-question model that sharing parser code would force accidental coupling. Re-evaluate at the fourth sheet (Risk Level Exposure).
 
+**Shared DV helpers** (`ItrqTool.Tasks/Shared/`): `DvDisplayFormatter` (formatting) and `DvComparer` (comparison logic: `IsDvChanged`, list equality, inline-list detection) were extracted from the three per-sheet copies into `ItrqTool.Tasks.Shared` after proving the three copies were byte-identical. The remaining per-sibling helpers (Hungarian algorithm, TextSimilarity, question parser, diff engine) remain duplicated per-sibling — their structures diverge too much for safe shared extraction. CSS/JS scaffold in the HTML writers also remains duplicate-and-defer (not shared).
+
 ---
 
 ## Presentation layer conventions

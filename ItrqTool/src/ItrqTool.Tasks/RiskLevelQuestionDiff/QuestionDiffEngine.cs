@@ -1,3 +1,5 @@
+using ItrqTool.Tasks.Shared;
+
 namespace ItrqTool.Tasks.RiskLevelQuestionDiff;
 
 public static class QuestionDiffEngine
@@ -86,7 +88,7 @@ public static class QuestionDiffEngine
                                              newQ.ExplanationPrompt) < 1.0;
                 bool numberChanged      = !string.Equals(oldQ.QuestionNumber, newQ.QuestionNumber,
                                                          StringComparison.Ordinal);
-                bool dvChanged          = IsDvChanged(oldQ, newQ);
+                bool dvChanged          = DvComparer.IsDvChanged(oldQ.DvType, oldQ.DvFormula, newQ.DvType, newQ.DvFormula);
                 bool cfChanged          = !IsDvList(oldQ.DvType)
                                           && !string.Equals(oldQ.CfOperator, newQ.CfOperator,
                                                             StringComparison.Ordinal);
@@ -135,47 +137,4 @@ public static class QuestionDiffEngine
     private static bool IsDvList(string? dvType)
         => string.Equals(dvType, "List", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsDvChanged(RiskLevelQuestion old, RiskLevelQuestion @new)
-    {
-        if (!string.Equals(old.DvType, @new.DvType, StringComparison.Ordinal))
-            return true;
-
-        if (old.DvType is null) return false;
-
-        if (string.Equals(old.DvType, "List", StringComparison.OrdinalIgnoreCase))
-            return !ListValuesEqual(old.DvFormula, @new.DvFormula);
-
-        return false;
-    }
-
-    private static bool ListValuesEqual(string? oldFormula, string? newFormula)
-    {
-        if (oldFormula is null && newFormula is null) return true;
-        if (oldFormula is null || newFormula is null) return false;
-
-        bool oldInline = IsInlineList(oldFormula);
-        bool newInline = IsInlineList(newFormula);
-
-        if (oldInline && newInline)
-        {
-            var oldItems = ParseInlineList(oldFormula);
-            var newItems = ParseInlineList(newFormula);
-            return oldItems.SequenceEqual(newItems);
-        }
-
-        return string.Equals(oldFormula, newFormula, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsInlineList(string formula)
-        => !formula.StartsWith("=") && !formula.Contains('$');
-
-    private static IReadOnlyList<string> ParseInlineList(string formula)
-    {
-        var s = formula.Trim().Trim('"');
-        return s.Split(',')
-                .Select(x => x.Trim())
-                .Where(x => x.Length > 0)
-                .OrderBy(x => x, StringComparer.Ordinal)
-                .ToList();
-    }
 }
