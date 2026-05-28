@@ -921,9 +921,9 @@ The third diff task. Compares the General Data sheet between two reference years
   explanation cells keyed by `RowOffset`. A `ChangedQuestion` may have
   `AnswerCellsChanged = true` and/or `ExplanationCellsChanged = true` independently of
   `TextChanged` and `NumberChanged`.
-- **Writer status**: Phase 2a uses `StubHtmlGeneralDataDiffReportWriter`
-  (`ItrqTool.Infrastructure.Reporting`) — emits JSON dump + Phase 2a banner.
-  Phase 2b will replace with `HtmlGeneralDataDiffReportWriter`.
+### Writer
+
+`HtmlGeneralDataDiffReportWriter` (in `ItrqTool.Infrastructure.Reporting`) renders `HtmlDiffGeneralDataReportData` to a self-contained interactive HTML report — same JS-derives pattern and visual language as the CLQ/RLQ `HtmlQuestionDiffReportWriter`, with its own copy of the CSS/JS scaffold (duplicate-and-defer; not shared). Six tabs: added / removed / changed / unchanged / current-sheet / previous-sheet. Multi-row questions render their answer (D/E/F) and explanation (G) cells as a compact per-cell list; changed questions render a per-cell diff grid (cell coord, label old→new with word-diff, DV old→new, CF old→new). Registered in CompositionRoot. The Phase 2a `StubHtmlGeneralDataDiffReportWriter` has been removed.
 
 ### Workflow JSON
 
@@ -1058,11 +1058,10 @@ Five, same shape as CLQ and RLQ:
 
 ### DI registration
 
-`StubHtmlGeneralDataDiffReportWriter` is registered in `CompositionRoot.AddItrqToolServices`:
+`HtmlGeneralDataDiffReportWriter` is registered in `CompositionRoot.AddItrqToolServices`:
 ```csharp
-services.AddSingleton<IHtmlGeneralDataDiffReportWriter, StubHtmlGeneralDataDiffReportWriter>();
+services.AddSingleton<IHtmlGeneralDataDiffReportWriter, HtmlGeneralDataDiffReportWriter>();
 ```
-Phase 2b replaces the stub with `HtmlGeneralDataDiffReportWriter`. Only the DI binding changes; no task or domain code changes.
 
 Architectural note: General Data deviates from the RLQ pattern by exposing the parser as a standalone public static class (`GeneralDataQuestionParser`) rather than embedding it as a private static method on the task class. The "third-sibling abstraction trigger" did NOT fire: GD's multi-row question structure is sufficiently different from CLQ/RLQ's one-row-per-question model that sharing parser code would force accidental coupling. Re-evaluate at the fourth sheet (Risk Level Exposure).
 
@@ -1280,9 +1279,9 @@ Implemented tasks with test coverage:
   Level Questions sheet between two reference years; produces the same interactive HTML
   report shape as CLQ with the addition of an explanation diff block per changed question.
 
-**Current test counts (as of GD Phase 2a merge):**
-Architecture 14, Domain 13, Application 12, Tasks 296, Infrastructure 66, Integration 40
-— **441 total**.
+**Current test counts (as of GD Phase 2b merge):**
+Architecture 14, Domain 13, Application 12, Tasks 296, Infrastructure 86, Integration 40
+— **461 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows
