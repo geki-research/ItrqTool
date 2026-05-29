@@ -159,9 +159,12 @@ public static class GeneralDataDiffEngine
             string? newText = newCell?.Text;
 
             bool textChanged = !string.Equals(oldText ?? "", newText ?? "", StringComparison.Ordinal);
-            bool dvChanged   = DvComparer.IsDvChanged(oldCell?.DvType, oldCell?.DvFormula,
-                                                      newCell?.DvType, newCell?.DvFormula);
-            bool cfChanged   = IsCfChanged(oldCell?.DvType, oldCell?.CfOperator, newCell?.CfOperator);
+            bool dvChanged   = DvComparer.IsDvChangedFull(
+                                   oldCell?.DvType, oldCell?.DvOperator, oldCell?.DvFormula, oldCell?.DvFormula2,
+                                   newCell?.DvType, newCell?.DvOperator, newCell?.DvFormula, newCell?.DvFormula2);
+            bool cfChanged   = CfComparer.IsCfChanged(
+                                   oldCell?.CfType, oldCell?.CfOperator, oldCell?.CfValue, oldCell?.CfValue2,
+                                   newCell?.CfType, newCell?.CfOperator, newCell?.CfValue, newCell?.CfValue2);
 
             bool addedOrRemoved = oldCell is null || newCell is null;
 
@@ -200,9 +203,12 @@ public static class GeneralDataDiffEngine
             string? newText = newCell?.Text;
 
             bool textChanged = !string.Equals(oldText ?? "", newText ?? "", StringComparison.Ordinal);
-            bool dvChanged   = DvComparer.IsDvChanged(oldCell?.DvType, oldCell?.DvFormula,
-                                                      newCell?.DvType, newCell?.DvFormula);
-            bool cfChanged   = IsCfChanged(oldCell?.DvType, oldCell?.CfOperator, newCell?.CfOperator);
+            bool dvChanged   = DvComparer.IsDvChangedFull(
+                                   oldCell?.DvType, oldCell?.DvOperator, oldCell?.DvFormula, oldCell?.DvFormula2,
+                                   newCell?.DvType, newCell?.DvOperator, newCell?.DvFormula, newCell?.DvFormula2);
+            bool cfChanged   = CfComparer.IsCfChanged(
+                                   oldCell?.CfType, oldCell?.CfOperator, oldCell?.CfValue, oldCell?.CfValue2,
+                                   newCell?.CfType, newCell?.CfOperator, newCell?.CfValue, newCell?.CfValue2);
 
             bool addedOrRemoved = oldCell is null || newCell is null;
 
@@ -217,17 +223,5 @@ public static class GeneralDataDiffEngine
         }
 
         return (changes, changes.Count > 0);
-    }
-
-    // ── CF comparison ─────────────────────────────────────────────────────────────
-
-    private static bool IsDvList(string? dvType)
-        => string.Equals(dvType, "List", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsCfChanged(string? oldDvType, string? oldCf, string? newCf)
-    {
-        // Presentational noise on dropdowns — mirrors RLQ.
-        if (IsDvList(oldDvType)) return false;
-        return !string.Equals(oldCf, newCf, StringComparison.Ordinal);
     }
 }

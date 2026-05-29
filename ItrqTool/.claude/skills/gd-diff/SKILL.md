@@ -185,7 +185,9 @@ Per-cell diffing is invoked post-match via `DiffAnswerCells` and
 
 - Answer cells keyed by `(RowOffset, Column)`.
 - Explanation cells keyed by `RowOffset`.
-- DV comparison and CF muting (List DV → CF ignored) mirror RLQ/CLQ logic.
+- DV and CF comparison mirror RLQ/CLQ: full detect-everything comparison via
+  `DvComparer.IsDvChangedFull` / `CfComparer.IsCfChanged`, no muting (the former
+  List DV → CF mute has been removed).
 - A cell present on one side but absent on the other is reported as an add/remove
   change entry with a null `OldText` or `NewText`.
 

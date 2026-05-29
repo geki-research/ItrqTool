@@ -8,8 +8,10 @@ public sealed class RlqQuestionDiffEngineTests
 {
     private static RiskLevelQuestion Q(string text, string? dv = null, string? cf = null,
                                         int row = 1, string? qn = null, string? dvf = null,
-                                        string? explanation = null)
-        => new("Section", text, explanation ?? "", qn, row, dv, dvf, cf);
+                                        string? explanation = null,
+                                        string? dvOp = null, string? dvf2 = null,
+                                        string? cfType = null, string? cfVal = null, string? cfVal2 = null)
+        => new("Section", text, explanation ?? "", qn, row, dv, dvf, cf, dvOp, dvf2, cfType, cfVal, cfVal2);
 
     // Helper that accepts an explicit section name (for bonus tests).
     private static RiskLevelQuestion Qs(string text, string section, string? qn = null,
@@ -197,16 +199,19 @@ public sealed class RlqQuestionDiffEngineTests
     }
 
     [Fact]
-    public void Diff_ListDv_SameList_CfDiffers_IsUnchanged()
+    public void Diff_ListDv_SameList_CfDiffers_IsChangedWithCfChangedTrue()
     {
-        // CF on dropdown cells is presentational noise — ignored when DvType is List
+        // Detect-everything: the former List-CF mute is gone. A CF operator change on a
+        // List/dropdown cell is now surfaced like any other CF change.
         var old = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"", cf: "Equal") };
         var newQ = new[] { Q("What is risk?", dv: "List", dvf: "\"Yes,No\"", cf: "NotEqual") };
 
         var result = QuestionDiffEngine.Diff(old, newQ);
 
-        result.Unchanged.Should().HaveCount(1);
-        result.Changed.Should().BeEmpty();
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].CfChanged.Should().BeTrue();
+        result.Changed[0].DvChanged.Should().BeFalse();
+        result.Unchanged.Should().BeEmpty();
     }
 
     // ── IsDvChanged / List comparison ─────────────────────────────────────────
@@ -295,6 +300,75 @@ public sealed class RlqQuestionDiffEngineTests
 
         result.Unchanged.Should().HaveCount(1);
         result.Changed.Should().BeEmpty();
+    }
+
+    // ── Detect-everything: full DV/CF detection (B.2b) ────────────────────────
+
+    [Fact]
+    public void Diff_DvOperatorOnlyChanged_DvChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", dv: "Decimal", dvf: "0", dvOp: "GreaterThan") };
+        var newQ = new[] { Q("What is risk?", dv: "Decimal", dvf: "0", dvOp: "LessThan") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].DvChanged.Should().BeTrue();
+        result.Changed[0].CfChanged.Should().BeFalse();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_DvSecondValueOnlyChanged_DvChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", dv: "WholeNumber", dvf: "0", dvOp: "Between", dvf2: "100") };
+        var newQ = new[] { Q("What is risk?", dv: "WholeNumber", dvf: "0", dvOp: "Between", dvf2: "200") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].DvChanged.Should().BeTrue();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_CfTypeOnlyChanged_CfChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", dv: "WholeNumber", cfType: "CellIs", cf: "GreaterThan", cfVal: "5") };
+        var newQ = new[] { Q("What is risk?", dv: "WholeNumber", cfType: "Expression", cf: "GreaterThan", cfVal: "5") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].CfChanged.Should().BeTrue();
+        result.Changed[0].DvChanged.Should().BeFalse();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_CfValueOnlyChanged_CfChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", dv: "WholeNumber", cfType: "CellIs", cf: "GreaterThan", cfVal: "5") };
+        var newQ = new[] { Q("What is risk?", dv: "WholeNumber", cfType: "CellIs", cf: "GreaterThan", cfVal: "10") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].CfChanged.Should().BeTrue();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_CfValue2OnlyChanged_CfChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", dv: "WholeNumber", cfType: "CellIs", cf: "Between", cfVal: "1", cfVal2: "10") };
+        var newQ = new[] { Q("What is risk?", dv: "WholeNumber", cfType: "CellIs", cf: "Between", cfVal: "1", cfVal2: "20") };
+
+        var result = QuestionDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].CfChanged.Should().BeTrue();
+        result.Unchanged.Should().BeEmpty();
     }
 
     // ── SecondBestSimilarity ──────────────────────────────────────────────────

@@ -88,14 +88,21 @@ DV is rendered for display as one of: `"—"` (no DV), the bare type name, or
 formula). This is the format stored in the `DvDisplay` fields of the reporting
 records.
 
-### Comparison and CF muting
+### Comparison (detect-everything — no muting)
 
-- **CF changes are ignored (muted) when the old DvType is `"List"`.** A
-  list/dropdown cell routinely carries presentational conditional formatting
-  that is noise, not signal — so `CfChanged` is forced **false** when the old
-  DvType == `"List"`. This rule is shared by CLQ, RLQ, and GD.
-- DV comparison treats inline lists by value equality of their parsed members,
-  not raw-formula string equality.
+The diff engines are maximal change-detectors (see CLAUDE.md "Detect-everything").
+Comparison is on the **raw** captured fields, via the shared comparers:
+
+- **DV** (`DvComparer.IsDvChangedFull`): changed if **any** of type, operator,
+  first value (`DvFormula`), or second value (`DvFormula2`) differs. For `List`
+  DV, members are compared by **parsed-member value equality** (order- and
+  formatting-insensitive), not raw-formula string equality. Date/Time DV detection
+  runs on the **raw Excel serial** — display conversion does not affect detection.
+- **CF** (`CfComparer.IsCfChanged`): changed if **any** of type, operator, first
+  value (`CfValue`), or second value (`CfValue2`) differs.
+- **No muting whatsoever.** The former List-CF mute (CF ignored when the old DV
+  type was `"List"`) has been **removed**. CF on List/dropdown cells is compared
+  like any other cell. This applies uniformly to CLQ, RLQ, and GD.
 
 ---
 

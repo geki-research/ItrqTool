@@ -2,21 +2,6 @@ namespace ItrqTool.Tasks.Shared;
 
 public static class DvComparer
 {
-    public static bool IsDvChanged(
-        string? oldType, string? oldFormula,
-        string? newType, string? newFormula)
-    {
-        if (!string.Equals(oldType, newType, StringComparison.Ordinal))
-            return true;
-
-        if (oldType is null) return false;
-
-        if (IsDvList(oldType))
-            return !ListValuesEqual(oldFormula, newFormula);
-
-        return false;
-    }
-
     public static bool IsDvChangedFull(
         string? oldType, string? oldOp, string? oldFormula, string? oldFormula2,
         string? newType, string? newOp, string? newFormula, string? newFormula2)

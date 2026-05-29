@@ -106,6 +106,15 @@ Severity model for input deviations:
   in display). Already observable in the report; the gain from
   flagging is incremental.
 
+**Detect-everything (diff tasks).** The questionnaire diff tasks are *maximal
+change-detectors, not noise-reducers.* Every detected delta is surfaced:
+question-text and number changes, the full data-validation rule (type, operator,
+and both values), and the full conditional-formatting rule (type, operator, and
+both values). Blanket CF additions, wholesale renumbering, operator-only changes,
+second-value changes — all are reported. Muting "presentational noise" is
+explicitly **not** a goal; CF on List/dropdown cells is compared like any other
+(the former List-CF mute has been removed). When a delta is ambiguous, surface it.
+
 This posture is upstream of all task design. New tasks default to
 strict validation; relaxations require justification documented
 inline.
@@ -623,8 +632,8 @@ Per-sheet diff-task test specifics are documented in the relevant sheet skill
 (`.claude/skills/{clq-diff,rlq-diff,gd-diff}/`).
 
 **Current test counts (baseline — the always-on verification anchor):**
-Architecture 14, Domain 13, Application 12, Tasks 335, Infrastructure 98, Integration 40
-— **512 total**.
+Architecture 14, Domain 13, Application 12, Tasks 350, Infrastructure 98, Integration 40
+— **527 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows

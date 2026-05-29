@@ -58,8 +58,8 @@ stripped text; `OriginalText` holds the raw cell content.
 ## DiffResult / ChangedQuestion / UnchangedQuestion
 
 A matched question pair is either Changed or Unchanged — there is **no** separate
-ValidationChange category. CF changes are ignored when the old DvType is `"List"`
-(presentational noise on dropdowns — see `diff-task-conventions`).
+ValidationChange category. DV and CF changes are detected on every difference with
+no muting (the former List-CF mute has been removed — see `diff-task-conventions`).
 
 ```csharp
 public sealed record ChangedQuestion(
@@ -70,7 +70,7 @@ public sealed record ChangedQuestion(
     bool    TextChanged,        // SimilarityScore < 1.0
     bool    NumberChanged,
     bool    DvChanged,
-    bool    CfChanged           // false when old DvType == "List"
+    bool    CfChanged           // set on any CF type/operator/value change (no muting)
 );
 
 public sealed record UnchangedQuestion(

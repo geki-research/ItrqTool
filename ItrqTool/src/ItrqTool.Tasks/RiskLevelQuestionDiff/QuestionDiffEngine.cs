@@ -88,10 +88,12 @@ public static class QuestionDiffEngine
                                              newQ.ExplanationPrompt) < 1.0;
                 bool numberChanged      = !string.Equals(oldQ.QuestionNumber, newQ.QuestionNumber,
                                                          StringComparison.Ordinal);
-                bool dvChanged          = DvComparer.IsDvChanged(oldQ.DvType, oldQ.DvFormula, newQ.DvType, newQ.DvFormula);
-                bool cfChanged          = !IsDvList(oldQ.DvType)
-                                          && !string.Equals(oldQ.CfOperator, newQ.CfOperator,
-                                                            StringComparison.Ordinal);
+                bool dvChanged          = DvComparer.IsDvChangedFull(
+                                              oldQ.DvType, oldQ.DvOperator, oldQ.DvFormula, oldQ.DvFormula2,
+                                              newQ.DvType, newQ.DvOperator, newQ.DvFormula, newQ.DvFormula2);
+                bool cfChanged          = CfComparer.IsCfChanged(
+                                              oldQ.CfType, oldQ.CfOperator, oldQ.CfValue, oldQ.CfValue2,
+                                              newQ.CfType, newQ.CfOperator, newQ.CfValue, newQ.CfValue2);
 
                 if (textChanged || explanationChanged || numberChanged || dvChanged || cfChanged)
                     changed.Add(new ChangedQuestion(oldQ, newQ, baseScore, secondBest,
@@ -133,8 +135,4 @@ public static class QuestionDiffEngine
 
         return found ? best : null;
     }
-
-    private static bool IsDvList(string? dvType)
-        => string.Equals(dvType, "List", StringComparison.OrdinalIgnoreCase);
-
 }

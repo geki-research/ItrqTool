@@ -25,8 +25,11 @@ public sealed class GeneralDataDiffEngineTests
 
     private static GeneralDataAnswerCell AC(
         int rowOffset, string col, string text,
-        string? dvType = null, string? dvFormula = null, string? cfOperator = null)
-        => new(rowOffset, col, text, dvType, dvFormula, cfOperator);
+        string? dvType = null, string? dvFormula = null, string? cfOperator = null,
+        string? dvOperator = null, string? dvFormula2 = null,
+        string? cfType = null, string? cfValue = null, string? cfValue2 = null)
+        => new(rowOffset, col, text, dvType, dvFormula, cfOperator,
+               dvOperator, dvFormula2, cfType, cfValue, cfValue2);
 
     private static GeneralDataExplanationCell EC(
         int rowOffset, string text,
@@ -312,16 +315,88 @@ public sealed class GeneralDataDiffEngineTests
     }
 
     [Fact]
-    public void Diff_AnswerCellListDv_CfDiffers_CfMuted()
+    public void Diff_AnswerCellListDv_CfDiffers_CfChangedTrue()
     {
-        // CF on dropdown cells is presentational noise — ignored when DvType is List
+        // Detect-everything: the former List-CF mute is gone. A CF operator change on a
+        // List/dropdown answer cell is now surfaced like any other CF change.
         var old = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "List", dvFormula: "\"Yes,No\"", cfOperator: "Equal")]) };
         var newQ = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "List", dvFormula: "\"Yes,No\"", cfOperator: "NotEqual")]) };
 
         var result = GeneralDataDiffEngine.Diff(old, newQ);
 
-        result.Unchanged.Should().HaveCount(1);
-        result.Changed.Should().BeEmpty();
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].AnswerCellChanges[0].CfChanged.Should().BeTrue();
+        result.Changed[0].AnswerCellChanges[0].DvChanged.Should().BeFalse();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    // ── Detect-everything: full DV/CF detection (B.2b) ────────────────────────
+
+    [Fact]
+    public void Diff_AnswerCellDvOperatorOnlyChanged_DvChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "Decimal", dvFormula: "0", dvOperator: "GreaterThan")]) };
+        var newQ = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "Decimal", dvFormula: "0", dvOperator: "LessThan")]) };
+
+        var result = GeneralDataDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].AnswerCellChanges[0].DvChanged.Should().BeTrue();
+        result.Changed[0].AnswerCellChanges[0].CfChanged.Should().BeFalse();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_AnswerCellDvSecondValueOnlyChanged_DvChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "WholeNumber", dvFormula: "0", dvOperator: "Between", dvFormula2: "100")]) };
+        var newQ = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "WholeNumber", dvFormula: "0", dvOperator: "Between", dvFormula2: "200")]) };
+
+        var result = GeneralDataDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].AnswerCellChanges[0].DvChanged.Should().BeTrue();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_AnswerCellCfTypeOnlyChanged_CfChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "WholeNumber", cfType: "CellIs", cfOperator: "GreaterThan", cfValue: "5")]) };
+        var newQ = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "WholeNumber", cfType: "Expression", cfOperator: "GreaterThan", cfValue: "5")]) };
+
+        var result = GeneralDataDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].AnswerCellChanges[0].CfChanged.Should().BeTrue();
+        result.Changed[0].AnswerCellChanges[0].DvChanged.Should().BeFalse();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_AnswerCellCfValueOnlyChanged_CfChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "WholeNumber", cfType: "CellIs", cfOperator: "GreaterThan", cfValue: "5")]) };
+        var newQ = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "WholeNumber", cfType: "CellIs", cfOperator: "GreaterThan", cfValue: "10")]) };
+
+        var result = GeneralDataDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].AnswerCellChanges[0].CfChanged.Should().BeTrue();
+        result.Unchanged.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Diff_AnswerCellCfValue2OnlyChanged_CfChangedTrue()
+    {
+        var old  = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "WholeNumber", cfType: "CellIs", cfOperator: "Between", cfValue: "1", cfValue2: "10")]) };
+        var newQ = new[] { Q("What is risk?", answerCells: [AC(0, "D", "Label", dvType: "WholeNumber", cfType: "CellIs", cfOperator: "Between", cfValue: "1", cfValue2: "20")]) };
+
+        var result = GeneralDataDiffEngine.Diff(old, newQ);
+
+        result.Changed.Should().HaveCount(1);
+        result.Changed[0].AnswerCellChanges[0].CfChanged.Should().BeTrue();
+        result.Unchanged.Should().BeEmpty();
     }
 
     [Fact]
