@@ -1,0 +1,21 @@
+{
+  "id": "cell-range-diff",
+  "name": "Cell Range Diff",
+  "tasks": [
+    {
+      "id": "diff-report",
+      "type": "CellRangeDiff",
+      "inputs": {},
+      "outputs": { "report": "cell-range-diff.html" },
+      "parameters": {
+        "file1Path": "<path to first workbook>",
+        "file2Path": "<path to second workbook>",
+        "sheet1Name": "<sheet name in first workbook>",
+        "sheet2Name": "<sheet name in second workbook>",
+        "ranges": "B2:F40;H2:H40",
+        "compareScope": "ValueAndDvCf",
+        "reportTitle": "Cell Range Diff Report"
+      }
+    }
+  ]
+}
