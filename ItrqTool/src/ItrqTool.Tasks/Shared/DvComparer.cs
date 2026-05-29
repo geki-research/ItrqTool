@@ -17,6 +17,30 @@ public static class DvComparer
         return false;
     }
 
+    public static bool IsDvChangedFull(
+        string? oldType, string? oldOp, string? oldFormula, string? oldFormula2,
+        string? newType, string? newOp, string? newFormula, string? newFormula2)
+    {
+        if (!string.Equals(oldType, newType, StringComparison.Ordinal))
+            return true;
+
+        if (oldType is null) return false;
+
+        if (IsDvList(oldType))
+            return !ListValuesEqual(oldFormula, newFormula);
+
+        if (!string.Equals(oldOp, newOp, StringComparison.Ordinal))
+            return true;
+
+        if (!string.Equals(oldFormula, newFormula, StringComparison.Ordinal))
+            return true;
+
+        if (!string.Equals(oldFormula2, newFormula2, StringComparison.Ordinal))
+            return true;
+
+        return false;
+    }
+
     private static bool IsDvList(string? dvType)
         => string.Equals(dvType, "List", StringComparison.OrdinalIgnoreCase);
 
