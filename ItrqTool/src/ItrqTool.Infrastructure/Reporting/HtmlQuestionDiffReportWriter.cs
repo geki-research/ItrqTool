@@ -205,14 +205,14 @@ tbody tr:hover { background: #f1f5f9; }
 
 <div id="tab-added" class="tab-panel active">
   <div class="tbl-wrap"><table id="tbl-added">
-    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV Type</th><th>CF Operator</th></tr></thead>
+    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV</th><th>CF</th></tr></thead>
     <tbody id="tbody-added"></tbody>
   </table></div>
 </div>
 
 <div id="tab-removed" class="tab-panel">
   <div class="tbl-wrap"><table id="tbl-removed">
-    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV Type</th><th>CF Operator</th></tr></thead>
+    <thead><tr><th>#</th><th>Number</th><th>Chapter</th><th>Section</th><th>Question Text</th><th>DV</th><th>CF</th></tr></thead>
     <tbody id="tbody-removed"></tbody>
   </table></div>
 </div>
@@ -353,8 +353,8 @@ function renderAdded() {
     '<td>' + esc(q.chapter) + '</td>' +
     '<td>' + esc(q.section) + '</td>' +
     '<td>' + esc(q.questionText) + '</td>' +
-    '<td>' + esc(q.dvType) + '</td>' +
-    '<td>' + esc(q.cfOperator) + '</td>' +
+    '<td>' + esc(q.dvDisplay) + '</td>' +
+    '<td>' + esc(q.cfDisplay) + '</td>' +
     '</tr>'
   ).join('');
 }
@@ -369,8 +369,8 @@ function renderRemoved() {
     '<td>' + esc(q.chapter) + '</td>' +
     '<td>' + esc(q.section) + '</td>' +
     '<td>' + esc(q.questionText) + '</td>' +
-    '<td>' + esc(q.dvType) + '</td>' +
-    '<td>' + esc(q.cfOperator) + '</td>' +
+    '<td>' + esc(q.dvDisplay) + '</td>' +
+    '<td>' + esc(q.cfDisplay) + '</td>' +
     '</tr>'
   ).join('');
 }
@@ -395,7 +395,7 @@ function renderChanged() {
       : '<span class="cell-unchanged">unchanged</span>';
 
     const cfCell = c.cfChanged
-      ? esc(c.oldCfOperator) + ' → ' + esc(c.newCfOperator)
+      ? esc(c.oldCfDisplay) + ' → ' + esc(c.newCfDisplay)
       : '<span class="cell-unchanged">unchanged</span>';
 
     let explanationOldCell = d.oldHtml;
@@ -527,8 +527,8 @@ function renderAddedRemovedCard(q) {
     '<dt>Chapter</dt><dd>' + esc(q.chapter) + '</dd>' +
     '<dt>Section</dt><dd>' + esc(q.section) + '</dd>' +
     '<dt>Text</dt><dd>' + esc(q.questionText) + '</dd>' +
-    '<dt>DV Type</dt><dd>' + esc(q.dvType) + '</dd>' +
-    '<dt>CF Operator</dt><dd>' + esc(q.cfOperator) + '</dd>' +
+    '<dt>DV</dt><dd>' + esc(q.dvDisplay) + '</dd>' +
+    '<dt>CF</dt><dd>' + esc(q.cfDisplay) + '</dd>' +
     '</dl></div>';
 }
 
@@ -544,7 +544,7 @@ function renderChangedCard(c) {
     ? esc(c.oldDvDisplay) + ' → ' + esc(c.newDvDisplay)
     : '<span class="cell-unchanged">unchanged</span>';
   const cfCell = c.cfChanged
-    ? esc(c.oldCfOperator) + ' → ' + esc(c.newCfOperator)
+    ? esc(c.oldCfDisplay) + ' → ' + esc(c.newCfDisplay)
     : '<span class="cell-unchanged">unchanged</span>';
   let html = '<div class="entry-card"><dl>' +
     '<dt>Changes</dt><dd>' + (badges || '<span class="em">—</span>') + '</dd>' +
@@ -573,7 +573,7 @@ function renderUnchangedCard(u) {
     '<dt>Section</dt><dd>' + esc(u.section) + '</dd>' +
     '<dt>Text</dt><dd>' + esc(u.questionText) + '</dd>' +
     '<dt>DV</dt><dd>' + esc(u.dvDisplay) + '</dd>' +
-    '<dt>CF Operator</dt><dd>' + esc(u.cfOperator) + '</dd>' +
+    '<dt>CF</dt><dd>' + esc(u.cfDisplay) + '</dd>' +
     '<dt>Similarity</dt><dd>' + renderSimCell(u.similarityScore, u.secondBestSimilarity) + '</dd>' +
     '</dl></div>';
 }

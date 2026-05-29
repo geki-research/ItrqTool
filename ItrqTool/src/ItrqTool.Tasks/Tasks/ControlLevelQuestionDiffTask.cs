@@ -241,8 +241,8 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
                 a.Question.SectionName,
                 a.Question.RowNumber,
                 a.Question.QuestionText,
-                a.Question.DvType,
-                a.Question.CfOperator))
+                DvDisplayFormatter.FormatFull(a.Question.DvType, a.Question.DvOperator, a.Question.DvFormula, a.Question.DvFormula2),
+                CfDisplayFormatter.Format(a.Question.CfType, a.Question.CfOperator, a.Question.CfValue, a.Question.CfValue2)))
             .ToList();
 
         var removed = diff.Removed
@@ -252,8 +252,8 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
                 r.Question.SectionName,
                 r.Question.RowNumber,
                 r.Question.QuestionText,
-                r.Question.DvType,
-                r.Question.CfOperator))
+                DvDisplayFormatter.FormatFull(r.Question.DvType, r.Question.DvOperator, r.Question.DvFormula, r.Question.DvFormula2),
+                CfDisplayFormatter.Format(r.Question.CfType, r.Question.CfOperator, r.Question.CfValue, r.Question.CfValue2)))
             .ToList();
 
         var changed = diff.Changed
@@ -268,10 +268,10 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
                 c.NewQuestion.QuestionText,
                 c.SimilarityScore,
                 SecondBestSimilarity: c.SecondBestSimilarity,
-                OldDvDisplay: DvDisplayFormatter.FormatDv(c.OldQuestion.DvType, c.OldQuestion.DvFormula),
-                NewDvDisplay: DvDisplayFormatter.FormatDv(c.NewQuestion.DvType, c.NewQuestion.DvFormula),
-                OldCfOperator: c.OldQuestion.CfOperator,
-                NewCfOperator: c.NewQuestion.CfOperator,
+                OldDvDisplay: DvDisplayFormatter.FormatFull(c.OldQuestion.DvType, c.OldQuestion.DvOperator, c.OldQuestion.DvFormula, c.OldQuestion.DvFormula2),
+                NewDvDisplay: DvDisplayFormatter.FormatFull(c.NewQuestion.DvType, c.NewQuestion.DvOperator, c.NewQuestion.DvFormula, c.NewQuestion.DvFormula2),
+                OldCfDisplay: CfDisplayFormatter.Format(c.OldQuestion.CfType, c.OldQuestion.CfOperator, c.OldQuestion.CfValue, c.OldQuestion.CfValue2),
+                NewCfDisplay: CfDisplayFormatter.Format(c.NewQuestion.CfType, c.NewQuestion.CfOperator, c.NewQuestion.CfValue, c.NewQuestion.CfValue2),
                 TextChanged:   c.TextChanged,
                 NumberChanged: c.NumberChanged,
                 DvChanged:     c.DvChanged,
@@ -286,8 +286,8 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
                 u.Question.RowNumber,
                 u.Question.QuestionNumber,
                 u.Question.QuestionText,
-                DvDisplayFormatter.FormatDv(u.Question.DvType, u.Question.DvFormula),
-                u.Question.CfOperator,
+                DvDisplayFormatter.FormatFull(u.Question.DvType, u.Question.DvOperator, u.Question.DvFormula, u.Question.DvFormula2),
+                CfDisplayFormatter.Format(u.Question.CfType, u.Question.CfOperator, u.Question.CfValue, u.Question.CfValue2),
                 SimilarityScore:      1.0,
                 SecondBestSimilarity: u.SecondBestSimilarity))
             .ToList();

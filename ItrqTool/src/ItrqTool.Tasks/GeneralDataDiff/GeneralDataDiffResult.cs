@@ -7,8 +7,9 @@ public sealed record RemovedQuestion(GeneralDataQuestion Question);
 /// <summary>
 /// One per-cell diff entry for answer cells (D/E/F). OldText is null when the
 /// cell was added on the new side (not present in old); NewText is null when
-/// the cell was removed (not present in new). DV/CF carried in raw form
-/// (DvType + DvFormula); the mapping layer formats to a display string.
+/// the cell was removed (not present in new). DV/CF carried in raw form (the
+/// full captured fields — type, operator, both formulas/values); the mapping
+/// layer formats to display strings via FormatFull / CfDisplayFormatter.
 /// </summary>
 public sealed record AnswerCellChange(
     int     RowOffset,
@@ -23,7 +24,17 @@ public sealed record AnswerCellChange(
     string? NewCfOperator,
     bool    TextChanged,
     bool    DvChanged,
-    bool    CfChanged
+    bool    CfChanged,
+    string? OldDvOperator  = null,
+    string? OldDvFormula2  = null,
+    string? OldCfType      = null,
+    string? OldCfValue     = null,
+    string? OldCfValue2    = null,
+    string? NewDvOperator  = null,
+    string? NewDvFormula2  = null,
+    string? NewCfType      = null,
+    string? NewCfValue     = null,
+    string? NewCfValue2    = null
 );
 
 /// <summary>
@@ -42,7 +53,17 @@ public sealed record ExplanationCellChange(
     string? NewCfOperator,
     bool    TextChanged,
     bool    DvChanged,
-    bool    CfChanged
+    bool    CfChanged,
+    string? OldDvOperator  = null,
+    string? OldDvFormula2  = null,
+    string? OldCfType      = null,
+    string? OldCfValue     = null,
+    string? OldCfValue2    = null,
+    string? NewDvOperator  = null,
+    string? NewDvFormula2  = null,
+    string? NewCfType      = null,
+    string? NewCfValue     = null,
+    string? NewCfValue2    = null
 );
 
 public sealed record ChangedQuestion(

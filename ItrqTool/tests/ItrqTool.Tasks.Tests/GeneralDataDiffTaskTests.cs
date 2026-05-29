@@ -600,6 +600,79 @@ public sealed class GeneralDataDiffTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
+    // ── B.2c display wiring: full DV/CF display strings on the per-cell change ───
+
+    [Fact]
+    public async Task ExecuteAsync_AnswerCellCfChange_PopulatesFullCfDisplayStrings()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            await File.WriteAllTextAsync(previousConfigPath, OneQuestionConfigJson);
+            await File.WriteAllTextAsync(currentConfigPath, OneQuestionConfigJson);
+
+            // Identical D label; only the cell's CF operator+value change.
+            // ExcelCellStructure positional order:
+            // (TextValue, DvType, DvFormula, CfOperator, DvOperator, DvFormula2, CfType, CfValue, CfValue2)
+            var previousRows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure>
+                    { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure>
+                {
+                    ["B"] = new("1.1", null, null, null),
+                    ["C"] = new("What is the staffing count?", null, null, null),
+                    ["D"] = new("Label", null, null, "GreaterThan", null, null, "CellIs", "5", null)
+                })
+            };
+            var currentRows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure>
+                    { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure>
+                {
+                    ["B"] = new("1.1", null, null, null),
+                    ["C"] = new("What is the staffing count?", null, null, null),
+                    ["D"] = new("Label", null, null, "LessThan", null, null, "CellIs", "10", null)
+                })
+            };
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(previousPath, "General Data").Returns(previousRows);
+            structureReader.ReadRows(currentPath, "General Data").Returns(currentRows);
+
+            HtmlDiffGeneralDataReportData? captured = null;
+            var htmlWriter = Substitute.For<IHtmlGeneralDataDiffReportWriter>();
+            htmlWriter.When(w => w.WriteReport(Arg.Any<HtmlDiffGeneralDataReportData>(), Arg.Any<string>()))
+                .Do(ci => captured = ci.ArgAt<HtmlDiffGeneralDataReportData>(0));
+
+            var ctx = MakeContext(dir, previousPath, currentPath,
+                previousConfigPath, currentConfigPath, Path.Combine(dir, "r.html"));
+
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            captured.Should().NotBeNull();
+            captured!.Changed.Should().HaveCount(1);
+
+            var ch = captured.Changed[0].AnswerCellChanges[0];
+            ch.CfChanged.Should().BeTrue();
+            ch.DvChanged.Should().BeFalse();
+            ch.OldDvDisplay.Should().Be("—");
+            ch.OldCfDisplay.Should().Be("greater than 5");
+            ch.NewCfDisplay.Should().Be("less than 10");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
     // ── TaskType ───────────────────────────────────────────────────────────────
 
     [Fact]

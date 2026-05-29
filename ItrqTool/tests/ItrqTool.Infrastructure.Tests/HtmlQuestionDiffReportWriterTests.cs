@@ -60,7 +60,7 @@ public sealed class HtmlQuestionDiffReportWriterTests
             {
                 Added =
                 [
-                    new HtmlDiffQuestion(null, "Chapter 1", "Section A", 1, questionText, "List", null)
+                    new HtmlDiffQuestion(null, "Chapter 1", "Section A", 1, questionText, "List", "—")
                 ]
             };
 
@@ -102,8 +102,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: true,
                         NumberChanged: false,
                         DvChanged: false,
@@ -177,7 +177,7 @@ public sealed class HtmlQuestionDiffReportWriterTests
             {
                 Unchanged =
                 [
-                    new HtmlDiffUnchangedQuestion("Chapter 1", "Section A", 1, 1, null, questionText, "—", null, 1.0, null)
+                    new HtmlDiffUnchangedQuestion("Chapter 1", "Section A", 1, 1, null, questionText, "—", "—", 1.0, null)
                 ]
             };
 
@@ -259,8 +259,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: null,
                         OldDvDisplay: "List: Yes | No",
                         NewDvDisplay: "List: Yes | No | N/A",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: true,
                         NumberChanged: false,
                         DvChanged: true,
@@ -303,8 +303,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: true,
                         NumberChanged: false,
                         DvChanged: false,
@@ -347,8 +347,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: true,
                         NumberChanged: false,
                         DvChanged: false,
@@ -381,7 +381,7 @@ public sealed class HtmlQuestionDiffReportWriterTests
             {
                 Unchanged =
                 [
-                    new HtmlDiffUnchangedQuestion("Chapter 2", "Section B", 1, 1, "2.1", questionText, "List: Yes | No", null, 1.0, null)
+                    new HtmlDiffUnchangedQuestion("Chapter 2", "Section B", 1, 1, "2.1", questionText, "List: Yes | No", "—", 1.0, null)
                 ]
             };
 
@@ -497,8 +497,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: 0.65,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: true,
                         NumberChanged: false,
                         DvChanged: false,
@@ -605,8 +605,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: false,
                         NumberChanged: false,
                         DvChanged: false,
@@ -671,8 +671,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: true,
                         NumberChanged: false,
                         DvChanged: false,
@@ -728,8 +728,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: true,
                         NumberChanged: false,
                         DvChanged: false,
@@ -784,8 +784,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         SecondBestSimilarity: null,
                         OldDvDisplay: "—",
                         NewDvDisplay: "—",
-                        OldCfOperator: null,
-                        NewCfOperator: null,
+                        OldCfDisplay: "—",
+                        NewCfDisplay: "—",
                         TextChanged: false,
                         NumberChanged: false,
                         DvChanged: false,
@@ -985,8 +985,8 @@ public sealed class HtmlQuestionDiffReportWriterTests
                         Section: "Sec1",
                         RowNumber: 1,
                         QuestionText: "<script>alert('PWN')</script>",
-                        DvType: null,
-                        CfOperator: null)
+                        DvDisplay: "—",
+                        CfDisplay: "—")
                 ]
             };
             var filePath = Path.Combine(dir, "report.html");

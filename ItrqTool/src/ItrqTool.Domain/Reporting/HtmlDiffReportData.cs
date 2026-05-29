@@ -17,8 +17,8 @@ public record HtmlDiffQuestion(
     string  Section,
     int     RowNumber,          // row in the sheet the question came from
     string  QuestionText,
-    string? DvType,
-    string? CfOperator
+    string  DvDisplay,          // formatted: "—", Excel-words rule, or "List: A | B | C"
+    string  CfDisplay           // formatted: "—", "equal to X", "Formula: …", or type name
 );
 
 public record HtmlDiffChangedQuestion(
@@ -34,8 +34,8 @@ public record HtmlDiffChangedQuestion(
     double? SecondBestSimilarity,
     string  OldDvDisplay,       // "—" if no DV
     string  NewDvDisplay,
-    string? OldCfOperator,
-    string? NewCfOperator,
+    string  OldCfDisplay,       // formatted CF display; "—" if no CF
+    string  NewCfDisplay,
     bool    TextChanged,
     bool    NumberChanged,
     bool    DvChanged,
@@ -52,8 +52,8 @@ public record HtmlDiffUnchangedQuestion(
     int     CurrentRowNumber,
     string? QuestionNumber,
     string  QuestionText,
-    string  DvDisplay,          // formatted: "—", type name, or "List: A | B | C"
-    string? CfOperator,
+    string  DvDisplay,          // formatted: "—", Excel-words rule, or "List: A | B | C"
+    string  CfDisplay,          // formatted CF display; "—" if no CF
     double  SimilarityScore,    // always 1.0
     double? SecondBestSimilarity
 );

@@ -215,15 +215,15 @@ public sealed class GeneralDataDiffTask : IWorkflowTask
             RowOffset:  c.RowOffset,
             Column:     c.Column,
             Text:       c.Text,
-            DvDisplay:  DvDisplayFormatter.FormatDv(c.DvType, c.DvFormula),
-            CfOperator: c.CfOperator);
+            DvDisplay:  DvDisplayFormatter.FormatFull(c.DvType, c.DvOperator, c.DvFormula, c.DvFormula2),
+            CfDisplay:  CfDisplayFormatter.Format(c.CfType, c.CfOperator, c.CfValue, c.CfValue2));
 
     private static HtmlDiffGeneralDataExplanationCell MapExplanationCell(GeneralDataExplanationCell c)
         => new(
             RowOffset:  c.RowOffset,
             Text:       c.Text,
-            DvDisplay:  DvDisplayFormatter.FormatDv(c.DvType, c.DvFormula),
-            CfOperator: c.CfOperator);
+            DvDisplay:  DvDisplayFormatter.FormatFull(c.DvType, c.DvOperator, c.DvFormula, c.DvFormula2),
+            CfDisplay:  CfDisplayFormatter.Format(c.CfType, c.CfOperator, c.CfValue, c.CfValue2));
 
     private static HtmlDiffAnswerCellChange MapAnswerChange(AnswerCellChange ch)
         => new(
@@ -231,10 +231,10 @@ public sealed class GeneralDataDiffTask : IWorkflowTask
             Column:         ch.Column,
             OldText:        ch.OldText,
             NewText:        ch.NewText,
-            OldDvDisplay:   DvDisplayFormatter.FormatDv(ch.OldDvType, ch.OldDvFormula),
-            NewDvDisplay:   DvDisplayFormatter.FormatDv(ch.NewDvType, ch.NewDvFormula),
-            OldCfOperator:  ch.OldCfOperator,
-            NewCfOperator:  ch.NewCfOperator,
+            OldDvDisplay:   DvDisplayFormatter.FormatFull(ch.OldDvType, ch.OldDvOperator, ch.OldDvFormula, ch.OldDvFormula2),
+            NewDvDisplay:   DvDisplayFormatter.FormatFull(ch.NewDvType, ch.NewDvOperator, ch.NewDvFormula, ch.NewDvFormula2),
+            OldCfDisplay:   CfDisplayFormatter.Format(ch.OldCfType, ch.OldCfOperator, ch.OldCfValue, ch.OldCfValue2),
+            NewCfDisplay:   CfDisplayFormatter.Format(ch.NewCfType, ch.NewCfOperator, ch.NewCfValue, ch.NewCfValue2),
             TextChanged:    ch.TextChanged,
             DvChanged:      ch.DvChanged,
             CfChanged:      ch.CfChanged);
@@ -244,10 +244,10 @@ public sealed class GeneralDataDiffTask : IWorkflowTask
             RowOffset:     ch.RowOffset,
             OldText:       ch.OldText,
             NewText:       ch.NewText,
-            OldDvDisplay:  DvDisplayFormatter.FormatDv(ch.OldDvType, ch.OldDvFormula),
-            NewDvDisplay:  DvDisplayFormatter.FormatDv(ch.NewDvType, ch.NewDvFormula),
-            OldCfOperator: ch.OldCfOperator,
-            NewCfOperator: ch.NewCfOperator,
+            OldDvDisplay:  DvDisplayFormatter.FormatFull(ch.OldDvType, ch.OldDvOperator, ch.OldDvFormula, ch.OldDvFormula2),
+            NewDvDisplay:  DvDisplayFormatter.FormatFull(ch.NewDvType, ch.NewDvOperator, ch.NewDvFormula, ch.NewDvFormula2),
+            OldCfDisplay:  CfDisplayFormatter.Format(ch.OldCfType, ch.OldCfOperator, ch.OldCfValue, ch.OldCfValue2),
+            NewCfDisplay:  CfDisplayFormatter.Format(ch.NewCfType, ch.NewCfOperator, ch.NewCfValue, ch.NewCfValue2),
             TextChanged:   ch.TextChanged,
             DvChanged:     ch.DvChanged,
             CfChanged:     ch.CfChanged);

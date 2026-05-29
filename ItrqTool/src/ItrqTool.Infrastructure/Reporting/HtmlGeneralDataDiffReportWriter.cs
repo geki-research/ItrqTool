@@ -403,14 +403,14 @@ function renderCellList(answerCells, explanationCells) {
   (answerCells || []).forEach(c => {
     let s = '<div class="cell-line"><span class="cell-coord">' + escPlain(c.column) + '[' + c.rowOffset + ']</span> ' + escPlain(c.text);
     if (c.dvDisplay && c.dvDisplay !== '—') s += ' <span class="cell-dv">' + escPlain(c.dvDisplay) + '</span>';
-    if (c.cfOperator) s += ' <span class="cell-cf">CF:' + escPlain(c.cfOperator) + '</span>';
+    if (c.cfDisplay && c.cfDisplay !== '—') s += ' <span class="cell-cf">CF:' + escPlain(c.cfDisplay) + '</span>';
     s += '</div>';
     parts.push(s);
   });
   (explanationCells || []).forEach(c => {
     let s = '<div class="cell-line cell-line-exp"><span class="cell-coord">G[' + c.rowOffset + ']</span> ' + escPlain(c.text);
     if (c.dvDisplay && c.dvDisplay !== '—') s += ' <span class="cell-dv">' + escPlain(c.dvDisplay) + '</span>';
-    if (c.cfOperator) s += ' <span class="cell-cf">CF:' + escPlain(c.cfOperator) + '</span>';
+    if (c.cfDisplay && c.cfDisplay !== '—') s += ' <span class="cell-cf">CF:' + escPlain(c.cfDisplay) + '</span>';
     s += '</div>';
     parts.push(s);
   });
@@ -434,7 +434,7 @@ function renderCellChangeRow(coord, ch) {
     labelCell = '<span class="cell-unchanged">' + escPlain(ch.oldText) + '</span>';
   }
   const dvCell = ch.dvChanged ? (esc(ch.oldDvDisplay) + ' → ' + esc(ch.newDvDisplay)) : '<span class="cell-unchanged">—</span>';
-  const cfCell = ch.cfChanged ? (esc(ch.oldCfOperator) + ' → ' + esc(ch.newCfOperator)) : '<span class="cell-unchanged">—</span>';
+  const cfCell = ch.cfChanged ? (esc(ch.oldCfDisplay) + ' → ' + esc(ch.newCfDisplay)) : '<span class="cell-unchanged">—</span>';
   return '<tr><td>' + coordCell + '</td><td>' + labelCell + '</td><td>' + dvCell + '</td><td>' + cfCell + '</td></tr>';
 }
 

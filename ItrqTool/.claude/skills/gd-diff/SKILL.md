@@ -91,7 +91,7 @@ Each `sectionRows` entry has the format
 is inclusive of the start row (so `18(3)` spans rows 18, 19, 20). The
 `(<rowspan>)` is optional and defaults to 1, so `21` is equivalent to `21(1)`.
 
-## Canonical Domain types
+## Canonical types (Tasks-layer: `ItrqTool.Tasks.GeneralDataDiff`)
 
 ```csharp
 public sealed record GeneralDataAnswerCell(

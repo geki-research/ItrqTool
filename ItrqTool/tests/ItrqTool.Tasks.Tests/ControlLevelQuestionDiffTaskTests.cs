@@ -614,5 +614,91 @@ public sealed class ControlLevelQuestionDiffTaskTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── B.2c display wiring: full DV/CF display strings on the report record ──────
+
+    [Fact]
+    public async Task ExecuteAsync_ChangedQuestionWithDvAndCfChange_PopulatesFullDisplayStrings()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            const string configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["1:2-2"]}""";
+            await File.WriteAllTextAsync(previousConfigPath, configJson);
+            await File.WriteAllTextAsync(currentConfigPath, configJson);
+
+            // Identical question text; DV operator and CF operator+value both change.
+            // ExcelCellStructure positional order:
+            // (TextValue, DvType, DvFormula, CfOperator, DvOperator, DvFormula2, CfType, CfValue, CfValue2)
+            var previousRows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure>
+                    { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure>
+                {
+                    ["C"] = new("What is risk?", null, null, null),
+                    ["D"] = new(null, "Decimal", "0", "GreaterThan", "GreaterThan", null, "CellIs", "5", null)
+                })
+            };
+            var currentRows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure>
+                    { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure>
+                {
+                    ["C"] = new("What is risk?", null, null, null),
+                    ["D"] = new(null, "Decimal", "0", "LessThan", "LessThan", null, "CellIs", "10", null)
+                })
+            };
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(previousPath, "CLQ").Returns(previousRows);
+            structureReader.ReadRows(currentPath, "CLQ").Returns(currentRows);
+
+            HtmlDiffReportData? captured = null;
+            var htmlWriter = Substitute.For<IHtmlReportWriter>();
+            htmlWriter.When(w => w.WriteReport(Arg.Any<HtmlDiffReportData>(), Arg.Any<string>()))
+                .Do(ci => captured = ci.ArgAt<HtmlDiffReportData>(0));
+
+            var ctx = new TaskExecutionContext(
+                TaskId: "diff",
+                InputPaths: new Dictionary<string, string>(),
+                OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "report.html") },
+                Logger: NullLogger.Instance,
+                WorkingDirectory: dir)
+            {
+                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["previousWorkbookFullFilename"]      = previousPath,
+                    ["currentWorkbookFullFilename"]       = currentPath,
+                    ["previousConfigurationFullFilename"] = previousConfigPath,
+                    ["currentConfigurationFullFilename"]  = currentConfigPath
+                }
+            };
+
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            captured.Should().NotBeNull();
+            captured!.Changed.Should().HaveCount(1);
+
+            var c = captured.Changed[0];
+            c.DvChanged.Should().BeTrue();
+            c.CfChanged.Should().BeTrue();
+            c.OldDvDisplay.Should().Be("Decimal, greater than, 0");
+            c.NewDvDisplay.Should().Be("Decimal, less than, 0");
+            c.OldCfDisplay.Should().Be("greater than 5");
+            c.NewCfDisplay.Should().Be("less than 10");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }
 

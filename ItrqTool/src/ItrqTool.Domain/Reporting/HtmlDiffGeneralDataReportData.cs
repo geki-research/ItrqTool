@@ -33,15 +33,15 @@ public record HtmlDiffGeneralDataAnswerCell(
     int     RowOffset,
     string  Column,                                  // "D" | "E" | "F"
     string  Text,
-    string  DvDisplay,                               // formatted: "—" | type | "List: A | B | C"
-    string? CfOperator
+    string  DvDisplay,                               // formatted: "—" | Excel-words rule | "List: A | B | C"
+    string  CfDisplay                                // formatted CF display; "—" if no CF
 );
 
 public record HtmlDiffGeneralDataExplanationCell(
     int     RowOffset,
     string  Text,
     string  DvDisplay,
-    string? CfOperator
+    string  CfDisplay
 );
 
 /// <summary>
@@ -77,11 +77,11 @@ public record HtmlDiffAnswerCellChange(
     string? NewText,
     string  OldDvDisplay,                            // "—" when no DV on old cell
     string  NewDvDisplay,
-    string? OldCfOperator,
-    string? NewCfOperator,
+    string  OldCfDisplay,                            // formatted CF display; "—" if no CF
+    string  NewCfDisplay,
     bool    TextChanged,                             // (OldText ?? "") != (NewText ?? "")
-    bool    DvChanged,                               // mirrors RLQ's IsDvChanged semantics
-    bool    CfChanged                                // false when old DvType (raw) == "List"
+    bool    DvChanged,                               // full DV comparison (type/operator/both values)
+    bool    CfChanged                                // full CF comparison (type/operator/both values); no muting
 );
 
 /// <summary>
@@ -94,8 +94,8 @@ public record HtmlDiffExplanationCellChange(
     string? NewText,
     string  OldDvDisplay,
     string  NewDvDisplay,
-    string? OldCfOperator,
-    string? NewCfOperator,
+    string  OldCfDisplay,
+    string  NewCfDisplay,
     bool    TextChanged,
     bool    DvChanged,
     bool    CfChanged

@@ -83,10 +83,30 @@ Diff tasks read raw cell content and Excel structural metadata via
 
 ### Display
 
-DV is rendered for display as one of: `"—"` (no DV), the bare type name, or
-`"List: A | B | C"` for inline-list DVs (the list values parsed out of the
-formula). This is the format stored in the `DvDisplay` fields of the reporting
-records.
+Display strings are computed in the task-class mapping layer and stored in the
+`*Display` fields of the reporting records (the writers render those strings
+verbatim; no raw operator/type survives in a reporting record).
+
+- **DV** — `DvDisplayFormatter.FormatFull(dvType, dvOperator, dvFormula, dvFormula2)`:
+  - `null` type or `AnyValue` → `"—"`.
+  - `List` → `"List"`, `"List: A | B | C"` (inline list parsed out), or
+    `"List: <ref>"` (range reference).
+  - `Custom` → `"Custom: <formula>"`.
+  - `WholeNumber`/`Decimal`/`TextLength` → Excel-words
+    `"{type}, {operator}, {value}"` (e.g. `"Decimal, greater than, 0"`); for
+    `Between`/`NotBetween`, `"{value} and {value2}"`.
+  - `Date`/`Time` → same shape, each value converted from the raw Excel serial
+    via `DateTime.FromOADate` (invariant culture; ISO date / 24h time; an
+    unparseable value passes through unchanged).
+- **CF** — `CfDisplayFormatter.Format(cfType, cfOperator, cfValue, cfValue2)`:
+  - `null` type → `"—"`.
+  - `CellIs` → `"{operator} {value}"` (e.g. `"greater than 5"`); for
+    `Between`/`NotBetween`, `"{value} and {value2}"`.
+  - `Expression` → `"Formula: <value>"`.
+  - any other CF type → the type name (non-throwing fallback).
+
+(`FormatDv`, the old 2-arg type-name-only DV formatter, was retired in favour of
+`FormatFull`.)
 
 ### Comparison (detect-everything — no muting)
 
@@ -111,13 +131,17 @@ Comparison is on the **raw** captured fields, via the shared comparers:
 These were extracted from the three per-sheet copies into `ItrqTool.Tasks.Shared`
 **only after proving the three copies were byte-identical**:
 
-- `DvDisplayFormatter` — DV display formatting (the `"—"` / type-name /
-  `"List: …"` rendering above).
-- `DvComparer` — comparison logic: `IsDvChanged`, list equality, inline-list
-  detection.
+- `DvDisplayFormatter` — DV display formatting via `FormatFull` (the Excel-words
+  rendering described under "Display"). The old 2-arg `FormatDv` was retired.
+- `DvComparer` — comparison logic: `IsDvChangedFull`, list equality, inline-list
+  detection. The old 2-field `IsDvChanged` was retired.
+- `CfDisplayFormatter` — CF display formatting via `Format` (see "Display").
+- `CfComparer` — CF comparison via `IsCfChanged` (type/operator/both values; no
+  muting).
 
-**Phase B will add** `CfDisplayFormatter` and `CfComparer` here once the CF
-capture rules are fully specified; leave room for them in this inventory.
+All four are wired: the engines compare via `IsDvChangedFull`/`IsCfChanged`
+(B.2b), and the task-class mappings format via `FormatFull`/`CfDisplayFormatter.Format`
+(B.2c).
 
 The remaining per-sibling helpers — the Hungarian algorithm, `TextSimilarity`,
 the question parser, and the diff engine — **remain duplicated per-sibling**.

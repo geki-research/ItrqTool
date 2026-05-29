@@ -45,15 +45,15 @@ public sealed class HtmlGeneralDataDiffReportWriterTests
         string column = "D",
         string text = "Yes",
         string dvDisplay = "—",
-        string? cfOperator = null) =>
-        new(RowOffset: rowOffset, Column: column, Text: text, DvDisplay: dvDisplay, CfOperator: cfOperator);
+        string cfDisplay = "—") =>
+        new(RowOffset: rowOffset, Column: column, Text: text, DvDisplay: dvDisplay, CfDisplay: cfDisplay);
 
     private static HtmlDiffGeneralDataExplanationCell MakeExplanationCell(
         int rowOffset = 0,
         string text = "Please explain",
         string dvDisplay = "—",
-        string? cfOperator = null) =>
-        new(RowOffset: rowOffset, Text: text, DvDisplay: dvDisplay, CfOperator: cfOperator);
+        string cfDisplay = "—") =>
+        new(RowOffset: rowOffset, Text: text, DvDisplay: dvDisplay, CfDisplay: cfDisplay);
 
     private static HtmlDiffGeneralDataChangedQuestion MakeChangedQuestion(
         string oldText = "Old question text",
@@ -93,8 +93,8 @@ public sealed class HtmlGeneralDataDiffReportWriterTests
             NewText: newText,
             OldDvDisplay: "—",
             NewDvDisplay: "—",
-            OldCfOperator: null,
-            NewCfOperator: null,
+            OldCfDisplay: "—",
+            NewCfDisplay: "—",
             TextChanged: oldText != newText,
             DvChanged: dvChanged,
             CfChanged: cfChanged
@@ -112,8 +112,8 @@ public sealed class HtmlGeneralDataDiffReportWriterTests
             NewText: newText,
             OldDvDisplay: "—",
             NewDvDisplay: "—",
-            OldCfOperator: null,
-            NewCfOperator: null,
+            OldCfDisplay: "—",
+            NewCfDisplay: "—",
             TextChanged: oldText != newText,
             DvChanged: dvChanged,
             CfChanged: cfChanged
@@ -314,7 +314,7 @@ public sealed class HtmlGeneralDataDiffReportWriterTests
                 OldText: "Yes", NewText: "Yes",
                 OldDvDisplay: "List: Yes | No",
                 NewDvDisplay: "List: Yes | No | N/A",
-                OldCfOperator: null, NewCfOperator: null,
+                OldCfDisplay: "—", NewCfDisplay: "—",
                 TextChanged: false, DvChanged: true, CfChanged: false);
             var c = MakeChangedQuestion(answerCellChanges: [cellChange]);
             var data = EmptyReport() with { Changed = [c] };
@@ -328,7 +328,7 @@ public sealed class HtmlGeneralDataDiffReportWriterTests
     }
 
     [Fact]
-    public void WriteReport_ChangedQuestionWithCfChange_CfOperatorsAppear()
+    public void WriteReport_ChangedQuestionWithCfChange_CfDisplaysAppear()
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
@@ -338,15 +338,15 @@ public sealed class HtmlGeneralDataDiffReportWriterTests
                 RowOffset: 0, Column: "E",
                 OldText: "text", NewText: "text",
                 OldDvDisplay: "—", NewDvDisplay: "—",
-                OldCfOperator: "Equal", NewCfOperator: "Between",
+                OldCfDisplay: "equal to 5", NewCfDisplay: "between 1 and 10",
                 TextChanged: false, DvChanged: false, CfChanged: true);
             var c = MakeChangedQuestion(answerCellChanges: [cellChange]);
             var data = EmptyReport() with { Changed = [c] };
             var filePath = Path.Combine(dir, "report.html");
             Writer().WriteReport(data, filePath);
             var content = File.ReadAllText(filePath);
-            content.Should().Contain("Equal");
-            content.Should().Contain("Between");
+            content.Should().Contain("equal to 5");
+            content.Should().Contain("between 1 and 10");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }

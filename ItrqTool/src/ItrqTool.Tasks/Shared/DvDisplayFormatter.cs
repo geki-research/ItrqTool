@@ -25,35 +25,13 @@ public static class DvDisplayFormatter
         ["NotBetween"]        = "not between",
     };
 
-    public static string FormatDv(string? dvType, string? dvFormula)
-    {
-        if (dvType is null) return "—";
-
-        if (!string.Equals(dvType, "List", StringComparison.OrdinalIgnoreCase))
-            return dvType;
-
-        if (dvFormula is null) return "List";
-
-        // Inline list: doesn't start with "=" and doesn't contain "$"
-        if (!dvFormula.StartsWith("=") && !dvFormula.Contains('$'))
-        {
-            var stripped = dvFormula.Trim().Trim('"');
-            var items = stripped.Split(',')
-                                .Select(x => x.Trim())
-                                .Where(x => x.Length > 0);
-            return "List: " + string.Join(" | ", items);
-        }
-
-        return "List: " + dvFormula;
-    }
-
     public static string FormatFull(string? dvType, string? dvOperator, string? dvFormula, string? dvFormula2)
     {
         if (dvType is null || string.Equals(dvType, "AnyValue", StringComparison.OrdinalIgnoreCase))
             return "—";
 
         if (string.Equals(dvType, "List", StringComparison.OrdinalIgnoreCase))
-            return FormatDv("List", dvFormula);
+            return FormatList(dvFormula);
 
         if (string.Equals(dvType, "Custom", StringComparison.OrdinalIgnoreCase))
             return "Custom: " + dvFormula;
@@ -72,6 +50,25 @@ public static class DvDisplayFormatter
             : FormatValue(dvFormula, isDate, isTime);
 
         return $"{typeWords}, {opWords}, {valuePart}";
+    }
+
+    // Renders a List DV: "List" when no formula, "List: A | B | C" for inline lists,
+    // "List: <ref>" for range references. Shared by the List branch of FormatFull.
+    private static string FormatList(string? dvFormula)
+    {
+        if (dvFormula is null) return "List";
+
+        // Inline list: doesn't start with "=" and doesn't contain "$"
+        if (!dvFormula.StartsWith("=") && !dvFormula.Contains('$'))
+        {
+            var stripped = dvFormula.Trim().Trim('"');
+            var items = stripped.Split(',')
+                                .Select(x => x.Trim())
+                                .Where(x => x.Length > 0);
+            return "List: " + string.Join(" | ", items);
+        }
+
+        return "List: " + dvFormula;
     }
 
     private static string FormatValue(string? raw, bool isDate, bool isTime)

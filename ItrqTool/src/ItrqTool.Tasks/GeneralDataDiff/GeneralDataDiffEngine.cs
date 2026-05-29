@@ -175,7 +175,11 @@ public static class GeneralDataDiffEngine
                     oldText, newText,
                     oldCell?.DvType, oldCell?.DvFormula, oldCell?.CfOperator,
                     newCell?.DvType, newCell?.DvFormula, newCell?.CfOperator,
-                    textChanged, dvChanged, cfChanged));
+                    textChanged, dvChanged, cfChanged,
+                    OldDvOperator: oldCell?.DvOperator, OldDvFormula2: oldCell?.DvFormula2,
+                    OldCfType: oldCell?.CfType, OldCfValue: oldCell?.CfValue, OldCfValue2: oldCell?.CfValue2,
+                    NewDvOperator: newCell?.DvOperator, NewDvFormula2: newCell?.DvFormula2,
+                    NewCfType: newCell?.CfType, NewCfValue: newCell?.CfValue, NewCfValue2: newCell?.CfValue2));
             }
         }
 
@@ -218,7 +222,11 @@ public static class GeneralDataDiffEngine
                     key, oldText, newText,
                     oldCell?.DvType, oldCell?.DvFormula, oldCell?.CfOperator,
                     newCell?.DvType, newCell?.DvFormula, newCell?.CfOperator,
-                    textChanged, dvChanged, cfChanged));
+                    textChanged, dvChanged, cfChanged,
+                    OldDvOperator: oldCell?.DvOperator, OldDvFormula2: oldCell?.DvFormula2,
+                    OldCfType: oldCell?.CfType, OldCfValue: oldCell?.CfValue, OldCfValue2: oldCell?.CfValue2,
+                    NewDvOperator: newCell?.DvOperator, NewDvFormula2: newCell?.DvFormula2,
+                    NewCfType: newCell?.CfType, NewCfValue: newCell?.CfValue, NewCfValue2: newCell?.CfValue2));
             }
         }
 
