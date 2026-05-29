@@ -164,6 +164,7 @@ They are copied to the output directory by the Presentation project's `.csproj`.
 | Logging factory and DI integration | Microsoft.Extensions.Logging | 10.0.8 | Presentation |
 | Logging abstraction | Microsoft.Extensions.Logging.Abstractions | 10.0.8 | Domain, Application, Tasks |
 | Excel I/O | ClosedXML | 0.102.3 | Infrastructure only (Tasks.Tests for fixtures) |
+| OPC/OOXML packaging (ClosedXML dependency) | System.IO.Packaging | 10.0.7 | Infrastructure (Tasks.Tests for fixtures) |
 | Testing framework | xUnit | 2.9.2 | all test projects |
 | Mocking | NSubstitute | 5.3.0 | Application.Tests, Tasks.Tests |
 | Assertions | FluentAssertions | 6.12.2 | all test projects |
@@ -227,6 +228,7 @@ the file. Index of type family → location:
 | Excel structure metadata: `IExcelStructureReader`, `ExcelRowStructure`, `ExcelCellStructure` (DV type/formula/operator/formula2, CF operator/type/value/value2) | `IExcelStructureReader.cs` |
 | CLQ/RLQ reporting: `HtmlDiffReportData`, `HtmlDiffQuestion`, `HtmlDiffChangedQuestion`, `HtmlDiffUnchangedQuestion`, `IHtmlReportWriter` | `Reporting/HtmlDiffReportData.cs`, `Reporting/IHtmlReportWriter.cs` |
 | General Data reporting: `HtmlDiffGeneralDataReportData` + `HtmlDiffGeneralData*` members, `IHtmlGeneralDataDiffReportWriter` | `Reporting/HtmlDiffGeneralDataReportData.cs`, `Reporting/IHtmlGeneralDataDiffReportWriter.cs` |
+| Cell-range reporting: `HtmlDiffCellRangeReportData`, `HtmlDiffCellRangeChangedCell`, `HtmlDiffCellRangeUnchangedCell`, `IHtmlCellRangeDiffReportWriter` | `Reporting/HtmlDiffCellRangeReportData.cs`, `Reporting/IHtmlCellRangeDiffReportWriter.cs` |
 
 Semantic notes that are NOT obvious from the signatures (the `WorkflowDefinition`
 group-derivation rules, the `CfChanged` "false when DvType == List" rule, the
@@ -240,6 +242,21 @@ CLQ / RLQ / GD per-sheet diff specs and the cross-sheet diff conventions are
 documented in skills, loaded on demand:
 `.claude/skills/{clq-diff,rlq-diff,gd-diff,diff-task-conventions}/SKILL.md`.
 A prompt may name a skill explicitly to force-load it.
+
+### Task families
+
+Diff tasks come in two families:
+- **Special-purpose, per-sheet** (`ControlLevelQuestionDiff`, `RiskLevelQuestionDiff`,
+  `GeneralDataDiff`): each has its own config record, parser, and engine because the sheet
+  structure and the matching it requires demand it; settings load from external configuration
+  file(s) named by node parameters. CLQ/RLQ share `HtmlQuestionDiffReportWriter`; GD has its own.
+- **General-purpose, parameter-driven** (`CellRangeDiff`): compares two workbooks cell-by-cell
+  at the same address over configured ranges — no matching, no sections — and is reusable across
+  structurally simple sheets. It has **no config file**: all settings are inline parameters on
+  the workflow-JSON node — `file1Path`, `file2Path`, `sheet1Name`, `sheet2Name`, `ranges`
+  (a semicolon-delimited A1 string, e.g. `"B2:F40;H2:H40"`), `compareScope` (`Value` |
+  `ValueAndDvCf`, required), optional `reportTitle`; output via the node's `outputs.report`.
+  Full contract and report shape: see the `cell-range-diff` skill.
 
 ---
 
@@ -637,8 +654,8 @@ Per-sheet diff-task test specifics are documented in the relevant sheet skill
 (`.claude/skills/{clq-diff,rlq-diff,gd-diff}/`).
 
 **Current test counts (baseline — the always-on verification anchor):**
-Architecture 14, Domain 13, Application 12, Tasks 337, Infrastructure 98, Integration 40
-— **514 total**.
+Architecture 14, Domain 13, Application 12, Tasks 352, Infrastructure 107, Integration 40
+— **538 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows
@@ -693,8 +710,8 @@ services.AddSingleton<MainWindow>();
 `IWorkflowTaskMarker` is an empty marker interface in `ItrqTool.Tasks` used solely
 to give Scrutor an assembly anchor. It has no members.
 
-The diff-report writers (`IHtmlReportWriter`, `IHtmlGeneralDataDiffReportWriter`)
-are also registered here as singletons — see the diff skills.
+The diff-report writers (`IHtmlReportWriter`, `IHtmlGeneralDataDiffReportWriter`,
+`IHtmlCellRangeDiffReportWriter`) are also registered here as singletons — see the diff skills.
 
 ---
 
@@ -745,7 +762,7 @@ This codebase uses Claude Code's layered documentation model:
   judges the task relevant, or when a prompt names the skill explicitly to
   force-load it. Sheet-specific specs and infrequent task guides (publishing) live
   here. Current skills: `diff-task-conventions`, `clq-diff`, `rlq-diff`, `gd-diff`,
-  `deployment`.
+  `cell-range-diff`, `deployment`.
 
 **Hard constraints never move to a skill.** Every non-negotiable rule, the
 conservative-input posture, and the detect-everything principle stay in CLAUDE.md
