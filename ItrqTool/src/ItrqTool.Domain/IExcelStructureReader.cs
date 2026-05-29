@@ -12,6 +12,14 @@ public interface IExcelStructureReader
     /// sheet, in ascending row-number order.
     /// </summary>
     IReadOnlyList<ExcelRowStructure> ReadRows(string filePath, string sheetName);
+
+    /// <summary>
+    /// Reads every cell at the given A1 ranges, including blank cells and cells that
+    /// carry only data-validation or conditional-formatting (which ReadRows omits).
+    /// Key = uppercase A1 address (e.g. "B5"). One entry per distinct address.
+    /// </summary>
+    IReadOnlyDictionary<string, ExcelCellStructure> ReadCells(
+        string filePath, string sheetName, IReadOnlyList<string> a1Ranges);
 }
 
 public record ExcelRowStructure(
