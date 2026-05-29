@@ -17,20 +17,23 @@ Shared matching/DV/CF machinery is in the `diff-task-conventions` skill.
 
 ## Records
 
-- `RiskLevelQuestion` — `(SectionName, QuestionText, ExplanationPrompt,
-  QuestionNumber, RowNumber, DvType, DvFormula, CfOperator, DvOperator = null,
-  DvFormula2 = null, CfType = null, CfValue = null, CfValue2 = null)`. No
-  `ChapterName` (RLQ has sections only). No `OriginalText` (number is in its own
-  column, no prefix to strip). The five new fields mirror the same capture fields
-  on `ExcelCellStructure`; see `diff-task-conventions` for semantics.
-- `RiskLevelQuestionsConfig` — `SheetName`, `NumberColumn` (default `"B"`),
-  `TextColumn` (default `"C"`), `AnswerColumn` (default `"D"`),
-  `ExplanationColumn` (default `"E"`), `SectionRows`, computed `ParsedSections`.
-  No `ChapterRows`.
+- `RiskLevelQuestion` — see
+  `src/ItrqTool.Tasks/RiskLevelQuestionDiff/RiskLevelQuestion.cs` (source
+  authoritative for signatures). Distinct from CLQ's `AuditQuestion`: **no**
+  `ChapterName` (RLQ has sections only) and **no** `OriginalText` (the number is in
+  its own column, so there is no prefix to strip). It carries the same captured DV/CF
+  fields (`DvType`/`DvFormula`/`CfOperator` + `DvOperator`/`DvFormula2`/`CfType`/`CfValue`/`CfValue2`)
+  as the other sheets; semantics in `diff-task-conventions`.
+- `RiskLevelQuestionsConfig` — see
+  `src/ItrqTool.Tasks/RiskLevelQuestionDiff/RiskLevelQuestionsConfig.cs` (source
+  authoritative for signatures). Fields and defaults: `SheetName`, `NumberColumn`
+  (default `"B"`), `TextColumn` (`"C"`), `AnswerColumn` (`"D"`), `ExplanationColumn`
+  (`"E"`), `SectionRows`, and the computed `ParsedSections`. **No** `ChapterRows`.
 - Result records `AddedQuestion`, `RemovedQuestion`, `ChangedQuestion`,
-  `UnchangedQuestion`, `DiffResult` live in the same namespace as siblings to
-  CLQ's. `ChangedQuestion` has an extra `ExplanationChanged` flag compared to
-  CLQ's.
+  `UnchangedQuestion`, `DiffResult` — see
+  `src/ItrqTool.Tasks/RiskLevelQuestionDiff/RiskLevelQuestionDiffResult.cs` (source
+  authoritative for signatures). Same namespace shape as CLQ's siblings, but
+  `ChangedQuestion` has an extra `ExplanationChanged` flag.
 
 ## Configuration file format
 

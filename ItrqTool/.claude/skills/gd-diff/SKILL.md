@@ -93,28 +93,13 @@ is inclusive of the start row (so `18(3)` spans rows 18, 19, 20). The
 
 ## Canonical types (Tasks-layer: `ItrqTool.Tasks.GeneralDataDiff`)
 
-```csharp
-public sealed record GeneralDataAnswerCell(
-    int RowOffset, string Column, string Text,
-    string? DvType, string? DvFormula, string? CfOperator,
-    string? DvOperator = null, string? DvFormula2 = null,
-    string? CfType = null, string? CfValue = null, string? CfValue2 = null);
-
-public sealed record GeneralDataExplanationCell(
-    int RowOffset, string Text,
-    string? DvType, string? DvFormula, string? CfOperator,
-    string? DvOperator = null, string? DvFormula2 = null,
-    string? CfType = null, string? CfValue = null, string? CfValue2 = null);
-
-public sealed record GeneralDataQuestion(
-    string SectionName,
-    string QuestionText,
-    string? QuestionNumber,
-    int RowNumber,
-    IReadOnlyList<string> RowNumberLabels,
-    IReadOnlyList<GeneralDataAnswerCell> AnswerCells,
-    IReadOnlyList<GeneralDataExplanationCell> ExplanationCells);
-```
+`GeneralDataAnswerCell`, `GeneralDataExplanationCell`, `GeneralDataQuestion` — see
+`src/ItrqTool.Tasks/GeneralDataDiff/GeneralDataQuestion.cs` (source authoritative for
+signatures). Each answer (D/E/F) and explanation (G) cell carries the captured DV/CF
+fields (`DvType`/`DvFormula`/`CfOperator` + `DvOperator`/`DvFormula2`/`CfType`/`CfValue`/`CfValue2`;
+semantics in `diff-task-conventions`). A `GeneralDataQuestion` spans multiple sheet
+rows: `RowNumberLabels` holds the per-row column-B values and the question owns its
+`AnswerCells` and `ExplanationCells`.
 
 ## Config and parser
 
@@ -131,45 +116,20 @@ continuation rows' column C is ignored.
 
 ## Task-internal records (`ItrqTool.Tasks.GeneralDataDiff`)
 
-```csharp
-public sealed record AddedQuestion(GeneralDataQuestion Question);
-public sealed record RemovedQuestion(GeneralDataQuestion Question);
+`AddedQuestion`, `RemovedQuestion`, `AnswerCellChange`, `ExplanationCellChange`,
+`ChangedQuestion`, `UnchangedQuestion`, `DiffResult` — see
+`src/ItrqTool.Tasks/GeneralDataDiff/GeneralDataDiffResult.cs` (source authoritative
+for signatures). Notes that the signatures alone don't make obvious:
 
-public sealed record AnswerCellChange(
-    int RowOffset, string Column,
-    string? OldText, string? NewText,
-    string? OldDvType, string? OldDvFormula, string? OldCfOperator,
-    string? NewDvType, string? NewDvFormula, string? NewCfOperator,
-    bool TextChanged, bool DvChanged, bool CfChanged);
-
-public sealed record ExplanationCellChange(
-    int RowOffset,
-    string? OldText, string? NewText,
-    string? OldDvType, string? OldDvFormula, string? OldCfOperator,
-    string? NewDvType, string? NewDvFormula, string? NewCfOperator,
-    bool TextChanged, bool DvChanged, bool CfChanged);
-
-public sealed record ChangedQuestion(
-    GeneralDataQuestion OldQuestion,
-    GeneralDataQuestion NewQuestion,
-    double SimilarityScore,
-    double? SecondBestSimilarity,
-    bool TextChanged, bool NumberChanged,
-    bool AnswerCellsChanged, bool ExplanationCellsChanged,
-    IReadOnlyList<AnswerCellChange>      AnswerCellChanges,
-    IReadOnlyList<ExplanationCellChange> ExplanationCellChanges);
-
-public sealed record UnchangedQuestion(
-    GeneralDataQuestion Question,   // new-year question
-    double? SecondBestSimilarity,
-    int PreviousRowNumber);         // old-year question's row number
-
-public sealed record DiffResult(
-    IReadOnlyList<AddedQuestion>     Added,
-    IReadOnlyList<RemovedQuestion>   Removed,
-    IReadOnlyList<ChangedQuestion>   Changed,
-    IReadOnlyList<UnchangedQuestion> Unchanged);
-```
+- `AnswerCellChange` / `ExplanationCellChange` carry the **old and new** captured
+  DV/CF fields in raw form (type, operator, both formulas/values) plus the
+  `TextChanged` / `DvChanged` / `CfChanged` flags; the mapping layer formats them to
+  display strings (see `diff-task-conventions` "Display"). `AnswerCellChange` also has
+  a `Column` field; `ExplanationCellChange` does not (always column G).
+- `ChangedQuestion` flags `AnswerCellsChanged` / `ExplanationCellsChanged`
+  independently of `TextChanged` / `NumberChanged`.
+- `UnchangedQuestion.Question` is the **new-year** (current-side) question;
+  `PreviousRowNumber` is the matched **old-year** question's sheet row.
 
 ## Diff engine
 

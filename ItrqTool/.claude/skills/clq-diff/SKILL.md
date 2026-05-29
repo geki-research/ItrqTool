@@ -29,31 +29,18 @@ Questions" sheet in a workbook.
 
 ## AuditQuestion
 
-```csharp
-public sealed record AuditQuestion(
-    string  ChapterName,
-    string  SectionName,
-    string  QuestionText,      // prefix stripped
-    string  OriginalText,      // raw cell text
-    string? QuestionNumber,    // e.g. "1.2", null if no prefix present
-    int     RowNumber,
-    string? DvType,
-    string? DvFormula,         // raw DV formula from ExcelCellStructure.DataValidationFormula
-    string? CfOperator,
-    string? DvOperator = null, // null for List/Custom/AnyValue; operator string for others
-    string? DvFormula2 = null, // upper-bound DV formula (Between/NotBetween only); else null
-    string? CfType = null,     // CF type string (e.g. "CellIs", "Expression"); null if no CF
-    string? CfValue = null,    // first CF comparison value; null if no CF or value-less type
-    string? CfValue2 = null    // second CF value (Between/NotBetween); null otherwise
-);
-// AuditQuestion.ExtractNumber("1.2) text") → "1.2"; no prefix → null
-// AuditQuestion.StripPrefix("1.2) text")   → "text"
-```
+`AuditQuestion` — see `src/ItrqTool.Tasks/ControlLevelQuestionDiff/AuditQuestion.cs`
+(source authoritative for signatures). Carries the parsed question plus the captured
+DV/CF fields (`DvType`/`DvFormula`/`CfOperator` and
+`DvOperator`/`DvFormula2`/`CfType`/`CfValue`/`CfValue2`); the DV/CF field semantics
+(e.g. `DvOperator` null for List/Custom/AnyValue, `DvFormula2` the Between/NotBetween
+upper bound) are documented in `diff-task-conventions`.
 
-The question number is parsed out of the cell text prefix: `ExtractNumber`
-returns the leading number token (`"1.2"`) or null when there is no prefix;
-`StripPrefix` returns the text with that prefix removed. `QuestionText` holds the
-stripped text; `OriginalText` holds the raw cell content.
+The question number is parsed out of the cell text prefix by the static helpers on
+`AuditQuestion`: `ExtractNumber` returns the leading number token
+(`ExtractNumber("1.2) text") → "1.2"`; no prefix → `null`) and `StripPrefix` returns
+the text with that prefix removed (`StripPrefix("1.2) text") → "text"`).
+`QuestionText` holds the stripped text; `OriginalText` holds the raw cell content.
 
 ## DiffResult / ChangedQuestion / UnchangedQuestion
 
@@ -61,48 +48,22 @@ A matched question pair is either Changed or Unchanged — there is **no** separ
 ValidationChange category. DV and CF changes are detected on every difference with
 no muting (the former List-CF mute has been removed — see `diff-task-conventions`).
 
-```csharp
-public sealed record ChangedQuestion(
-    AuditQuestion OldQuestion,
-    AuditQuestion NewQuestion,
-    double  SimilarityScore,
-    double? SecondBestSimilarity,
-    bool    TextChanged,        // SimilarityScore < 1.0
-    bool    NumberChanged,
-    bool    DvChanged,
-    bool    CfChanged           // set on any CF type/operator/value change (no muting)
-);
-
-public sealed record UnchangedQuestion(
-    AuditQuestion Question,
-    double? SecondBestSimilarity
-);
-
-public sealed record DiffResult(
-    IReadOnlyList<AddedQuestion>      Added,
-    IReadOnlyList<RemovedQuestion>    Removed,
-    IReadOnlyList<ChangedQuestion>    Changed,
-    IReadOnlyList<UnchangedQuestion>  Unchanged
-);
-```
+`AddedQuestion`, `RemovedQuestion`, `ChangedQuestion`, `UnchangedQuestion`,
+`DiffResult` — see `src/ItrqTool.Tasks/ControlLevelQuestionDiff/QuestionDiffResult.cs`
+(source authoritative for signatures). `ChangedQuestion` carries the four change
+flags: `TextChanged` (true when `SimilarityScore < 1.0`), `NumberChanged`,
+`DvChanged`, and `CfChanged` (set on any CF type/operator/value difference — no
+muting). The reported `SimilarityScore` / `SecondBestSimilarity` are base
+text-similarity scores (see `diff-task-conventions`).
 
 ## ControlLevelQuestionsConfig
 
-```csharp
-public sealed record SectionDefinition(int SectionRow, int FirstQuestionRow, int LastQuestionRow);
-
-public sealed class ControlLevelQuestionsConfig
-{
-    public string SheetName { get; init; } = "Control Level Questions";
-    public string TextColumn { get; init; } = "C";
-    public string InputColumn { get; init; } = "D";
-    public IReadOnlyList<int> ChapterRows { get; init; } = [];
-    // Each entry: "<sectionRow>:<firstQuestionRow>-<lastQuestionRow>"
-    public IReadOnlyList<string> SectionRows { get; init; } = [];
-    // ParsedSections parses SectionRows; throws FormatException on invalid entries
-    public IReadOnlyList<SectionDefinition> ParsedSections { get; }
-}
-```
+`SectionDefinition`, `ControlLevelQuestionsConfig` — see
+`src/ItrqTool.Tasks/ControlLevelQuestionDiff/ControlLevelQuestionsConfig.cs` (source
+authoritative for signatures). Config fields and defaults: `SheetName` (default
+`"Control Level Questions"`), `TextColumn` (`"C"`), `InputColumn` (`"D"`),
+`ChapterRows`, `SectionRows`, and the computed `ParsedSections` (parses `SectionRows`
+into `SectionDefinition`s; throws `FormatException` on the first invalid entry).
 
 ### SectionRows format
 
