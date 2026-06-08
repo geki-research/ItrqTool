@@ -681,6 +681,150 @@ public sealed class GeneralDataDiffTaskTests
         MakeTask().TaskType.Should().Be("GeneralDataDiff");
     }
 
+    // ── Config hardening (#10): null-config fail + zero-content Warning ───────────
+
+    [Fact]
+    public async Task ExecuteAsync_PreviousConfigLiteralNull_FailsWithError()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            await File.WriteAllTextAsync(previousConfigPath, "null");
+            await File.WriteAllTextAsync(currentConfigPath, EmptyConfigJson);
+
+            var reportPath = Path.Combine(dir, "report.html");
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
+
+            var ctx = MakeContext(dir, previousPath, currentPath,
+                previousConfigPath, currentConfigPath, reportPath);
+
+            var result = await MakeTask(structureReader).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeFalse();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error && m.Text.Contains("Previous configuration is null"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CurrentConfigLiteralNull_FailsWithError()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            await File.WriteAllTextAsync(previousConfigPath, EmptyConfigJson);
+            await File.WriteAllTextAsync(currentConfigPath, "null");
+
+            var reportPath = Path.Combine(dir, "report.html");
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
+
+            var ctx = MakeContext(dir, previousPath, currentPath,
+                previousConfigPath, currentConfigPath, reportPath);
+
+            var result = await MakeTask(structureReader).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeFalse();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error && m.Text.Contains("Current configuration is null"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_EmptyObjectConfig_SucceedsWithZeroContentWarning()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            await File.WriteAllTextAsync(previousConfigPath, "{}");
+            await File.WriteAllTextAsync(currentConfigPath, "{}");
+
+            var reportPath = Path.Combine(dir, "report.html");
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
+
+            var htmlWriter = Substitute.For<IHtmlGeneralDataDiffReportWriter>();
+
+            var ctx = MakeContext(dir, previousPath, currentPath,
+                previousConfigPath, currentConfigPath, reportPath);
+
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Warning && m.Text.Contains("Previous configuration describes no sections"));
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Warning && m.Text.Contains("Current configuration describes no sections"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_EmptySectionRows_SucceedsWithZeroContentWarning()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var currentPath = Path.Combine(dir, "current.xlsx");
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(previousPath); }
+            using (var wb = new XLWorkbook()) { wb.Worksheets.Add("General Data"); wb.SaveAs(currentPath); }
+
+            var previousConfigPath = Path.Combine(dir, "previous-config.json");
+            var currentConfigPath = Path.Combine(dir, "current-config.json");
+            await File.WriteAllTextAsync(previousConfigPath, EmptyConfigJson);
+            await File.WriteAllTextAsync(currentConfigPath, EmptyConfigJson);
+
+            var reportPath = Path.Combine(dir, "report.html");
+
+            var structureReader = Substitute.For<IExcelStructureReader>();
+            structureReader.ReadRows(Arg.Any<string>(), Arg.Any<string>()).Returns([]);
+
+            var htmlWriter = Substitute.For<IHtmlGeneralDataDiffReportWriter>();
+
+            var ctx = MakeContext(dir, previousPath, currentPath,
+                previousConfigPath, currentConfigPath, reportPath);
+
+            var result = await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m => m.Severity == MessageSeverity.Warning &&
+                m.Text.Contains("describes no sections"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
     // ── Helper ─────────────────────────────────────────────────────────────────
 
     private static TaskExecutionContext MakeContext(

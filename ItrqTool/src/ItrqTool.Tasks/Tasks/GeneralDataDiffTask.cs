@@ -79,13 +79,39 @@ public sealed class GeneralDataDiffTask : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
+            // Change 1: a config that deserializes to null (file empty or literal `null`) is a
+            // hard error. Intercept it at the deserialization site, before the Change-2 branch,
+            // so null never falls through to the zero-content Warning.
             var previousConfigJson = await File.ReadAllTextAsync(previousConfigPath, ct);
-            var previousConfig = JsonSerializer.Deserialize<GeneralDataConfig>(previousConfigJson, JsonOptions)
-                ?? new GeneralDataConfig();
+            var previousConfig = JsonSerializer.Deserialize<GeneralDataConfig>(previousConfigJson, JsonOptions);
+            if (previousConfig is null)
+            {
+                messages.Add(new(MessageSeverity.Error,
+                    $"Previous configuration is null (file is empty or contains literal 'null'): {previousConfigPath}",
+                    DateTimeOffset.Now));
+                return new TaskResult(Succeeded: false, messages, sw.Elapsed);
+            }
 
             var currentConfigJson = await File.ReadAllTextAsync(currentConfigPath, ct);
-            var currentConfig = JsonSerializer.Deserialize<GeneralDataConfig>(currentConfigJson, JsonOptions)
-                ?? new GeneralDataConfig();
+            var currentConfig = JsonSerializer.Deserialize<GeneralDataConfig>(currentConfigJson, JsonOptions);
+            if (currentConfig is null)
+            {
+                messages.Add(new(MessageSeverity.Error,
+                    $"Current configuration is null (file is empty or contains literal 'null'): {currentConfigPath}",
+                    DateTimeOffset.Now));
+                return new TaskResult(Succeeded: false, messages, sw.Elapsed);
+            }
+
+            // Change 2: a config that resolves to zero sections describes nothing to compare.
+            // Surface a Warning but continue — the 0/0/0/0 diff is still produced.
+            if (previousConfig.ParsedSections.Count == 0)
+                messages.Add(new(MessageSeverity.Warning,
+                    $"Previous configuration describes no sections to compare (empty sectionRows): {previousConfigPath}",
+                    DateTimeOffset.Now));
+            if (currentConfig.ParsedSections.Count == 0)
+                messages.Add(new(MessageSeverity.Warning,
+                    $"Current configuration describes no sections to compare (empty sectionRows): {currentConfigPath}",
+                    DateTimeOffset.Now));
 
             _logger.LogInformation("Reading previous workbook: {Path}", previousPath);
             var previousRows = _structureReader.ReadRows(previousPath, previousConfig.SheetName);
