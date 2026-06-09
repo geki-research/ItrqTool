@@ -891,5 +891,120 @@ public sealed class ControlLevelQuestionDiffTaskTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Parser drift-surfacing (#5): row drops emit messages, task still succeeds ──
+
+    private static async Task<TaskResult> RunWithRowsAsync(
+        string dir, string configJson, IReadOnlyList<ExcelRowStructure> rows)
+    {
+        var previousPath = Path.Combine(dir, "previous.xlsx");
+        var currentPath = Path.Combine(dir, "current.xlsx");
+        using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(previousPath); }
+        using (var wb = new XLWorkbook()) { wb.Worksheets.Add("CLQ"); wb.SaveAs(currentPath); }
+
+        var previousConfigPath = Path.Combine(dir, "previous-config.json");
+        var currentConfigPath = Path.Combine(dir, "current-config.json");
+        await File.WriteAllTextAsync(previousConfigPath, configJson);
+        await File.WriteAllTextAsync(currentConfigPath, configJson);
+
+        var structureReader = Substitute.For<IExcelStructureReader>();
+        structureReader.ReadRows(Arg.Any<string>(), "CLQ").Returns(rows);
+
+        var htmlWriter = Substitute.For<IHtmlReportWriter>();
+
+        var ctx = new TaskExecutionContext(
+            TaskId: "diff",
+            InputPaths: new Dictionary<string, string>(),
+            OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "report.html") },
+            Logger: NullLogger.Instance,
+            WorkingDirectory: dir)
+        {
+            Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["previousWorkbookFullFilename"] = previousPath,
+                ["currentWorkbookFullFilename"] = currentPath,
+                ["previousConfigurationFullFilename"] = previousConfigPath,
+                ["currentConfigurationFullFilename"] = currentConfigPath
+            }
+        };
+
+        return await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ContentOutsideAllSections_EmitsWarning_StillSucceeds()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Section covers only row 3; row 5 carries content but lies outside every range.
+            var configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["2:3-3"]}""";
+            var rows = new List<ExcelRowStructure>
+            {
+                new(2, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Section A", null, null, null) }),
+                new(3, new Dictionary<string, ExcelCellStructure> { ["C"] = new("1.1) What is risk?", null, null, null) }),
+                new(5, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Stray populated row", null, null, null) })
+            };
+
+            var result = await RunWithRowsAsync(dir, configJson, rows);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Warning &&
+                m.Text.Contains("Row 5") && m.Text.Contains("outside every declared"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_InSectionRowBlankText_EmitsError_StillSucceeds()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Section declares a question at row 2, but its text cell is blank.
+            var configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["1:2-2"]}""";
+            var rows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure> { ["C"] = new("   ", null, null, null) })
+            };
+
+            var result = await RunWithRowsAsync(dir, configJson, rows);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error &&
+                m.Text.Contains("Row 2") && m.Text.Contains("blank"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_InSectionRowMissingTextColumn_EmitsError_StillSucceeds()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Section declares a question at row 2, but the row has no text column (only D).
+            var configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["1:2-2"]}""";
+            var rows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure> { ["D"] = new("answer only", null, null, null) })
+            };
+
+            var result = await RunWithRowsAsync(dir, configJson, rows);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error &&
+                m.Text.Contains("Row 2") && m.Text.Contains("text column 'C' is absent"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }
 

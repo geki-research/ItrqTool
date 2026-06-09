@@ -887,4 +887,120 @@ public sealed class RiskLevelQuestionDiffTaskTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Parser drift-surfacing (#5): declared-but-unmet questions emit Error ──────
+
+    private static async Task<TaskResult> RunWithRowsAsync(
+        string dir, string configJson, IReadOnlyList<ExcelRowStructure> rows)
+    {
+        var previousPath = Path.Combine(dir, "previous.xlsx");
+        var currentPath = Path.Combine(dir, "current.xlsx");
+        using (var wb = new XLWorkbook()) { wb.Worksheets.Add("RLQ"); wb.SaveAs(previousPath); }
+        using (var wb = new XLWorkbook()) { wb.Worksheets.Add("RLQ"); wb.SaveAs(currentPath); }
+
+        var previousConfigPath = Path.Combine(dir, "previous-config.json");
+        var currentConfigPath = Path.Combine(dir, "current-config.json");
+        await File.WriteAllTextAsync(previousConfigPath, configJson);
+        await File.WriteAllTextAsync(currentConfigPath, configJson);
+
+        var structureReader = Substitute.For<IExcelStructureReader>();
+        structureReader.ReadRows(Arg.Any<string>(), "RLQ").Returns(rows);
+
+        var htmlWriter = Substitute.For<IHtmlReportWriter>();
+
+        var ctx = new TaskExecutionContext(
+            TaskId: "diff",
+            InputPaths: new Dictionary<string, string>(),
+            OutputPaths: new Dictionary<string, string> { ["report"] = Path.Combine(dir, "report.html") },
+            Logger: NullLogger.Instance,
+            WorkingDirectory: dir)
+        {
+            Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["previousWorkbookFullFilename"]      = previousPath,
+                ["currentWorkbookFullFilename"]       = currentPath,
+                ["previousConfigurationFullFilename"] = previousConfigPath,
+                ["currentConfigurationFullFilename"]  = currentConfigPath
+            }
+        };
+
+        return await MakeTask(structureReader, htmlWriter).ExecuteAsync(ctx, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ConfigDeclaresRowAbsentFromSheet_EmitsError_StillSucceeds()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Config declares questions at rows 2-3, but the sheet only supplies row 2.
+            var configJson = """{"sheetName":"RLQ","numberColumn":"B","textColumn":"C","answerColumn":"D","explanationColumn":"E","sectionRows":["1:2-3"]}""";
+            var rows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure>
+                    { ["B"] = new("1.1", null, null, null), ["C"] = new("What is risk?", null, null, null) })
+            };
+
+            var result = await RunWithRowsAsync(dir, configJson, rows);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error &&
+                m.Text.Contains("Row 3") && m.Text.Contains("absent from the sheet"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_InSectionDeclaredRowBlank_EmitsError_StillSucceeds()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Config declares a question at row 2, but its text cell is blank.
+            var configJson = """{"sheetName":"RLQ","numberColumn":"B","textColumn":"C","answerColumn":"D","explanationColumn":"E","sectionRows":["1:2-2"]}""";
+            var rows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure>
+                    { ["B"] = new("1.1", null, null, null), ["C"] = new("   ", null, null, null) })
+            };
+
+            var result = await RunWithRowsAsync(dir, configJson, rows);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error &&
+                m.Text.Contains("Row 2") && m.Text.Contains("blank"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_InSectionDeclaredRowMissingTextColumn_EmitsError_StillSucceeds()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Config declares a question at row 2, but the row has no text column (only D).
+            var configJson = """{"sheetName":"RLQ","numberColumn":"B","textColumn":"C","answerColumn":"D","explanationColumn":"E","sectionRows":["1:2-2"]}""";
+            var rows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Section A", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure> { ["D"] = new("answer only", null, null, null) })
+            };
+
+            var result = await RunWithRowsAsync(dir, configJson, rows);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error &&
+                m.Text.Contains("Row 2") && m.Text.Contains("text column 'C' is absent"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }

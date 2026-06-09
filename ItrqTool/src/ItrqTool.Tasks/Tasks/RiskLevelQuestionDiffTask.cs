@@ -126,9 +126,11 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            // 6. Parse rows into RiskLevelQuestion lists
-            var previousQuestions = ParseQuestions(previousRows, previousConfig);
-            var currentQuestions = ParseQuestions(currentRows, currentConfig);
+            // 6. Parse rows into RiskLevelQuestion lists. Each parser surfaces config↔workbook
+            // mismatches (declared-but-missing / unusable question rows) into the shared message
+            // list; these colour the live log but do NOT fail the task.
+            var previousQuestions = ParseQuestions(previousRows, previousConfig, messages);
+            var currentQuestions = ParseQuestions(currentRows, currentConfig, messages);
 
             _logger.LogInformation("Parsed {PreviousCount} questions from previous workbook.", previousQuestions.Count);
             _logger.LogInformation("Parsed {CurrentCount} questions from current workbook.", currentQuestions.Count);
@@ -181,7 +183,8 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
 
     private static IReadOnlyList<RiskLevelQuestion> ParseQuestions(
         IReadOnlyList<ExcelRowStructure> rows,
-        RiskLevelQuestionsConfig config)
+        RiskLevelQuestionsConfig config,
+        ICollection<TaskMessage> messages)
     {
         var parsedSections = config.ParsedSections; // throws FormatException on bad config
         var textCol = config.TextColumn.ToUpperInvariant();
@@ -199,17 +202,42 @@ public sealed class RiskLevelQuestionDiffTask : IWorkflowTask
                               sectionStructure.CellsByColumn.TryGetValue(textCol, out var sectionCell)
                 ? sectionCell.TextValue ?? "" : "";
 
+            var sectionLabel = string.IsNullOrWhiteSpace(sectionText)
+                ? $"section at row {section.SectionRow}"
+                : $"section '{sectionText}'";
+
             for (int rowNum = section.FirstQuestionRow; rowNum <= section.LastQuestionRow; rowNum++)
             {
+                // All three RLQ drops are expected-but-unmet questions: the config declares a
+                // question at this row, but the workbook can't supply one. The workbook is the
+                // untrusted artifact, so each is an Error.
                 if (!rowsByNumber.TryGetValue(rowNum, out var row))
+                {
+                    messages.Add(new(MessageSeverity.Error,
+                        $"Row {rowNum} ({sectionLabel}): config expects a question but the row " +
+                        "is absent from the sheet.",
+                        DateTimeOffset.Now));
                     continue;
+                }
 
                 if (!row.CellsByColumn.TryGetValue(textCol, out var textCell))
+                {
+                    messages.Add(new(MessageSeverity.Error,
+                        $"Row {rowNum} ({sectionLabel}): config expects a question but text " +
+                        $"column '{textCol}' is absent from the row.",
+                        DateTimeOffset.Now));
                     continue;
+                }
 
                 var questionText = textCell.TextValue ?? "";
                 if (string.IsNullOrWhiteSpace(questionText))
+                {
+                    messages.Add(new(MessageSeverity.Error,
+                        $"Row {rowNum} ({sectionLabel}): config expects a question but the text " +
+                        $"cell ({textCol}) is blank.",
+                        DateTimeOffset.Now));
                     continue;
+                }
 
                 string? questionNumber = null;
                 if (row.CellsByColumn.TryGetValue(numberCol, out var numberCell))

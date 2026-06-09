@@ -126,9 +126,11 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            // 6. Parse rows into AuditQuestion lists
-            var previousQuestions = ParseQuestions(previousRows, previousConfig);
-            var currentQuestions = ParseQuestions(currentRows, currentConfig);
+            // 6. Parse rows into AuditQuestion lists. Each parser surfaces config↔workbook
+            // mismatches (uncovered content, expected-but-unusable question rows) into the
+            // shared message list; these colour the live log but do NOT fail the task.
+            var previousQuestions = ParseQuestions(previousRows, previousConfig, messages);
+            var currentQuestions = ParseQuestions(currentRows, currentConfig, messages);
 
             _logger.LogInformation("Parsed {PreviousCount} questions from previous workbook.", previousQuestions.Count);
             _logger.LogInformation("Parsed {CurrentCount} questions from current workbook.", currentQuestions.Count);
@@ -181,7 +183,8 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
 
     private static IReadOnlyList<AuditQuestion> ParseQuestions(
         IReadOnlyList<ExcelRowStructure> rows,
-        ControlLevelQuestionsConfig config)
+        ControlLevelQuestionsConfig config,
+        ICollection<TaskMessage> messages)
     {
         var parsedSections = config.ParsedSections; // throws FormatException on bad config
         var chapterSet = new HashSet<int>(config.ChapterRows);
@@ -204,21 +207,49 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
 
         foreach (var row in rows)
         {
+            // Header/chapter/section rows are intended skips — silent, no message.
             if (chapterSet.Contains(row.RowNumber) || sectionRowSet.Contains(row.RowNumber))
                 continue;
 
             var section = parsedSections.FirstOrDefault(s =>
                 row.RowNumber >= s.FirstQuestionRow && row.RowNumber <= s.LastQuestionRow);
 
+            // Drop 2: row outside every declared section. The config under-specifies the
+            // workbook — surface a Warning only when the row actually carries content,
+            // so blank spacer rows don't flood the log.
             if (section is null)
+            {
+                if (RowHasContent(row))
+                    messages.Add(new(MessageSeverity.Warning,
+                        $"Row {row.RowNumber}: populated content lies outside every declared " +
+                        "section range and is not included in the diff.",
+                        DateTimeOffset.Now));
                 continue;
+            }
 
+            var sectionLabel = SectionLabel(section, headerText);
+
+            // Drop 3: the workbook deviates from config — a declared question row is missing
+            // its text column. The workbook is the untrusted artifact: Error.
             if (!row.CellsByColumn.TryGetValue(textCol, out var textCell))
+            {
+                messages.Add(new(MessageSeverity.Error,
+                    $"Row {row.RowNumber} ({sectionLabel}): config declares a question here " +
+                    $"but text column '{textCol}' is absent from the row; row skipped.",
+                    DateTimeOffset.Now));
                 continue;
+            }
 
+            // Drop 4: declared question row present but its text cell is blank: Error.
             var originalText = textCell.TextValue ?? "";
             if (string.IsNullOrWhiteSpace(originalText))
+            {
+                messages.Add(new(MessageSeverity.Error,
+                    $"Row {row.RowNumber} ({sectionLabel}): config declares a question here " +
+                    $"but the text cell ({textCol}) is blank; row skipped.",
+                    DateTimeOffset.Now));
                 continue;
+            }
 
             var chapterRow = sortedChapterRows.LastOrDefault(cr => cr <= row.RowNumber);
             var chapterText = chapterRow > 0 && headerText.TryGetValue(chapterRow, out var ct) ? ct : "";
@@ -253,6 +284,16 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
 
         return questions;
     }
+
+    // A row "has content" if any of its cells carries a non-blank text value.
+    private static bool RowHasContent(ExcelRowStructure row) =>
+        row.CellsByColumn.Values.Any(c => !string.IsNullOrWhiteSpace(c.TextValue));
+
+    // Operator-facing label for a section: its header text when available, else its row.
+    private static string SectionLabel(SectionDefinition section, IReadOnlyDictionary<int, string> headerText) =>
+        headerText.TryGetValue(section.SectionRow, out var st) && !string.IsNullOrWhiteSpace(st)
+            ? $"section '{st}'"
+            : $"section at row {section.SectionRow}";
 
     private static HtmlDiffReportData BuildReportData(
         string title,
