@@ -121,8 +121,11 @@ public sealed class GeneralDataDiffTask : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            var previousQuestions = GeneralDataQuestionParser.Parse(previousRows, previousConfig);
-            var currentQuestions  = GeneralDataQuestionParser.Parse(currentRows, currentConfig);
+            // The parser surfaces config↔workbook mismatches (expected-but-unusable question
+            // rows, absent span rows) into the shared message list; these colour the live log
+            // but do NOT fail the task.
+            var previousQuestions = GeneralDataQuestionParser.Parse(previousRows, previousConfig, messages);
+            var currentQuestions  = GeneralDataQuestionParser.Parse(currentRows, currentConfig, messages);
 
             _logger.LogInformation("Parsed {PreviousCount} questions from previous workbook.", previousQuestions.Count);
             _logger.LogInformation("Parsed {CurrentCount} questions from current workbook.", currentQuestions.Count);

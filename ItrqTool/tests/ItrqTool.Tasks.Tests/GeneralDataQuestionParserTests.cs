@@ -46,7 +46,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         var q = result[0];
@@ -79,7 +79,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         result[0].ExplanationCells.Should().HaveCount(1);
@@ -116,7 +116,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(3)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         var q = result[0];
@@ -146,7 +146,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         var cell = result[0].AnswerCells[0];
@@ -169,7 +169,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         result[0].ExplanationCells[0].DvType.Should().Be("TextLength");
@@ -189,7 +189,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1), 15(2)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(2);
         result[0].RowNumber.Should().Be(14);
@@ -208,7 +208,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)", "21:22(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(2);
         result[0].SectionName.Should().Be("Section A");
@@ -227,7 +227,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().BeEmpty();
     }
@@ -242,7 +242,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().BeEmpty();
     }
@@ -257,7 +257,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().BeEmpty();
     }
@@ -272,7 +272,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().BeEmpty();
     }
@@ -289,7 +289,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(3)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         var q = result[0];
@@ -310,7 +310,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         result[0].RowNumberLabels[0].Should().Be("");
@@ -330,7 +330,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(10)", "20:21(1)"] };
 
-        var act = () => GeneralDataQuestionParser.Parse(rows, cfg);
+        var act = () => GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         act.Should().Throw<FormatException>();
     }
@@ -347,7 +347,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["20:21(1)", "13:14(1)"] };
 
-        var act = () => GeneralDataQuestionParser.Parse(rows, cfg);
+        var act = () => GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         act.Should().Throw<FormatException>();
     }
@@ -368,7 +368,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         result[0].AnswerCells.Should().BeEmpty();
@@ -388,7 +388,7 @@ public sealed class GeneralDataQuestionParserTests
         };
         var cfg = new GeneralDataConfig { SectionRows = ["13:14(1)"] };
 
-        var result = GeneralDataQuestionParser.Parse(rows, cfg);
+        var result = GeneralDataQuestionParser.Parse(rows, cfg, []);
 
         result.Should().HaveCount(1);
         result[0].ExplanationCells.Should().BeEmpty();

@@ -11,7 +11,8 @@ public static class GeneralDataQuestionParser
 {
     public static IReadOnlyList<GeneralDataQuestion> Parse(
         IReadOnlyList<ExcelRowStructure> rows,
-        GeneralDataConfig config)
+        GeneralDataConfig config,
+        ICollection<TaskMessage> messages)
     {
         var parsedSections = config.ParsedSections; // throws FormatException on bad per-entry config
         ValidateCrossSection(parsedSections);
@@ -33,16 +34,47 @@ public static class GeneralDataQuestionParser
                 ? sectionCell.TextValue?.Trim() ?? ""
                 : "";
 
+            var sectionLabel = string.IsNullOrWhiteSpace(sectionText)
+                ? $"section at row {section.SectionRow}"
+                : $"section '{sectionText}'";
+
             foreach (var qDef in section.Questions)
             {
-                // First row must exist and have non-empty text in the text column.
+                // Drops 1–3 are all expected-but-unmet questions: the config declares a
+                // question at qDef.FirstRow, but the workbook can't supply one. The workbook
+                // is the untrusted artifact, so each is an Error. Messages colour the live
+                // log but do NOT fail the task.
+
+                // Drop 1: declared first row absent from the sheet.
                 if (!rowsByNumber.TryGetValue(qDef.FirstRow, out var firstRow))
+                {
+                    messages.Add(new(MessageSeverity.Error,
+                        $"Row {qDef.FirstRow} ({sectionLabel}): config expects a question but the row " +
+                        "is absent from the sheet.",
+                        DateTimeOffset.Now));
                     continue;
+                }
+
+                // Drop 2: declared question row present but its text column is absent.
                 if (!firstRow.CellsByColumn.TryGetValue(textCol, out var textCell))
+                {
+                    messages.Add(new(MessageSeverity.Error,
+                        $"Row {qDef.FirstRow} ({sectionLabel}): config expects a question but text " +
+                        $"column '{textCol}' is absent from the row.",
+                        DateTimeOffset.Now));
                     continue;
+                }
+
+                // Drop 3: declared question row present but its text cell is blank.
                 var questionText = textCell.TextValue?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(questionText))
+                {
+                    messages.Add(new(MessageSeverity.Error,
+                        $"Row {qDef.FirstRow} ({sectionLabel}): config expects a question but the text " +
+                        $"cell ({textCol}) is blank.",
+                        DateTimeOffset.Now));
                     continue;
+                }
 
                 // Collect per-row data across the question's span.
                 var rowNumberLabels = new List<string>(qDef.RowSpan);
@@ -63,7 +95,19 @@ public static class GeneralDataQuestionParser
                     }
                     rowNumberLabels.Add(label);
 
-                    if (row is null) continue;
+                    // Drop 4: an interior row of the question's declared span is absent from
+                    // the sheet. (offset 0 is firstRow, already confirmed present above, so
+                    // this only fires for interior/trailing span rows.) Part of the question
+                    // is missing → Error. One message per absent row.
+                    if (row is null)
+                    {
+                        messages.Add(new(MessageSeverity.Error,
+                            $"Row {rowNum} ({sectionLabel}, question at row {qDef.FirstRow}): config " +
+                            $"declares this row as part of the question's {qDef.RowSpan}-row span " +
+                            "but it is absent from the sheet.",
+                            DateTimeOffset.Now));
+                        continue;
+                    }
 
                     // Answer columns → AnswerCells (only when text non-empty).
                     foreach (var col in answerCols)
