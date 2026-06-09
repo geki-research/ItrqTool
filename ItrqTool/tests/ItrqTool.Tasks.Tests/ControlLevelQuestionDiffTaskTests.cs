@@ -1006,5 +1006,69 @@ public sealed class ControlLevelQuestionDiffTaskTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Missing-row symmetry (#11): config-declared row absent from sheet → Error ──
+
+    [Fact]
+    public async Task ExecuteAsync_ConfigDeclaresRowAbsentFromSheet_EmitsError_StillSucceeds()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Section declares questions at rows 2 and 3, but the sheet only supplies row 2.
+            // Row 3 is physically absent → expected-but-missing question → Error.
+            var configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["1:2-3"]}""";
+            var rows = new List<ExcelRowStructure>
+            {
+                new(1, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Access Controls", null, null, null) }),
+                new(2, new Dictionary<string, ExcelCellStructure> { ["C"] = new("1.1) What is risk?", null, null, null) })
+            };
+
+            var result = await RunWithRowsAsync(dir, configJson, rows);
+
+            result.Succeeded.Should().BeTrue();
+            result.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error &&
+                m.Text.Contains("Row 3") &&
+                m.Text.Contains("section 'Access Controls'") &&
+                m.Text.Contains("absent from the sheet"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ConfigRangeOvershootsSheet_EmitsOneErrorPerAbsentRow_StillSucceeds()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Section declares questions at rows 3–6, but the sheet ends at row 3.
+            // Rows 4, 5, 6 are each absent → one Error per absent row.
+            var configJson = """{"sheetName":"CLQ","textColumn":"C","inputColumn":"D","chapterRows":[],"sectionRows":["2:3-6"]}""";
+            var rows = new List<ExcelRowStructure>
+            {
+                new(2, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Section A", null, null, null) }),
+                new(3, new Dictionary<string, ExcelCellStructure> { ["C"] = new("1.1) What is risk?", null, null, null) })
+            };
+
+            var result = await RunWithRowsAsync(dir, configJson, rows);
+
+            result.Succeeded.Should().BeTrue();
+            // Both previous and current workbooks use the same rows, so each absent row is
+            // reported twice (once per workbook). Assert each absent row number appears.
+            foreach (var absentRow in new[] { "Row 4", "Row 5", "Row 6" })
+            {
+                result.Messages.Should().Contain(m =>
+                    m.Severity == MessageSeverity.Error &&
+                    m.Text.Contains(absentRow) && m.Text.Contains("absent from the sheet"));
+            }
+            // Row 3 is present, so it must NOT be reported as absent.
+            result.Messages.Should().NotContain(m =>
+                m.Text.Contains("Row 3") && m.Text.Contains("absent from the sheet"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }
 

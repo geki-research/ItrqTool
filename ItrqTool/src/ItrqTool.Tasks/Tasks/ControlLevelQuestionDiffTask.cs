@@ -282,6 +282,31 @@ public sealed class ControlLevelQuestionDiffTask : IWorkflowTask
                 cfValue2));
         }
 
+        // Missing-row symmetry (#11): the sheet-walk above is sheet-driven — it can only see
+        // rows the workbook actually contains, so a config range that overshoots the sheet is
+        // invisible to it. This second pass closes that gap, mirroring RLQ's drop-1: enumerate
+        // each section's declared expected-question rows (its range minus the chapter/section
+        // header rows the main loop intentionally skips — the SAME "expected question row"
+        // definition the loop uses) and flag any that is physically absent from the sheet as an
+        // Error. Built against the present-row set, so rows that ARE present but blank / missing
+        // their text column are left to the in-range Error above — no double-reporting.
+        var presentRows = new HashSet<int>(rows.Select(r => r.RowNumber));
+        foreach (var section in parsedSections)
+        {
+            var sectionLabel = SectionLabel(section, headerText);
+            for (int rowNum = section.FirstQuestionRow; rowNum <= section.LastQuestionRow; rowNum++)
+            {
+                if (chapterSet.Contains(rowNum) || sectionRowSet.Contains(rowNum))
+                    continue; // header rows are intended skips, exactly as in the main loop
+
+                if (!presentRows.Contains(rowNum))
+                    messages.Add(new(MessageSeverity.Error,
+                        $"Row {rowNum} ({sectionLabel}): config expects a question but the row " +
+                        "is absent from the sheet.",
+                        DateTimeOffset.Now));
+            }
+        }
+
         return questions;
     }
 
