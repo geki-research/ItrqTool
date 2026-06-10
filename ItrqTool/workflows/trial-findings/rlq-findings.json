@@ -1,0 +1,22 @@
+{
+  "sheet": "Risk Level Questions",
+  "taskType": "RiskLevelValidation",
+  "findings": [
+    {
+      "check": "FrozenValue",
+      "evaluation": "Fatal",
+      "cellAddresses": "E5",
+      "questionNumber": "3",
+      "questionText": "Probability of occurrence",
+      "checkResult": "Cell value was changed from the frozen baseline '2'; modification is not permitted."
+    },
+    {
+      "check": "Deviation",
+      "evaluation": "Error",
+      "cellAddresses": "E9",
+      "questionNumber": "7",
+      "questionText": "Impact on data availability",
+      "checkResult": "Value '5' exceeds the maximum allowed score of 4."
+    }
+  ]
+}

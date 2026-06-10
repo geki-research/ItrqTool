@@ -1,0 +1,36 @@
+{
+  "id": "feedback-checklist-trial",
+  "name": "Feedback Checklist — Trial",
+  "tasks": [
+    {
+      "id": "load-clq-findings",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "clq-findings.json" },
+      "parameters": {
+        "sourcePath": "workflows/trial-findings/clq-findings.json"
+      }
+    },
+    {
+      "id": "load-rlq-findings",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "rlq-findings.json" },
+      "parameters": {
+        "sourcePath": "workflows/trial-findings/rlq-findings.json"
+      }
+    },
+    {
+      "id": "assemble",
+      "type": "FeedbackChecklistAssembler",
+      "inputs": {
+        "findings01": "load-clq-findings.output",
+        "findings02": "load-rlq-findings.output"
+      },
+      "outputs": { "checklist": "feedback-checklist.xlsx" },
+      "parameters": {
+        "configurationFullFilename": "configs/feedback-checklist-assembler-config.json"
+      }
+    }
+  ]
+}

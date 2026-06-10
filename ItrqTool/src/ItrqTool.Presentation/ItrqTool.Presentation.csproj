@@ -40,5 +40,11 @@
     <None Include="..\..\workflows\**\*.json" CopyToOutputDirectory="PreserveNewest">
       <Link>workflows\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </None>
+    <None Include="..\..\templates\**\*" CopyToOutputDirectory="PreserveNewest">
+      <Link>templates\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </None>
+    <None Include="..\..\configs\**\*.json" CopyToOutputDirectory="PreserveNewest">
+      <Link>configs\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </None>
   </ItemGroup>
 </Project>

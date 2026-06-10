@@ -1,0 +1,16 @@
+{
+  "templatePath": "templates/feedback-checklist-template.xlsx",
+  "sheetName": "Checklist",
+  "dataStartRow": 2,
+  "columnMap": {
+    "Counter": "A",
+    "Worksheet": "B",
+    "QuestionNumber": "C",
+    "CellAddresses": "D",
+    "QuestionText": "E",
+    "RequestedData": "F",
+    "ProvidedBy": "G",
+    "Evaluation": "H",
+    "CheckResult": "I"
+  }
+}

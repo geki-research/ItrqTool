@@ -1,0 +1,36 @@
+{
+  "sheet": "Control Level Questions",
+  "taskType": "ControlLevelValidation",
+  "findings": [
+    {
+      "check": "Deviation",
+      "evaluation": "Error",
+      "cellAddresses": "C12",
+      "questionNumber": "1.1",
+      "questionText": "Was a formal risk assessment conducted and documented?",
+      "requestedData": "Yes / No",
+      "providedBy": "ACME Corp",
+      "checkResult": "Answer ‘Maybe’ is not in the allowed set {Yes, No}."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Warning",
+      "cellAddresses": "C15",
+      "questionNumber": "1.4",
+      "questionText": "Are access controls reviewed at least quarterly?",
+      "requestedData": "Yes / No / N.A.",
+      "providedBy": "ACME Corp",
+      "checkResult": "Cell is empty; a response is required."
+    },
+    {
+      "check": "SanityCheck",
+      "evaluation": "Information",
+      "cellAddresses": "C20",
+      "questionNumber": "2.1",
+      "questionText": "Is a business continuity plan in place and tested annually?",
+      "requestedData": "Yes / No",
+      "providedBy": "ACME Corp",
+      "checkResult": "Value ‘Yes’ is outside the expected range for this risk level; please verify."
+    }
+  ]
+}
