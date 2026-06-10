@@ -37,6 +37,8 @@ public static class CompositionRoot
         services.AddSingleton<IHtmlReportWriter, HtmlQuestionDiffReportWriter>();
         services.AddSingleton<IHtmlGeneralDataDiffReportWriter, HtmlGeneralDataDiffReportWriter>();
         services.AddSingleton<IHtmlCellRangeDiffReportWriter, HtmlCellRangeDiffReportWriter>();
+        services.AddSingleton<ItrqTool.Domain.Validation.IFeedbackChecklistWriter,
+            ItrqTool.Infrastructure.Excel.ClosedXmlFeedbackChecklistWriter>();
         services.AddSingleton<IWorkflowLoader>(sp =>
             new JsonWorkflowLoader(
                 workflowsDirectoryPath,
