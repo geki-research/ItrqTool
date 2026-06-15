@@ -1,0 +1,96 @@
+using ItrqTool.Domain.Validation;
+using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
+using ItrqTool.Tasks.QuestionnaireValidation.Findings;
+
+namespace ItrqTool.Tasks.QuestionnaireValidation.Clq;
+
+/// <summary>
+/// Version-neutral CLQ baseline checks. Turns an <see cref="AlignmentResult{T}"/>
+/// (plus the role map and config) into a flat list of <see cref="ValidationFinding"/>.
+/// Pure static, reads no files, never throws for a no-data condition — every anomaly
+/// is a finding, never an exception. Severity per finding is resolved by the
+/// <see cref="FindingEmitter"/> at emit time. Faithful port of CLQ_v01's
+/// <c>ClqValidationChecks.Build</c>; column letters come from
+/// <see cref="IClqBaselineConfig"/> (never hard-coded), the non-identity payload
+/// from <see cref="ClqBaselineRoleMap{T}"/>, the identity fields from
+/// <see cref="IAlignmentIdentity"/>.
+/// </summary>
+public static class ClqBaselineChecks
+{
+    public static IReadOnlyList<ValidationFinding> Run<T>(
+        AlignmentResult<T> alignment,
+        ClqBaselineRoleMap<T> roles,
+        IClqBaselineConfig config,
+        FindingEmitter emitter)
+        where T : class, IAlignmentIdentity
+    {
+        ArgumentNullException.ThrowIfNull(alignment);
+        ArgumentNullException.ThrowIfNull(roles);
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var findings = new List<ValidationFinding>();
+
+        // ── Phase 1: malformed keys (all workbooks) ──────────────────────────────
+        foreach (var mk in alignment.MalformedKeys)
+        {
+            var reason = mk.Reason == MalformedKeyReason.Blank
+                ? "blank"
+                : $"duplicated ('{mk.XrefId}')";
+            findings.Add(emitter.Emit(ClqBaselineFinding.XrefIdEmptyOrDuplicated,
+                $"{config.XrefIdColumn}{mk.RowNumber}",
+                questionNumber: null, questionText: null, requestedData: null, providedBy: null,
+                $"Identity key in {WorkbookName(mk.Workbook)} at row {mk.RowNumber} is {reason}; " +
+                "the question cannot be reliably matched within or across years."));
+        }
+
+        // ── Phase 2: within-year removed (template questions absent from response) ─
+        foreach (var removed in alignment.WithinYearRemoved)
+        {
+            findings.Add(emitter.Emit(ClqBaselineFinding.QuestionRemoved,
+                $"{config.XrefIdColumn}{removed.RowNumber}",
+                questionNumber: removed.QuestionNumber, questionText: removed.QuestionText,
+                requestedData: null, providedBy: null,   // template-side: no responder
+                $"Template question (identity key '{removed.XrefId}', template row {removed.RowNumber}) " +
+                "is absent from the response."));
+        }
+
+        // ── Phase 3: per current-response question ───────────────────────────────
+        foreach (var aq in alignment.Aligned)
+        {
+            // A current row whose OWN key is malformed is already covered by the
+            // MalformedKeys finding above; skip all its dependent checks (emit once).
+            if (aq.WithinYear == WithinYearJoin.NotEvaluatedMalformedKey)
+                continue;
+
+            var cur = aq.Current;
+            int row = cur.RowNumber;
+
+            // Number-format (per-row flag; message uses the RAW OriginalText, not the
+            // stripped QuestionText).
+            if (roles.NumberFormatUnrecognized(cur))
+                findings.Add(emitter.Emit(ClqBaselineFinding.NumberFormatUnrecognized,
+                    $"{config.TextColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                    requestedData: null, providedBy: roles.ProvidedBy(cur),
+                    $"Question-number prefix at {config.TextColumn}{row} is not a recognised two-level " +
+                    $"form: '{cur.OriginalText}'."));
+
+            // D1b: within-year row structure (Added / RowShifted / ReferenceTextAltered / AnswerValidationRuleChanged)
+
+            // D1c: input-validity (AnswerMissing / AnswerNotInAllowedSet / Strengths/Weaknesses matrix)
+
+            // D2: cross-year switch (XrefIdConflict / NewXrefIdResemblesPrevious / SameXrefIdTextDiverged /
+            //     NoPreviousBaseline / Agree → F-integrity + deviation)
+        }
+
+        return findings;
+    }
+
+    private static string WorkbookName(ValidationWorkbook wb) => wb switch
+    {
+        ValidationWorkbook.CurrentResponse => "the current response",
+        ValidationWorkbook.EmptyTemplate => "the empty template",
+        ValidationWorkbook.PreviousResponse => "the previous response",
+        _ => wb.ToString()
+    };
+}
