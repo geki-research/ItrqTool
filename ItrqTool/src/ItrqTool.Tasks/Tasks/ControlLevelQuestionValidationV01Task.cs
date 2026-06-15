@@ -116,6 +116,12 @@ public sealed class ControlLevelQuestionValidationV01Task : IWorkflowTask
             var templateQuestions = InternalClqQuestionParser.Parse(templateRows, config, messages);
             var previousQuestions = InternalClqQuestionParser.Parse(previousRows, config, messages);
 
+            // 6a. Patch answer-column DV from address-driven ReadCells so blank-but-DV'd
+            //     template H cells (skipped by ReadRows/CellsUsed) are captured correctly.
+            currentQuestions  = PatchAnswerDv(currentPath,  config.SheetName, config.AnswerColumn, currentQuestions);
+            templateQuestions = PatchAnswerDv(templatePath, config.SheetName, config.AnswerColumn, templateQuestions);
+            previousQuestions = PatchAnswerDv(previousPath, config.SheetName, config.AnswerColumn, previousQuestions);
+
             ct.ThrowIfCancellationRequested();
 
             // 7. Align + check.
@@ -183,6 +189,31 @@ public sealed class ControlLevelQuestionValidationV01Task : IWorkflowTask
             $"Required input missing or empty: {key}.", DateTimeOffset.Now));
         value = string.Empty;
         return false;
+    }
+
+    private IReadOnlyList<InternalClqQuestion> PatchAnswerDv(
+        string path, string sheetName, string answerColumn,
+        IReadOnlyList<InternalClqQuestion> questions)
+    {
+        if (questions.Count == 0) return questions;
+        var col = answerColumn.ToUpperInvariant();
+        int firstRow = questions.Min(q => q.RowNumber);
+        int lastRow  = questions.Max(q => q.RowNumber);
+        var cells = _structureReader.ReadCells(path, sheetName, [$"{col}{firstRow}:{col}{lastRow}"]);
+        return questions
+            .Select(q =>
+            {
+                var addr = $"{col}{q.RowNumber}";
+                var cell = cells.TryGetValue(addr, out var c) ? c : null;
+                return q with
+                {
+                    AnswerDvType     = cell?.DataValidationType,
+                    AnswerDvFormula  = cell?.DataValidationFormula,
+                    AnswerDvOperator = cell?.DataValidationOperator,
+                    AnswerDvFormula2 = cell?.DataValidationFormula2
+                };
+            })
+            .ToList();
     }
 
     private bool TryReadRows(
