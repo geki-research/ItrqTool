@@ -114,7 +114,107 @@ public sealed class ClqBaselineChecksTests
         f.RequestedData.Should().BeNull();
     }
 
-    // ── Phase 3: number-format ───────────────────────────────────────────────────
+    // ── Phase 3a: within-year row structure (D1b) ────────────────────────────────
+
+    [Fact]
+    public void QuestionAdded_FiresForAddedInResponse()
+    {
+        var cur = Q(rowNumber: 10, xrefId: "X-NEW");
+        var aligned = Aligned(cur, withinYear: WithinYearJoin.AddedInResponse);
+
+        var findings = Run(Result(aligned: new[] { aligned }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.Structure);
+        f.Evaluation.Should().Be(FindingEvaluation.Error);
+        f.CellAddresses.Should().Be("N10");
+        f.CheckResult.Should().Contain("absent from the empty template");
+    }
+
+    [Fact]
+    public void QuestionRowShifted_FiresWhenTemplateRowDiffers()
+    {
+        var tmpl = Q(rowNumber: 8,  xrefId: "X1");
+        var cur  = Q(rowNumber: 12, xrefId: "X1");
+        var aligned = Aligned(cur, withinYear: WithinYearJoin.JoinedByXrefId,
+            templateMatch: tmpl, rowShifted: true);
+
+        var findings = Run(Result(aligned: new[] { aligned }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.Structure);
+        f.Evaluation.Should().Be(FindingEvaluation.Error);
+        f.CellAddresses.Should().Be("N12");
+        f.CheckResult.Should().Contain("moved from template row 8 to response row 12");
+    }
+
+    [Fact]
+    public void ReferenceTextAltered_FiresAndListsDifferingFields()
+    {
+        // Text flag set by engine + guidance differs in payload → one compound finding.
+        var tmpl = Q(rowNumber: 10, xrefId: "X1", guidance: "original guidance");
+        var cur  = Q(rowNumber: 10, xrefId: "X1", guidance: "changed guidance");
+        var aligned = Aligned(cur, withinYear: WithinYearJoin.JoinedByXrefId,
+            templateMatch: tmpl, textMismatched: true);
+
+        var findings = Run(Result(aligned: new[] { aligned }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.FrozenValue);
+        f.Evaluation.Should().Be(FindingEvaluation.Warning);
+        f.CheckResult.Should().Contain("question text").And.Contain("guidance");
+        f.CellAddresses.Should().Contain("C10").And.Contain("E10");
+    }
+
+    [Fact]
+    public void ReferenceTextAltered_DedupsColumnsWhenFieldsShareAColumn()
+    {
+        // text (TextColumn=C) and chapter (also TextColumn=C) both differ → C{row} appears once.
+        var tmpl = Q(rowNumber: 10, xrefId: "X1", chapterName: "Chapter A");
+        var cur  = Q(rowNumber: 10, xrefId: "X1", chapterName: "Chapter B");
+        var aligned = Aligned(cur, withinYear: WithinYearJoin.JoinedByXrefId,
+            templateMatch: tmpl, textMismatched: true);
+
+        var findings = Run(Result(aligned: new[] { aligned }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.FrozenValue);
+        f.CheckResult.Should().Contain("question text").And.Contain("chapter");
+        // Both fields map to TextColumn (C) — the address must appear exactly once.
+        f.CellAddresses.Split(',').Count(s => s.Trim() == "C10").Should().Be(1);
+        f.CellAddresses.Should().NotContain("E10");
+    }
+
+    [Fact]
+    public void ReferenceTextAltered_DoesNotFire_WhenJoinedAndAllFieldsMatch()
+    {
+        // JoinedByXrefId with templateMatch = current (all five fields identical) → no finding.
+        var q = Q(rowNumber: 10, xrefId: "X1", guidance: "same", chapterName: "Ch");
+        var aligned = Aligned(q); // withinYear = JoinedByXrefId, templateMatch = q by default
+
+        var findings = Run(Result(aligned: new[] { aligned }));
+
+        findings.Should().NotContain(f => f.Check == ValidationCheck.FrozenValue);
+    }
+
+    [Fact]
+    public void AnswerValidationRuleChanged_FiresWhenAnswerDvDiffers()
+    {
+        var tmpl = Q(rowNumber: 10, xrefId: "X1",
+            dvType: "Whole", dvOperator: "Between", dvFormula: "1", dvFormula2: "4");
+        var cur = Q(rowNumber: 10, xrefId: "X1",
+            dvType: "Whole", dvOperator: "Between", dvFormula: "1", dvFormula2: "5");
+        var aligned = Aligned(cur, withinYear: WithinYearJoin.JoinedByXrefId, templateMatch: tmpl);
+
+        var findings = Run(Result(aligned: new[] { aligned }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.FrozenConstraint);
+        f.Evaluation.Should().Be(FindingEvaluation.Error);
+        f.CellAddresses.Should().Be("H10");
+    }
+
+    // ── Phase 3b: number-format ───────────────────────────────────────────────────
 
     [Fact]
     public void NumberFormatUnrecognized_FiresWhenFlagSet()

@@ -1,6 +1,7 @@
 using ItrqTool.Domain.Validation;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 using ItrqTool.Tasks.QuestionnaireValidation.Findings;
+using ItrqTool.Tasks.Shared;
 
 namespace ItrqTool.Tasks.QuestionnaireValidation.Clq;
 
@@ -76,6 +77,54 @@ public static class ClqBaselineChecks
                     $"form: '{cur.OriginalText}'."));
 
             // D1b: within-year row structure (Added / RowShifted / ReferenceTextAltered / AnswerValidationRuleChanged)
+            if (aq.WithinYear == WithinYearJoin.AddedInResponse)
+            {
+                findings.Add(emitter.Emit(ClqBaselineFinding.QuestionAdded,
+                    $"{config.XrefIdColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                    requestedData: null, providedBy: roles.ProvidedBy(cur),
+                    $"Response question (identity key '{cur.XrefId}', row {row}) is absent from the empty template."));
+            }
+            else if (aq.WithinYear == WithinYearJoin.JoinedByXrefId)
+            {
+                var tmpl = aq.TemplateMatch!; // non-null IFF JoinedByXrefId
+
+                if (aq.RowShifted)
+                    findings.Add(emitter.Emit(ClqBaselineFinding.QuestionRowShifted,
+                        $"{config.XrefIdColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        $"Question (identity key '{cur.XrefId}') moved from template row {tmpl.RowNumber} " +
+                        $"to response row {row}."));
+
+                // Reference text — compound finding listing every differing field.
+                var alteredFields = new List<string>();
+                var alteredCols   = new List<string>();
+                if (aq.TextMismatched)                                                 { alteredFields.Add("question text");     alteredCols.Add(config.TextColumn); }
+                if (!RefEqual(roles.Guidance(cur),    roles.Guidance(tmpl)))          { alteredFields.Add("guidance");          alteredCols.Add(config.GuidanceColumn); }
+                if (!RefEqual(roles.ChapterName(cur), roles.ChapterName(tmpl)))       { alteredFields.Add("chapter");           alteredCols.Add(config.TextColumn); }
+                if (!RefEqual(cur.SectionName,        tmpl.SectionName))              { alteredFields.Add("section");           alteredCols.Add(config.TextColumn); }
+                if (!RefEqual(cur.XrefId,             tmpl.XrefId))                   { alteredFields.Add("identity-key text"); alteredCols.Add(config.XrefIdColumn); }
+
+                if (alteredFields.Count > 0)
+                {
+                    var cells = string.Join(", ",
+                        alteredCols.Distinct(StringComparer.Ordinal).Select(c => $"{c}{row}"));
+                    findings.Add(emitter.Emit(ClqBaselineFinding.ReferenceTextAltered,
+                        cells, cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        $"Frozen reference text differs from the template in: {string.Join(", ", alteredFields)}."));
+                }
+
+                // Frozen constraint — answer-cell data-validation rule.
+                if (DvComparer.IsDvChangedFull(
+                        roles.AnswerDvType(tmpl), roles.AnswerDvOperator(tmpl), roles.AnswerDvFormula(tmpl), roles.AnswerDvFormula2(tmpl),
+                        roles.AnswerDvType(cur),  roles.AnswerDvOperator(cur),  roles.AnswerDvFormula(cur),  roles.AnswerDvFormula2(cur)))
+                {
+                    findings.Add(emitter.Emit(ClqBaselineFinding.AnswerValidationRuleChanged,
+                        $"{config.AnswerColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        $"Answer-cell data-validation rule at {config.AnswerColumn}{row} differs from the template."));
+                }
+            }
 
             // D1c: input-validity (AnswerMissing / AnswerNotInAllowedSet / Strengths/Weaknesses matrix)
 
@@ -85,6 +134,9 @@ public static class ClqBaselineChecks
 
         return findings;
     }
+
+    private static bool RefEqual(string? a, string? b) =>
+        string.Equals(a ?? "", b ?? "", StringComparison.Ordinal);
 
     private static string WorkbookName(ValidationWorkbook wb) => wb switch
     {
