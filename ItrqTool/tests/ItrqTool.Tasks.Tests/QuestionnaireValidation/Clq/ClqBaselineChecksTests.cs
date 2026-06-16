@@ -119,7 +119,7 @@ public sealed class ClqBaselineChecksTests
     [Fact]
     public void QuestionAdded_FiresForAddedInResponse()
     {
-        var cur = Q(rowNumber: 10, xrefId: "X-NEW");
+        var cur = Q(rowNumber: 10, xrefId: "X-NEW", answer: "1", strengths: "s");
         var aligned = Aligned(cur, withinYear: WithinYearJoin.AddedInResponse);
 
         var findings = Run(Result(aligned: new[] { aligned }));
@@ -135,7 +135,7 @@ public sealed class ClqBaselineChecksTests
     public void QuestionRowShifted_FiresWhenTemplateRowDiffers()
     {
         var tmpl = Q(rowNumber: 8,  xrefId: "X1");
-        var cur  = Q(rowNumber: 12, xrefId: "X1");
+        var cur  = Q(rowNumber: 12, xrefId: "X1", answer: "1", strengths: "s");
         var aligned = Aligned(cur, withinYear: WithinYearJoin.JoinedByXrefId,
             templateMatch: tmpl, rowShifted: true);
 
@@ -153,7 +153,7 @@ public sealed class ClqBaselineChecksTests
     {
         // Text flag set by engine + guidance differs in payload → one compound finding.
         var tmpl = Q(rowNumber: 10, xrefId: "X1", guidance: "original guidance");
-        var cur  = Q(rowNumber: 10, xrefId: "X1", guidance: "changed guidance");
+        var cur  = Q(rowNumber: 10, xrefId: "X1", guidance: "changed guidance", answer: "1", strengths: "s");
         var aligned = Aligned(cur, withinYear: WithinYearJoin.JoinedByXrefId,
             templateMatch: tmpl, textMismatched: true);
 
@@ -171,7 +171,7 @@ public sealed class ClqBaselineChecksTests
     {
         // text (TextColumn=C) and chapter (also TextColumn=C) both differ → C{row} appears once.
         var tmpl = Q(rowNumber: 10, xrefId: "X1", chapterName: "Chapter A");
-        var cur  = Q(rowNumber: 10, xrefId: "X1", chapterName: "Chapter B");
+        var cur  = Q(rowNumber: 10, xrefId: "X1", chapterName: "Chapter B", answer: "1", strengths: "s");
         var aligned = Aligned(cur, withinYear: WithinYearJoin.JoinedByXrefId,
             templateMatch: tmpl, textMismatched: true);
 
@@ -203,7 +203,8 @@ public sealed class ClqBaselineChecksTests
         var tmpl = Q(rowNumber: 10, xrefId: "X1",
             dvType: "Whole", dvOperator: "Between", dvFormula: "1", dvFormula2: "4");
         var cur = Q(rowNumber: 10, xrefId: "X1",
-            dvType: "Whole", dvOperator: "Between", dvFormula: "1", dvFormula2: "5");
+            dvType: "Whole", dvOperator: "Between", dvFormula: "1", dvFormula2: "5",
+            answer: "1", strengths: "s");
         var aligned = Aligned(cur, withinYear: WithinYearJoin.JoinedByXrefId, templateMatch: tmpl);
 
         var findings = Run(Result(aligned: new[] { aligned }));
@@ -235,7 +236,7 @@ public sealed class ClqBaselineChecksTests
     {
         var config = ClqBaselineTestHarness.Config(textColumn: "AA");
         var cur = Q(rowNumber: 10, questionNumber: "7.7", questionText: "Mapped?", providedBy: "Unit B",
-                    numberFormatUnrecognized: true);
+                    numberFormatUnrecognized: true, answer: "1", strengths: "s");
 
         var findings = Run(Result(aligned: new[] { Aligned(cur) }), config);
 
@@ -267,5 +268,107 @@ public sealed class ClqBaselineChecksTests
         // Un-overridden: malformed-key keeps its default Fatal.
         findings.Should().ContainSingle(f => f.CellAddresses == "N20")
             .Which.Evaluation.Should().Be(FindingEvaluation.Fatal);
+    }
+
+    // ── Phase 3c: input validity (D1c) ──────────────────────────────────────────
+
+    [Fact]
+    public void AnswerMissing_FiresWhenAnswerBlank()
+    {
+        var cur = Q(rowNumber: 10, answer: null);
+        var findings = Run(Result(aligned: new[] { Aligned(cur) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.MissingResponse);
+        f.Evaluation.Should().Be(FindingEvaluation.Error);
+        f.CellAddresses.Should().Be("H10");
+        f.CheckResult.Should().Contain("empty");
+    }
+
+    [Fact]
+    public void AnswerNotInAllowedSet_FiresWhenAnswerOutsideAllowed()
+    {
+        var cur = Q(rowNumber: 10, answer: "X");
+        var findings = Run(Result(aligned: new[] { Aligned(cur) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.MissingResponse);
+        f.Evaluation.Should().Be(FindingEvaluation.Fatal);
+        f.CellAddresses.Should().Be("H10");
+        f.CheckResult.Should().Contain("X");
+    }
+
+    // answer "2" requires both I (strengths) and J (weaknesses) — all four quadrants exercised.
+    [Theory]
+    [InlineData("s", "w")]    // both present → no I/J findings
+    [InlineData(null, "w")]   // strengths blank → StrengthsMissing at I10 only
+    [InlineData("s", null)]   // weaknesses blank → WeaknessesMissing at J10 only
+    [InlineData(null, null)]  // both blank → both findings
+    public void IjMatrix_UsableAnswer2_EmitsCorrectIjFindings(string? strengths, string? weaknesses)
+    {
+        var cur = Q(rowNumber: 10, answer: "2", strengths: strengths, weaknesses: weaknesses);
+        var findings = Run(Result(aligned: new[] { Aligned(cur) }));
+
+        if (strengths is null)
+            findings.Should().Contain(f =>
+                f.Check == ValidationCheck.MissingResponse &&
+                f.Evaluation == FindingEvaluation.Error &&
+                f.CellAddresses == "I10");
+        else
+            findings.Should().NotContain(f => f.CellAddresses == "I10");
+
+        if (weaknesses is null)
+            findings.Should().Contain(f =>
+                f.Check == ValidationCheck.MissingResponse &&
+                f.Evaluation == FindingEvaluation.Error &&
+                f.CellAddresses == "J10");
+        else
+            findings.Should().NotContain(f => f.CellAddresses == "J10");
+    }
+
+    [Fact]
+    public void MalformedGuard_SuppressesInputValidity()
+    {
+        // A NotEvaluatedMalformedKey row with a blank answer: the per-row guard skips all
+        // per-row checks — only the XrefIdEmptyOrDuplicated finding fires (Phase 1 sweep),
+        // no AnswerMissing.
+        var cur = Q(rowNumber: 10, xrefId: null, answer: null);
+        var aligned = Aligned(cur, withinYear: WithinYearJoin.NotEvaluatedMalformedKey,
+            crossYear: CrossYearOutcome.NotEvaluatedMalformedKey);
+        var malformed = new[] { new MalformedKey(ValidationWorkbook.CurrentResponse, 10, null, MalformedKeyReason.Blank) };
+
+        var findings = Run(Result(aligned: new[] { aligned }, malformed: malformed));
+
+        var f = OnlyFinding(findings);
+        f.Evaluation.Should().Be(FindingEvaluation.Fatal);   // XrefIdEmptyOrDuplicated
+        findings.Should().NotContain(x => x.CellAddresses == "H10"); // no AnswerMissing
+    }
+
+    [Fact]
+    public void AnswerNotInAllowedSet_SuppressesIj()
+    {
+        // answer ∉ AllowedAnswers + blank strengths: AnswerNotInAllowedSet fires; I/J skipped
+        // because answerUsable remains false.
+        var cur = Q(rowNumber: 10, answer: "X", strengths: null);
+        var findings = Run(Result(aligned: new[] { Aligned(cur) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.MissingResponse);
+        f.Evaluation.Should().Be(FindingEvaluation.Fatal);
+        findings.Should().NotContain(x => x.CellAddresses == "I10");
+    }
+
+    [Fact]
+    public void AnswerMissing_SuppressesIj()
+    {
+        // blank answer + blank strengths: AnswerMissing fires; I/J skipped because
+        // answerUsable remains false.
+        var cur = Q(rowNumber: 10, answer: null, strengths: null);
+        var findings = Run(Result(aligned: new[] { Aligned(cur) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.MissingResponse);
+        f.Evaluation.Should().Be(FindingEvaluation.Error);
+        findings.Should().NotContain(x => x.CellAddresses == "I10");
     }
 }

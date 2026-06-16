@@ -126,7 +126,47 @@ public static class ClqBaselineChecks
                 }
             }
 
-            // D1c: input-validity (AnswerMissing / AnswerNotInAllowedSet / Strengths/Weaknesses matrix)
+            // Input validity.
+            var answer = roles.Answer(cur);
+            bool answerUsable = false;
+
+            if (string.IsNullOrWhiteSpace(answer))
+            {
+                findings.Add(emitter.Emit(ClqBaselineFinding.AnswerMissing,
+                    $"{config.AnswerColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                    requestedData: null, providedBy: roles.ProvidedBy(cur),
+                    $"Answer cell {config.AnswerColumn}{row} is empty; the question was not answered."));
+            }
+            else if (!config.AllowedAnswers.Contains(answer, StringComparer.Ordinal))
+            {
+                findings.Add(emitter.Emit(ClqBaselineFinding.AnswerNotInAllowedSet,
+                    $"{config.AnswerColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                    requestedData: null, providedBy: roles.ProvidedBy(cur),
+                    $"Answer '{answer}' at {config.AnswerColumn}{row} is not in the allowed set " +
+                    $"[{string.Join(", ", config.AllowedAnswers)}]."));
+            }
+            else
+            {
+                answerUsable = true;
+            }
+
+            if (answerUsable)
+            {
+                bool requireStrengths = answer is "1" or "2" or "3";
+                bool requireWeaknesses = answer is "2" or "3" or "4";
+
+                if (requireStrengths && string.IsNullOrWhiteSpace(roles.Strengths(cur)))
+                    findings.Add(emitter.Emit(ClqBaselineFinding.StrengthsMissing,
+                        $"{config.StrengthsColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        $"Answer '{answer}' requires a strengths explanation but {config.StrengthsColumn}{row} is empty."));
+
+                if (requireWeaknesses && string.IsNullOrWhiteSpace(roles.Weaknesses(cur)))
+                    findings.Add(emitter.Emit(ClqBaselineFinding.WeaknessesMissing,
+                        $"{config.WeaknessesColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        $"Answer '{answer}' requires a weaknesses explanation but {config.WeaknessesColumn}{row} is empty."));
+            }
 
             // D2: cross-year switch (XrefIdConflict / NewXrefIdResemblesPrevious / SameXrefIdTextDiverged /
             //     NoPreviousBaseline / Agree → F-integrity + deviation)
