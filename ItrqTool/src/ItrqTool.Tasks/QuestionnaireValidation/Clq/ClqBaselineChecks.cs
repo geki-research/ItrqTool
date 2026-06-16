@@ -168,8 +168,82 @@ public static class ClqBaselineChecks
                         $"Answer '{answer}' requires a weaknesses explanation but {config.WeaknessesColumn}{row} is empty."));
             }
 
-            // D2: cross-year switch (XrefIdConflict / NewXrefIdResemblesPrevious / SameXrefIdTextDiverged /
-            //     NoPreviousBaseline / Agree → F-integrity + deviation)
+            // ── Cross-year (D2) ──────────────────────────────────────────────────
+            switch (aq.CrossYear)
+            {
+                case CrossYearOutcome.XrefIdConflict:
+                    findings.Add(emitter.Emit(ClqBaselineFinding.XrefIdConflict,
+                        $"{config.XrefIdColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        $"Identity key and question text disagree about the previous-year question: the key " +
+                        $"'{cur.XrefId}' points to previous {Describe(aq.XrefIdCounterpart)}, but the text best " +
+                        $"matches previous {Describe(aq.MatcherCandidate)}. Verify which previous question this is."));
+                    break;
+
+                case CrossYearOutcome.NewXrefIdWithLookalike:
+                    findings.Add(emitter.Emit(ClqBaselineFinding.NewXrefIdResemblesPrevious,
+                        $"{config.XrefIdColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        $"New identity key '{cur.XrefId}' (absent from the previous year) but a textual twin exists: " +
+                        $"previous {Describe(aq.MatcherCandidate)}. Verify whether this is a rescope or a mistyped key " +
+                        "(not auto-used as a baseline)."));
+                    break;
+
+                case CrossYearOutcome.SameXrefIdTextDiverged:
+                    findings.Add(emitter.Emit(ClqBaselineFinding.SameXrefIdTextDiverged,
+                        $"{config.XrefIdColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        $"Identity key '{cur.XrefId}' is shared with previous {Describe(aq.XrefIdCounterpart)} but the " +
+                        "question text has diverged beyond the match threshold. Verify whether this is a heavy rewrite " +
+                        "or a reused key."));
+                    break;
+
+                case CrossYearOutcome.Neither:
+                    findings.Add(emitter.Emit(ClqBaselineFinding.NoPreviousBaseline,
+                        $"{config.XrefIdColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: null, providedBy: roles.ProvidedBy(cur),
+                        "No previous-year counterpart by key or text; ordinary new/orphan question with no cross-year baseline."));
+                    break;
+
+                case CrossYearOutcome.Agree:
+                {
+                    var prev = aq.PreviousMatch!; // non-null IFF Agree
+
+                    // F-integrity: runs on EVERY Agree row, independent of answerUsable.
+                    if (!string.Equals(TrimOrEmpty(roles.PreviousAnswer(cur)), TrimOrEmpty(roles.Answer(prev)), StringComparison.Ordinal))
+                        findings.Add(emitter.Emit(ClqBaselineFinding.PreviousAnswerAltered,
+                            $"{config.PreviousAnswerColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                            requestedData: null, providedBy: roles.ProvidedBy(cur),
+                            $"Injected previous answer at {config.PreviousAnswerColumn}{row} ('{TrimOrEmpty(roles.PreviousAnswer(cur))}') " +
+                            $"differs from the prior year's actual answer ('{TrimOrEmpty(roles.Answer(prev))}')."));
+
+                    if (answerUsable)
+                    {
+                        // "usable" = parses as int AND ∈ AllowedAnswers.
+                        bool prevUsable = int.TryParse(roles.Answer(prev), out int prevValue)
+                                          && config.AllowedAnswers.Contains(roles.Answer(prev)!, StringComparer.Ordinal);
+                        bool curNumeric = int.TryParse(answer, out int curValue);
+
+                        if (!prevUsable)
+                        {
+                            findings.Add(emitter.Emit(ClqBaselineFinding.PreviousAnswerUnusable,
+                                $"{config.AnswerColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                                requestedData: null, providedBy: roles.ProvidedBy(cur),
+                                "Year-over-year deviation cannot be evaluated: the confidently-matched previous answer is " +
+                                "empty or not in the allowed set."));
+                        }
+                        else if (curNumeric && Math.Abs(curValue - prevValue) >= config.DeviationThreshold)
+                        {
+                            findings.Add(emitter.Emit(ClqBaselineFinding.AnswerDeviation,
+                                $"{config.AnswerColumn}{row}", cur.QuestionNumber, cur.QuestionText,
+                                requestedData: null, providedBy: roles.ProvidedBy(cur),
+                                $"Answer deviates from the previous year by {Math.Abs(curValue - prevValue)} " +
+                                $"(threshold {config.DeviationThreshold}): {prevValue} → {curValue}."));
+                        }
+                    }
+                    break;
+                }
+            }
         }
 
         return findings;
@@ -177,6 +251,16 @@ public static class ClqBaselineChecks
 
     private static bool RefEqual(string? a, string? b) =>
         string.Equals(a ?? "", b ?? "", StringComparison.Ordinal);
+
+    private static string TrimOrEmpty(string? s) => (s ?? "").Trim();
+
+    private static string Describe<T>(T? q) where T : class, IAlignmentIdentity =>
+        q is null
+            ? "(none)"
+            : $"question at row {q.RowNumber} (number '{q.QuestionNumber}', \"{Truncate(q.QuestionText)}\")";
+
+    private static string Truncate(string s, int max = 60) =>
+        s.Length <= max ? s : s[..max] + "…";
 
     private static string WorkbookName(ValidationWorkbook wb) => wb switch
     {

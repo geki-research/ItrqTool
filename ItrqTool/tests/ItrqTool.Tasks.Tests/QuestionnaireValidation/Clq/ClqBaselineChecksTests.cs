@@ -124,11 +124,14 @@ public sealed class ClqBaselineChecksTests
 
         var findings = Run(Result(aligned: new[] { aligned }));
 
-        var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.Structure);
-        f.Evaluation.Should().Be(FindingEvaluation.Error);
-        f.CellAddresses.Should().Be("N10");
-        f.CheckResult.Should().Contain("absent from the empty template");
+        // Default-Neither row now also emits NoPreviousBaseline (D2) alongside the within-year finding.
+        findings.Should().HaveCount(2);
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Error
+            && x.CellAddresses == "N10" && x.CheckResult.Contains("absent from the empty template"));
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");   // NoPreviousBaseline companion
     }
 
     [Fact]
@@ -141,11 +144,14 @@ public sealed class ClqBaselineChecksTests
 
         var findings = Run(Result(aligned: new[] { aligned }));
 
-        var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.Structure);
-        f.Evaluation.Should().Be(FindingEvaluation.Error);
-        f.CellAddresses.Should().Be("N12");
-        f.CheckResult.Should().Contain("moved from template row 8 to response row 12");
+        // Default-Neither row now also emits NoPreviousBaseline (D2) at the response row.
+        findings.Should().HaveCount(2);
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Error
+            && x.CellAddresses == "N12" && x.CheckResult.Contains("moved from template row 8 to response row 12"));
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N12");   // NoPreviousBaseline companion
     }
 
     [Fact]
@@ -159,11 +165,15 @@ public sealed class ClqBaselineChecksTests
 
         var findings = Run(Result(aligned: new[] { aligned }));
 
-        var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.FrozenValue);
+        // Default-Neither row now also emits NoPreviousBaseline (D2) at N10.
+        findings.Should().HaveCount(2);
+        var f = findings.Should().ContainSingle(x => x.Check == ValidationCheck.FrozenValue).Subject;
         f.Evaluation.Should().Be(FindingEvaluation.Warning);
         f.CheckResult.Should().Contain("question text").And.Contain("guidance");
         f.CellAddresses.Should().Contain("C10").And.Contain("E10");
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");   // NoPreviousBaseline companion
     }
 
     [Fact]
@@ -177,12 +187,16 @@ public sealed class ClqBaselineChecksTests
 
         var findings = Run(Result(aligned: new[] { aligned }));
 
-        var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.FrozenValue);
+        // Default-Neither row now also emits NoPreviousBaseline (D2) at N10.
+        findings.Should().HaveCount(2);
+        var f = findings.Should().ContainSingle(x => x.Check == ValidationCheck.FrozenValue).Subject;
         f.CheckResult.Should().Contain("question text").And.Contain("chapter");
         // Both fields map to TextColumn (C) — the address must appear exactly once.
         f.CellAddresses.Split(',').Count(s => s.Trim() == "C10").Should().Be(1);
         f.CellAddresses.Should().NotContain("E10");
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");   // NoPreviousBaseline companion
     }
 
     [Fact]
@@ -209,10 +223,14 @@ public sealed class ClqBaselineChecksTests
 
         var findings = Run(Result(aligned: new[] { aligned }));
 
-        var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.FrozenConstraint);
-        f.Evaluation.Should().Be(FindingEvaluation.Error);
-        f.CellAddresses.Should().Be("H10");
+        // Default-Neither row now also emits NoPreviousBaseline (D2) at N10.
+        findings.Should().HaveCount(2);
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.FrozenConstraint && x.Evaluation == FindingEvaluation.Error
+            && x.CellAddresses == "H10");
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");   // NoPreviousBaseline companion
     }
 
     // ── Phase 3b: number-format ───────────────────────────────────────────────────
@@ -240,12 +258,16 @@ public sealed class ClqBaselineChecksTests
 
         var findings = Run(Result(aligned: new[] { Aligned(cur) }), config);
 
-        var f = OnlyFinding(findings);
-        f.CellAddresses.Should().Be("AA10");
+        // textColumn=AA, xrefIdColumn=N (default). Default-Neither row now also emits NoPreviousBaseline at N10.
+        findings.Should().HaveCount(2);
+        var f = findings.Should().ContainSingle(x => x.CellAddresses == "AA10").Subject;
         f.RequestedData.Should().BeNull();
         f.QuestionNumber.Should().Be("7.7");
         f.QuestionText.Should().Be("Mapped?");
         f.ProvidedBy.Should().Be("Unit B");
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");   // NoPreviousBaseline companion
     }
 
     [Fact]
@@ -278,11 +300,14 @@ public sealed class ClqBaselineChecksTests
         var cur = Q(rowNumber: 10, answer: null);
         var findings = Run(Result(aligned: new[] { Aligned(cur) }));
 
-        var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.MissingResponse);
-        f.Evaluation.Should().Be(FindingEvaluation.Error);
-        f.CellAddresses.Should().Be("H10");
-        f.CheckResult.Should().Contain("empty");
+        // Default-Neither row now also emits NoPreviousBaseline (D2) at N10.
+        findings.Should().HaveCount(2);
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.MissingResponse && x.Evaluation == FindingEvaluation.Error
+            && x.CellAddresses == "H10" && x.CheckResult.Contains("empty"));
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");   // NoPreviousBaseline companion
     }
 
     [Fact]
@@ -291,11 +316,14 @@ public sealed class ClqBaselineChecksTests
         var cur = Q(rowNumber: 10, answer: "X");
         var findings = Run(Result(aligned: new[] { Aligned(cur) }));
 
-        var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.MissingResponse);
-        f.Evaluation.Should().Be(FindingEvaluation.Fatal);
-        f.CellAddresses.Should().Be("H10");
-        f.CheckResult.Should().Contain("X");
+        // Default-Neither row now also emits NoPreviousBaseline (D2) at N10.
+        findings.Should().HaveCount(2);
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.MissingResponse && x.Evaluation == FindingEvaluation.Fatal
+            && x.CellAddresses == "H10" && x.CheckResult.Contains("X"));
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");   // NoPreviousBaseline companion
     }
 
     // answer "2" requires both I (strengths) and J (weaknesses) — all four quadrants exercised.
@@ -352,10 +380,15 @@ public sealed class ClqBaselineChecksTests
         var cur = Q(rowNumber: 10, answer: "X", strengths: null);
         var findings = Run(Result(aligned: new[] { Aligned(cur) }));
 
-        var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.MissingResponse);
-        f.Evaluation.Should().Be(FindingEvaluation.Fatal);
-        findings.Should().NotContain(x => x.CellAddresses == "I10");
+        // Default-Neither row now also emits NoPreviousBaseline (D2); assert the exact expanded set.
+        findings.Should().HaveCount(2);
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.MissingResponse && x.Evaluation == FindingEvaluation.Fatal
+            && x.CellAddresses == "H10");                       // AnswerNotInAllowedSet, intent unchanged
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");                       // NoPreviousBaseline companion
+        findings.Should().NotContain(x => x.CellAddresses == "I10");  // I/J suppression, preserved
     }
 
     [Fact]
@@ -366,9 +399,212 @@ public sealed class ClqBaselineChecksTests
         var cur = Q(rowNumber: 10, answer: null, strengths: null);
         var findings = Run(Result(aligned: new[] { Aligned(cur) }));
 
+        // Default-Neither row now also emits NoPreviousBaseline (D2); assert the exact expanded set.
+        findings.Should().HaveCount(2);
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.MissingResponse && x.Evaluation == FindingEvaluation.Error
+            && x.CellAddresses == "H10");                       // AnswerMissing, intent unchanged
+        findings.Should().ContainSingle(x =>
+            x.Check == ValidationCheck.Structure && x.Evaluation == FindingEvaluation.Information
+            && x.CellAddresses == "N10");                       // NoPreviousBaseline companion
+        findings.Should().NotContain(x => x.CellAddresses == "I10");  // I/J suppression, preserved
+    }
+
+    // ── Phase 3d: cross-year switch (D2) ────────────────────────────────────────
+
+    [Fact]
+    public void PreviousAnswerAltered_FiresWhenInjectedFDiffersFromPriorActual()
+    {
+        // Agree row: injected previous answer (col F) "3" disagrees with the prior year's
+        // actual answer "2" → F-integrity fires. Δ(1→1) below threshold, so no deviation.
+        var prev = Q(answer: "2");
+        var cur  = Q(rowNumber: 10, previousAnswer: "3", answer: "1", strengths: "s");
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+
         var f = OnlyFinding(findings);
-        f.Check.Should().Be(ValidationCheck.MissingResponse);
+        f.Check.Should().Be(ValidationCheck.FrozenValue);
+        f.Evaluation.Should().Be(FindingEvaluation.Warning);
+        f.CellAddresses.Should().Be("F10");
+        f.CheckResult.Should().Contain("'3'").And.Contain("'2'");
+    }
+
+    [Fact]
+    public void FIntegrity_WhenInjectedEqualsPriorActual_NoFinding()
+    {
+        // Injected previous answer "2" == prior actual "2" → no F-integrity. Δ(1→1) below
+        // threshold → no deviation. No findings at all.
+        var prev = Q(answer: "2");
+        var cur  = Q(rowNumber: 10, previousAnswer: "2", answer: "1", strengths: "s");
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+
+        findings.Should().NotContain(x => x.Check == ValidationCheck.FrozenValue);
+        findings.Should().NotContain(x => x.CellAddresses == "F10");
+    }
+
+    [Fact]
+    public void XrefIdConflict_FiresAndSurfacesBothCandidates()
+    {
+        // Key points to previous row 7; text best matches previous row 3 → conflict surfaces both.
+        var counter   = Q(rowNumber: 7);
+        var candidate = Q(rowNumber: 3);
+        var cur = Clean(row: 10);
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.XrefIdConflict,
+                      xrefIdCounterpart: counter, matcherCandidate: candidate) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.Structure);
         f.Evaluation.Should().Be(FindingEvaluation.Error);
-        findings.Should().NotContain(x => x.CellAddresses == "I10");
+        f.CellAddresses.Should().Be("N10");
+        f.CheckResult.Should().Contain("row 7").And.Contain("row 3");
+    }
+
+    [Fact]
+    public void NewXrefIdResemblesPrevious_FiresAndSurfacesTwin()
+    {
+        var twin = Q(rowNumber: 5);
+        var cur = Clean(row: 10);
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.NewXrefIdWithLookalike, matcherCandidate: twin) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.Structure);
+        f.Evaluation.Should().Be(FindingEvaluation.Warning);
+        f.CellAddresses.Should().Be("N10");
+        f.CheckResult.Should().Contain("textual twin").And.Contain("row 5");
+    }
+
+    [Fact]
+    public void SameXrefIdTextDiverged_FiresAndSurfacesCounterpart()
+    {
+        var counter = Q(rowNumber: 8);
+        var cur = Clean(row: 10);
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.SameXrefIdTextDiverged, xrefIdCounterpart: counter) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.Structure);
+        f.Evaluation.Should().Be(FindingEvaluation.Warning);
+        f.CellAddresses.Should().Be("N10");
+        f.CheckResult.Should().Contain("diverged").And.Contain("row 8");
+    }
+
+    [Fact]
+    public void NoPreviousBaseline_FiresForNeither()
+    {
+        var cur = Clean(row: 10);
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.Neither) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.Structure);
+        f.Evaluation.Should().Be(FindingEvaluation.Information);
+        f.CellAddresses.Should().Be("N10");
+    }
+
+    [Fact]
+    public void AnswerDeviation_FiresWhenDeltaMeetsThreshold()
+    {
+        // Δ(1→4) = 3 ≥ threshold 2 → deviation. F intact, I/J satisfied → single finding.
+        var prev = Q(answer: "1");
+        var cur  = Q(rowNumber: 10, previousAnswer: "1", answer: "4", strengths: "s", weaknesses: "w");
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.Deviation);
+        f.Evaluation.Should().Be(FindingEvaluation.Warning);
+        f.CellAddresses.Should().Be("H10");
+        f.CheckResult.Should().Contain("1 → 4");
+    }
+
+    [Fact]
+    public void Deviation_AtThreshold_Fires_BelowThreshold_DoesNot()
+    {
+        // At threshold: Δ(1→3) = 2 ≥ 2 → deviation. Below: Δ(1→2) = 1 < 2 → none.
+        var prev = Q(answer: "1");
+
+        var atCur = Q(rowNumber: 10, previousAnswer: "1", answer: "3", strengths: "s", weaknesses: "w");
+        var atFindings = Run(Result(aligned: new[]
+            { Aligned(atCur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+        atFindings.Should().Contain(x => x.Check == ValidationCheck.Deviation && x.CellAddresses == "H10");
+
+        var belowCur = Q(rowNumber: 10, previousAnswer: "1", answer: "2", strengths: "s", weaknesses: "w");
+        var belowFindings = Run(Result(aligned: new[]
+            { Aligned(belowCur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+        belowFindings.Should().NotContain(x => x.Check == ValidationCheck.Deviation);
+    }
+
+    [Fact]
+    public void PreviousAnswerUnusable_FiresWhenPreviousAnswerEmpty()
+    {
+        // Agree with an empty previous answer: deviation can't be evaluated → Unusable.
+        // F intact (both blank), current answer usable.
+        var prev = Q(answer: null);
+        var cur  = Q(rowNumber: 10, previousAnswer: null, answer: "1", strengths: "s");
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+
+        var f = OnlyFinding(findings);
+        f.Check.Should().Be(ValidationCheck.Deviation);
+        f.Evaluation.Should().Be(FindingEvaluation.Information);
+        f.CellAddresses.Should().Be("H10");
+    }
+
+    [Fact]
+    public void AnswerNotInAllowedSet_SkipsIjAndDeviation_ButFIntegrityStillRuns()
+    {
+        // answer "X" ∉ AllowedAnswers → AnswerNotInAllowedSet, answerUsable false (no I/J,
+        // no deviation). F-integrity still runs on the Agree row: "3" vs prior "2".
+        var prev = Q(answer: "2");
+        var cur  = Q(rowNumber: 10, previousAnswer: "3", answer: "X", strengths: null);
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+
+        findings.Should().Contain(x =>
+            x.Check == ValidationCheck.MissingResponse &&
+            x.Evaluation == FindingEvaluation.Fatal &&
+            x.CellAddresses == "H10");                       // AnswerNotInAllowedSet
+        findings.Should().Contain(x =>
+            x.Check == ValidationCheck.FrozenValue &&
+            x.CellAddresses == "F10");                       // PreviousAnswerAltered
+        findings.Should().NotContain(x => x.CellAddresses == "I10");      // no strengths I/J
+        findings.Should().NotContain(x => x.CellAddresses == "J10");
+        findings.Should().NotContain(x => x.Check == ValidationCheck.Deviation);
+    }
+
+    [Fact]
+    public void AnswerMissing_DoesNotSuppressFIntegrity_OnAgreeRow()
+    {
+        // Blank answer → AnswerMissing, answerUsable false (no deviation). F-integrity still
+        // runs on the Agree row: "3" vs prior "2".
+        var prev = Q(answer: "2");
+        var cur  = Q(rowNumber: 10, previousAnswer: "3", answer: null, strengths: null);
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+
+        findings.Should().Contain(x =>
+            x.Check == ValidationCheck.MissingResponse &&
+            x.Evaluation == FindingEvaluation.Error &&
+            x.CellAddresses == "H10");                       // AnswerMissing
+        findings.Should().Contain(x =>
+            x.Check == ValidationCheck.FrozenValue &&
+            x.CellAddresses == "F10");                       // PreviousAnswerAltered
+        findings.Should().NotContain(x => x.Check == ValidationCheck.Deviation);
+    }
+
+    [Fact]
+    public void Deviation_CurrentNotNumeric_NoDeviationNorUnusable()
+    {
+        // Current answer "N/A" is usable (∈ AllowedAnswers) but not numeric → curNumeric false,
+        // so neither AnswerDeviation nor PreviousAnswerUnusable fires. F intact.
+        var prev = Q(answer: "2");
+        var cur  = Q(rowNumber: 10, previousAnswer: "2", answer: "N/A");
+        var findings = Run(Result(aligned: new[]
+            { Aligned(cur, crossYear: CrossYearOutcome.Agree, previousMatch: prev) }));
+
+        findings.Should().NotContain(x => x.Check == ValidationCheck.Deviation);
     }
 }
