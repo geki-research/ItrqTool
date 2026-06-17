@@ -1,0 +1,57 @@
+{
+  "id": "clq-v02-validation-trial",
+  "name": "CLQ v02 — Validation Trial",
+  "tasks": [
+    {
+      "id": "load-current-response",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "clq_current_response.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/clq-v02/clq_current_response.xlsx"
+      }
+    },
+    {
+      "id": "load-empty-template",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "clq_empty_template.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/clq-v02/clq_empty_template.xlsx"
+      }
+    },
+    {
+      "id": "load-previous-response",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "clq_previous_response.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/clq-v02/clq_previous_response.xlsx"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "ControlLevelQuestionValidation_v02",
+      "inputs": {
+        "currentResponse": "load-current-response.output",
+        "emptyTemplate": "load-empty-template.output",
+        "previousResponse": "load-previous-response.output"
+      },
+      "outputs": { "report": "clq-v02-validation-report.json" },
+      "parameters": {
+        "configurationFullFilename": "configs/clq-v02-validation-config.json"
+      }
+    },
+    {
+      "id": "assemble",
+      "type": "FeedbackChecklistAssembler",
+      "inputs": {
+        "findings01": "validate.report"
+      },
+      "outputs": { "checklist": "clq-v02-feedback-checklist.xlsx" },
+      "parameters": {
+        "configurationFullFilename": "configs/feedback-checklist-assembler-config.json"
+      }
+    }
+  ]
+}
