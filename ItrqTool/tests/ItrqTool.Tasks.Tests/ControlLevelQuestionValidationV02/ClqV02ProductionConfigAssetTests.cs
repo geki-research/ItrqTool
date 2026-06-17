@@ -54,5 +54,11 @@ public sealed class ClqV02ProductionConfigAssetTests
 
         config.AllowedAnswers.Should().Equal("1", "2", "3", "4");
         config.DeviationThreshold.Should().Be(2);
+
+        LayoutParser.Parse(
+                config.ChapterRows, config.SectionRows,
+                config.TextColumn, config.TextColumn, config.TextColumn)
+            .Sections.Should().HaveCount(30,
+                "the production config's SectionRows must parse to exactly 30 sections (v01 parity)");
     }
 }
