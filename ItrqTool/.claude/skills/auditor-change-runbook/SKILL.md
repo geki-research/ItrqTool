@@ -96,6 +96,8 @@ reconciled there too.
 
 ## §6 — See also
 
+- `docs/guides/auditor-mandated-changes.md` — the **human** developer walkthrough (real paths, before/after
+  snippets, build/test/land); use it when a person is implementing the change by hand.
 - CLAUDE.md → "Implementing an auditor-mandated column change" (the condensed checklist) and "Validation
   tasks" (the core pattern + the within-year/cross-year boundary).
 - `clq-validation-v02` skill — the worked instance this runbook generalizes.

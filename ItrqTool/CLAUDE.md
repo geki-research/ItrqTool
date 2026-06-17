@@ -780,7 +780,9 @@ for a validator built on the core (`clq-validation-v02` and later):
 
 This is the supported, cheap path. A change that touches **cross-year identity or matching** is out
 of scope — duplicate-and-defer to a new versioned stack (see "Validation tasks"). Full step-by-step
-with the worked v02 "add column K" example: the `auditor-change-runbook` skill.
+with the worked v02 "add column K" example: the `auditor-change-runbook` skill. Human developers doing
+the change by hand (real file paths, before/after snippets, build/test/land steps) should use the guide
+at `docs/guides/auditor-mandated-changes.md`.
 
 ---
 
