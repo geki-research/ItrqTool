@@ -132,4 +132,36 @@ public sealed class ClqV02WorkbookWriterTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    [Fact]
+    public void Write_StabilityDvOverride_OverriddenRowNarrowedNonOverriddenRetainsDefault()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var path = Path.Combine(dir, "workbook.xlsx");
+            const int overriddenRow = 4;
+            ClqV02WorkbookWriter.Write(
+                path, SheetName, MakeDescriptor(),
+                answerDvOverrides: null,
+                stabilityDvOverrides: new Dictionary<int, string> { [overriddenRow] = "\"Yes\"" });
+
+            using var wb = new XLWorkbook(path);
+            var ws = wb.Worksheet(SheetName);
+
+            // Row 4 (overridden): K DV must be narrowed to Yes-only.
+            var overriddenKDv = ws.Cell(overriddenRow, "K").GetDataValidation();
+            overriddenKDv.Value.Should().Contain("Yes",
+                "overridden row's K DV must contain the narrowed value");
+            overriddenKDv.Value.Should().NotContain("No",
+                "overridden row's K DV must not retain the default No option");
+
+            // Row 3 (non-overridden): K DV must still be the full Yes,No default.
+            var defaultKDv = ws.Cell(3, "K").GetDataValidation();
+            defaultKDv.Value.Should().Contain("Yes,No",
+                "non-overridden row's K DV must retain the full Yes,No default");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }

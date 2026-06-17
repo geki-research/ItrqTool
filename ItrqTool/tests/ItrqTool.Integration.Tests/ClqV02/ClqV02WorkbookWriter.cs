@@ -11,7 +11,8 @@ public static class ClqV02WorkbookWriter
 {
     public static void Write(
         string outputPath, string sheetName, ClqV02WorkbookDescriptor descriptor,
-        IReadOnlyDictionary<int, string>? answerDvOverrides = null)
+        IReadOnlyDictionary<int, string>? answerDvOverrides = null,
+        IReadOnlyDictionary<int, string>? stabilityDvOverrides = null)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(sheetName);
@@ -47,10 +48,15 @@ public static class ClqV02WorkbookWriter
 
         // Answer-stability DV (K) — applied to every question row in every workbook so
         // template's blank K cell still carries DV, mirroring how blank template H carries
-        // the answer DV. A per-row stability override parameter is deferred to I2.
+        // the answer DV.
         const string DefaultStabilityDv = "\"Yes,No\"";
         foreach (var q in descriptor.Questions)
-            ws.Cell(q.RowNumber, "K").CreateDataValidation().List(DefaultStabilityDv);
+        {
+            var stabilityFormula = stabilityDvOverrides != null
+                && stabilityDvOverrides.TryGetValue(q.RowNumber, out var sov)
+                ? sov : DefaultStabilityDv;
+            ws.Cell(q.RowNumber, "K").CreateDataValidation().List(stabilityFormula);
+        }
 
         wb.SaveAs(outputPath);
     }
