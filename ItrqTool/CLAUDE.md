@@ -258,6 +258,29 @@ Diff tasks come in two families:
   `ValueAndDvCf`, required), optional `reportTitle`; output via the node's `outputs.report`.
   Full contract and report shape: see the `cell-range-diff` skill.
 
+### Validation tasks
+
+Questionnaire **validation** tasks check a current-year response against the empty auditor template
+(within-year: structure, frozen values, frozen constraints, input validity) and the previous-year
+response (cross-year: question identity), emitting a `ValidationReport` consumed by
+`FeedbackChecklistAssembler`. They are documented in skills, loaded on demand:
+`.claude/skills/{clq-validation,clq-validation-v02}/SKILL.md`.
+
+Two stacks exist:
+- **`clq-validation` (v01) — frozen-legacy bespoke.** Its own loader, checks, `InternalClqQuestion`
+  parser, and `ParsedSections`; columns D/E/F/H/I/J/M/N. Do not extend it; it is preserved as-is.
+- **`clq-validation-v02` — first citizen of the version-neutral core**
+  (`ItrqTool.Tasks.QuestionnaireValidation`). A *fitting* new validator is assembled, not
+  hand-written: a per-version record (`: IAlignmentIdentity`), a config (`: IClqBaselineConfig`), a
+  `…Profile.Build` that composes the shared baseline checks plus declarative extension primitives
+  (`RequiredInputCell`, `FrozenConstraintCell`), and a thin task that calls `ValidationPipeline.Run`.
+  v02's column map inserts answer-stability at K (shifting provided-by → N, xref-id → O).
+
+The cheap, supported change is **adding, removing, or altering a within-year input column** on the
+core — see "Implementing an auditor-mandated column change" below. A change affecting **cross-year
+identity or matching** (a new identity key, a different alignment basis) is out of the core's current
+scope → duplicate-and-defer: stand up a new versioned stack rather than retrofitting the shared core.
+
 ---
 
 ## Workflow definition format (JSON)
@@ -742,6 +765,23 @@ The diff-report writers (`IHtmlReportWriter`, `IHtmlGeneralDataDiffReportWriter`
 2. Update the relevant call sites.
 3. Architecture tests and unit tests will identify all call sites that need updating.
 
+### Implementing an auditor-mandated column change
+
+When the auditor adds, removes, or moves a **within-year input column** in a questionnaire template,
+for a validator built on the core (`clq-validation-v02` and later):
+1. Update the config JSON (column letters) and the config record plus its `Validate()` rules.
+2. If the column carries its own data, add a field to the per-version question record and read it in
+   the profile's `RecordFactory`; declare a DV-role for it when it has data-validation.
+3. Express the check through the profile's **extension primitives** (`RequiredInputCell` /
+   `FrozenConstraintCell`) — do not hand-write a bespoke check when a primitive fits.
+4. Update the production-config asset test (column letters, section-parse count) and add a
+   perturbation test that proves the new findings as an exact set.
+5. Update the `clq-validation-v02` skill; bump the test baseline only if the count changed.
+
+This is the supported, cheap path. A change that touches **cross-year identity or matching** is out
+of scope — duplicate-and-defer to a new versioned stack (see "Validation tasks"). Full step-by-step
+with the worked v02 "add column K" example: the `auditor-change-runbook` skill.
+
 ---
 
 ## Deployment
@@ -762,7 +802,7 @@ This codebase uses Claude Code's layered documentation model:
   judges the task relevant, or when a prompt names the skill explicitly to
   force-load it. Sheet-specific specs and infrequent task guides (publishing) live
   here. Current skills: `diff-task-conventions`, `clq-diff`, `rlq-diff`, `gd-diff`,
-  `cell-range-diff`, `deployment`.
+  `cell-range-diff`, `clq-validation`, `clq-validation-v02`, `deployment`.
 
 **Hard constraints never move to a skill.** Every non-negotiable rule, the
 conservative-input posture, and the detect-everything principle stay in CLAUDE.md
