@@ -10,7 +10,7 @@ description: CLQ_v02 validation task (ControlLevelQuestionValidationV02Task, Tas
 template (within-year) and the previous-year response (cross-year), emitting a `ValidationReport` JSON
 consumed by the downstream `FeedbackChecklistAssembler`. It is the **first production consumer of the
 version-neutral validation core** (`ItrqTool.Tasks.QuestionnaireValidation`). v01 (the `clq-validation`
-skill) is a separate **frozen-legacy bespoke** stack; v02 is the core citizen.
+skill) also runs on the core; it differs in column map only (M/N instead of K/N/O, no K stability column).
 
 ## The generic core (`ItrqTool.Tasks.QuestionnaireValidation`)
 
@@ -56,7 +56,7 @@ finding is data in the report — it does NOT fail the task. Ctor injects `IExce
 One config governs all three workbooks. Fields: `SheetName`; 9 column letters; `ChapterRows`
 (`IReadOnlyList<string>` — string, unlike v01's int); `SectionRows` (`"<sectionRow>:<first>-<last>"`,
 parsed at RUN by `LayoutParser` → `FormatException` on bad format, caught → `Succeeded:false`; there is
-**no `ParsedSections`** computed property, unlike v01); `AllowedAnswers`; `AllowedStabilityAnswers`;
+**no `ParsedSections`** computed property; sections derive at run via `LayoutParser`); `AllowedAnswers`; `AllowedStabilityAnswers`;
 `DeviationThreshold`; `SeverityOverrides`. `Validate()` runs 13 structural rules; strict/fail-loud via
 `ConfigLoader.Load` (`UnmappedMemberHandling.Disallow`, all errors collected). Override-key validation
 happens later, in `ValidationPipeline.Run`.
@@ -93,8 +93,7 @@ Pinned by `ClqV02ProductionConfigAssetTests` (all values + `LayoutParser.Parse(.
 ## Findings
 
 **Baseline (18):** the CLQ catalogue (`ClqBaselineFindings.All`) — a one-time copy of v01's 18 findings
-(ids, default severities, `ValidationCheck` mapping, gating), shared across CLQ versions, NOT referencing
-v01's `ClqFinding` enum. Gating preserved verbatim (F-integrity on every Agree row; strengths/weaknesses +
+(ids, default severities, `ValidationCheck` mapping, gating), shared across CLQ versions. Gating preserved verbatim (F-integrity on every Agree row; strengths/weaknesses +
 deviation gated on a usable answer; deviation also on previous int-parseable ∈ AllowedAnswers).
 
 **Stability (3, new in v02):**
@@ -131,8 +130,8 @@ are config-overridable via `SeverityOverrides`.
 
 ## Relationship to v01 and the core pattern
 
-v01 is **frozen-legacy bespoke** (own loader/checks/`InternalClqQuestion`/`ParsedSections`; columns M/N).
-v02 is the **first core citizen**. New *fitting* validators follow the same shape — a per-version record
+v01 also runs on the core (`ClqV01Profile`, column map D/E/F/H/I/J/M/N, no K stability column).
+v02 adds the answer-stability extension (K). New *fitting* validators follow the same shape — a per-version record
 (`: IAlignmentIdentity`), a config (`: IClqBaselineConfig`), a `…Profile.Build` composing the baseline checks
 plus extension primitives, and a thin task. Adding a within-year input column is the cheap path — see the
 **auditor-change-runbook** skill and CLAUDE.md "Implementing an auditor-mandated column change". A

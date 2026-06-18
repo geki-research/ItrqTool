@@ -158,13 +158,13 @@ template (within-year) and the previous-year response (cross-year), emitting a `
 JSON consumed by `FeedbackChecklistAssembler`. **Task contract:** parameter
 `configurationFullFilename`; inputs `currentResponse` / `emptyTemplate` / `previousResponse`;
 output `report`. `Succeeded:false` only on unreadable files or invalid config — a Fatal finding is
-data, not a failure. **Config** (`ControlLevelQuestionValidationV01Config`): one config governs all
+data, not a failure. **Config** (`ClqV01Config`): one config governs all
 three workbooks; carries `SheetName`, eight column letters (D=text, E=guidance, F=previousAnswer,
 H=answer, I=strengths, J=weaknesses, M=providedBy, N=xrefId), `ChapterRows`, `SectionRows`
 (`"<sectionRow>:<first>-<last>"` format), `AllowedAnswers`, `DeviationThreshold`, and
 `SeverityOverrides` (per finding-id severity overrides; unknown keys rejected). Loader is strict
 and fail-loud (`UnmappedMemberHandling.Disallow`; all errors collected before throwing). Documents
-the **18 findings** (`ClqFinding` enum, `ClqFindings` descriptor table) grouped as: malformed keys
+the **18 findings** (from `ClqBaselineFindings.All`, shared across CLQ versions) grouped as: malformed keys
 (`XrefIdEmptyOrDuplicated` Fatal); within-year structure (`QuestionRemoved`/`Added`/`RowShifted`
 Error, `NumberFormatUnrecognized` Warning); within-year frozen values
 (`ReferenceTextAltered`/`PreviousAnswerAltered` Warning); frozen constraint
@@ -175,9 +175,9 @@ Warning, `NoPreviousBaseline` Information, `AnswerDeviation` Warning,
 `PreviousAnswerUnusable` Information). Key **gating rules**: `PreviousAnswerAltered` (F-integrity)
 runs on **every Agree row** regardless of current-answer usability; strengths/weaknesses matrix and
 deviation are gated on a **usable current answer** (∈ AllowedAnswers); deviation additionally gated
-on previous answer being int-parseable ∈ AllowedAnswers. `PatchAnswerDv` re-reads DV on the
-answer column via `ReadCells` (address-driven) after parsing, so blank-but-DV'd template H cells
-are captured. Covers the **file-source convention** (`StaticFileSource` now / `DynamicFileSource`
+on previous answer being int-parseable ∈ AllowedAnswers. `DvPatcher` re-reads DV on the
+answer column via `ReadCells` (address-driven, one DvRole: answer → H) after parsing, so
+blank-but-DV'd template H cells are captured. Covers the **file-source convention** (`StaticFileSource` now / `DynamicFileSource`
 later — same `output` contract, pure rewiring, zero task changes) and the **workflow topology**
 (3× file-source → validate → assemble; assembler output is `.xlsx` via
 `ClosedXmlFeedbackChecklistWriter`, NOT HTML). **Integration trial:** 193 real audit question
@@ -190,7 +190,7 @@ exact-set test + end-to-end workflow test; trial artifacts at `trial-output/clq-
 
 **Scope:** CLQ_v02 validation task — `ControlLevelQuestionValidationV02Task`, TaskType
 `"ControlLevelQuestionValidation_v02"`, namespace `ItrqTool.Tasks`. First production consumer of the
-version-neutral `ItrqTool.Tasks.QuestionnaireValidation` core (v01 is frozen-legacy bespoke).
+version-neutral `ItrqTool.Tasks.QuestionnaireValidation` core (v01 also runs on the core, column map M/N, no K).
 
 **Summary:** Validates a current-year CLQ response against the empty template (within-year) and the
 previous-year response (cross-year), emitting a `ValidationReport` consumed by `FeedbackChecklistAssembler`.

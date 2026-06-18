@@ -6,9 +6,8 @@ auditor changed the workbook template — most commonly, **adding a new within-y
 actual files and code, using the change that introduced column **K (answer stability)** to CLQ v02 as
 the worked example.
 
-It applies to validators built on the version-neutral core (`clq-validation-v02` and any later
-core-based validator). It does **not** apply to the frozen legacy `clq-validation` (v01) — that stack
-is preserved as-is and must not be edited.
+It applies to any validator built on the version-neutral core — `clq-validation-v01`, `clq-validation-v02`,
+and any later core-based validator.
 
 There are two companion documents:
 - The `auditor-change-runbook` skill (`.claude/skills/auditor-change-runbook/`) is the condensed

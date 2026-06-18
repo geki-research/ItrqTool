@@ -1,6 +1,6 @@
 ---
 name: auditor-change-runbook
-description: Step-by-step runbook for implementing an auditor-mandated questionnaire change on a core-based validator (clq-validation-v02 and later) — adding, removing, or moving a within-year input column, expressed through the QuestionnaireValidation core's declarative extension primitives (RequiredInputCell, FrozenConstraintCell) rather than bespoke checks. Leads with the SCOPE GATE: a within-year input-cell change is the cheap supported path (worked end-to-end below); a change to cross-year question identity or the matching basis is out of scope and must duplicate-and-defer to a new versioned stack. Covers the full surface a column change touches: config JSON plus config record/Validate, the per-version question record and its DV fields, the profile (RecordFactory, DvRoles, extension primitives), the trial workbook writer and baseline factory, the asset/baseline/perturbation/end-to-end tests, and the docs/baseline bump. The add-column path is DEMONSTRATED (v02 "add column K"); remove and move are INFERRED. Load when the auditor changes a questionnaire template, when adding/removing/altering a validation input column, or when deciding whether a questionnaire change fits the core or needs a new version.
+description: Step-by-step runbook for implementing an auditor-mandated questionnaire change on any core-based validator (clq-validation-v01/v02 and later) — adding, removing, or moving a within-year input column, expressed through the QuestionnaireValidation core's declarative extension primitives (RequiredInputCell, FrozenConstraintCell) rather than bespoke checks. Leads with the SCOPE GATE: a within-year input-cell change is the cheap supported path (worked end-to-end below); a change to cross-year question identity or the matching basis is out of scope and must duplicate-and-defer to a new versioned stack. Covers the full surface a column change touches: config JSON plus config record/Validate, the per-version question record and its DV fields, the profile (RecordFactory, DvRoles, extension primitives), the trial workbook writer and baseline factory, the asset/baseline/perturbation/end-to-end tests, and the docs/baseline bump. The add-column path is DEMONSTRATED (v02 "add column K"); remove and move are INFERRED. Load when the auditor changes a questionnaire template, when adding/removing/altering a validation input column, or when deciding whether a questionnaire change fits the core or needs a new version.
 ---
 
 # Auditor-change runbook — implementing a questionnaire template change
@@ -8,8 +8,7 @@ description: Step-by-step runbook for implementing an auditor-mandated questionn
 Auditors periodically revise a questionnaire template (a new input column, a dropped one, a moved one,
 a changed allowed-set). This runbook is the step-by-step for absorbing such a change in a validator
 **built on the version-neutral core** (`ItrqTool.Tasks.QuestionnaireValidation` — `clq-validation-v02`
-and later). It does NOT apply to `clq-validation` (v01), which is frozen-legacy bespoke and must not be
-extended.
+and any later core-based validator, including `clq-validation` (v01), which also runs on the core.
 
 The condensed always-on version is the CLAUDE.md checklist "Implementing an auditor-mandated column
 change"; the worked instance is the `clq-validation-v02` skill. This runbook is the long form.
@@ -90,7 +89,7 @@ reconciled there too.
   document why).
 - Never add a per-version config loader — the generic `ConfigLoader` + the record's `Validate()` is the
   contract.
-- Never modify `clq-validation` (v01); it is frozen-legacy.
+- `clq-validation` (v01) runs on the core and can be extended via this runbook; cross-year changes require duplicate-and-defer.
 - Never retrofit the shared core for a cross-year change (see §1) — branch the version.
 - Always prove findings as an exact set; keep the baseline factory at zero findings.
 

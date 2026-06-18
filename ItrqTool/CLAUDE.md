@@ -266,15 +266,12 @@ response (cross-year: question identity), emitting a `ValidationReport` consumed
 `FeedbackChecklistAssembler`. They are documented in skills, loaded on demand:
 `.claude/skills/{clq-validation,clq-validation-v02}/SKILL.md`.
 
-Two stacks exist:
-- **`clq-validation` (v01) — frozen-legacy bespoke.** Its own loader, checks, `InternalClqQuestion`
-  parser, and `ParsedSections`; columns D/E/F/H/I/J/M/N. Do not extend it; it is preserved as-is.
-- **`clq-validation-v02` — first citizen of the version-neutral core**
-  (`ItrqTool.Tasks.QuestionnaireValidation`). A *fitting* new validator is assembled, not
-  hand-written: a per-version record (`: IAlignmentIdentity`), a config (`: IClqBaselineConfig`), a
-  `…Profile.Build` that composes the shared baseline checks plus declarative extension primitives
-  (`RequiredInputCell`, `FrozenConstraintCell`), and a thin task that calls `ValidationPipeline.Run`.
-  v02's column map inserts answer-stability at K (shifting provided-by → N, xref-id → O).
+Both stacks run on the version-neutral `ItrqTool.Tasks.QuestionnaireValidation` core: a per-version
+record (`: IAlignmentIdentity`), a config (`: IClqBaselineConfig`), a `…Profile.Build` that composes
+`ClqBaselineChecks` (the 18 CLQ findings) plus declarative extension primitives, and a thin task that
+calls `ValidationPipeline.Run`.
+- **`clq-validation` (v01)** — `ClqV01Profile`; column map D/E/F/H/I/J/**M**/**N**, no K stability column.
+- **`clq-validation-v02`** — `ClqV02Profile`; inserts answer-stability at **K** (provided-by → N, xref-id → O).
 
 The cheap, supported change is **adding, removing, or altering a within-year input column** on the
 core — see "Implementing an auditor-mandated column change" below. A change affecting **cross-year
