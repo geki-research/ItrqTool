@@ -5,7 +5,7 @@ An overview of the on-demand skills defined under `.claude/skills/`. Each skill'
 names the skill explicitly. Sheet-specific specs and infrequent task guides live here, keeping
 `CLAUDE.md` to always-on governance.
 
-Generated: 2026-06-15; relocated to `docs/` and updated 2026-06-17 (added `clq-validation-v02`, `auditor-change-runbook`).
+Generated: 2026-06-15; relocated to `docs/` and updated 2026-06-17 (added `clq-validation-v02`, `auditor-change-runbook`); updated 2026-06-18 (added `presentation-conventions`, extracted from CLAUDE.md to keep it under the 40k always-on limit).
 
 | Skill | Folder | One-line purpose |
 |---|---|---|
@@ -18,6 +18,7 @@ Generated: 2026-06-15; relocated to `docs/` and updated 2026-06-17 (added `clq-v
 | clq-validation | `clq-validation/` | CLQ_v01 validation task (within-year and cross-year checks, 18 findings) |
 | clq-validation-v02 | `clq-validation-v02/` | CLQ_v02 validation task on the generic core (18 baseline + 3 stability findings) |
 | auditor-change-runbook | `auditor-change-runbook/` | Runbook for an auditor-mandated questionnaire change (add/remove/move a within-year input column) on a core validator |
+| presentation-conventions | `presentation-conventions/` | WPF/MVVM Presentation-layer reference (view models, UI-model records, shell/navigation, composition root) |
 
 ---
 
@@ -231,6 +232,34 @@ factory, the asset/baseline/perturbation/end-to-end tests, and the docs/baseline
 path is DEMONSTRATED via the v02 "add column K" worked example; **remove** and **move/alter** are
 INFERRED. Cross-references the CLAUDE.md "Implementing an auditor-mandated column change" checklist, the
 `clq-validation-v02` skill, and the design ADR (`docs/design/validation-core-and-clq-v02.md`).
+
+---
+
+## presentation-conventions
+
+**Scope:** WPF/MVVM Presentation-layer reference. Load when working on any view model, XAML view,
+UI-model record, navigation, or the run-view log/result display. Extracted verbatim from CLAUDE.md
+on 2026-06-18 to keep the always-on file under the 40k-char limit; the load-bearing rules (rule-5
+bindable boundary, `AddItrqToolServices` as the single source of truth for the object graph) remain
+summarised in CLAUDE.md.
+
+**Summary:** Establishes the framework/pattern conventions — **WPF on .NET 10** (`net10.0-windows`),
+**MVVM via CommunityToolkit.Mvvm source generators** (`[ObservableProperty]`, `[RelayCommand]`),
+ViewModels in `ItrqTool.Presentation/ViewModels/`, Views (XAML) in `…/Views/`. Documents the
+**UI-model surrogate records** in `src/ItrqTool.Presentation/UIModels/` (`WorkflowListItem`,
+`WorkflowGroupItem`, `WorkflowLoadFailureItem`, `TaskRowItem` + `TaskRowStatus`, `TaskParameterItem`,
+`LogEntry`) that keep Domain types off the bindable surface (non-negotiable rule 5). Details
+**`WorkflowRunViewModel` responsibilities:** the `WorkflowSession` lifecycle, per-row `TaskRowItem`
+**status derivation** from `session.CurrentIndex`/`Status`, `RunTaskCommand` flow, the `SelectedTask`
+**configuration viewer** (not a result panel) projecting node parameters as `TaskParameterItem` rows,
+and the **result-display-to-log translation** (private `AppendResultToLog` maps `TaskResult`/
+`MessageSeverity` into `LogEntry` rows pushed to `IUiLogSink` — the boundary enforcing rule 5).
+Covers `RunButtonLabel`/`CanRun`/`BackCommand`/`OpenWorkingFolderCommand` behaviour, the
+**`AddItrqToolServices(workflowsDirectoryPath, workflowDataRoot)`** composition-root entry point as
+the single source of truth for the production object graph, the **event-based shell/navigation**
+pattern (`ShellViewModel.CurrentViewModel` + `MainWindow` DataTemplates; `WorkflowSelected`/
+`BackRequested` events; no messenger/navigation service), and **`WorkflowListViewModel`** load-failure
+banner behaviour (`Failures`, `ShowFailureDetails`, `ToggleFailureDetailsCommand`).
 
 ---
 
