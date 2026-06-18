@@ -1,11 +1,11 @@
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 
-namespace ItrqTool.Tasks.ControlLevelQuestionValidationV01Core;
+namespace ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 
-// v01-on-core question record. EXACTLY the 18 fields of the frozen bespoke
-// InternalClqQuestion (recon §A4) — the same names / types / nullability as the first
-// 18 fields of ClqV02Question, so the ClqBaselineRoleMap selectors are identical — but
-// WITHOUT v02's 5 answer-stability fields. v01 predates v02's column-K insert.
+// CLQ_v01 question record. The 18 fields the shared ClqBaselineRoleMap selectors read —
+// the same names / types / nullability as the first 18 fields of ClqV02Question, so the
+// selectors are identical — but WITHOUT v02's 5 answer-stability fields. v01 predates
+// v02's column-K insert.
 public record ClqV01Question(
     int RowNumber,
     string? XrefId,

@@ -6,7 +6,8 @@ using ItrqTool.Domain;
 using ItrqTool.Domain.Validation;
 using ItrqTool.Infrastructure;
 using ItrqTool.Tasks;
-using ItrqTool.Tasks.ControlLevelQuestionValidation;
+using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
+using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.Validation;
 
 namespace ItrqTool.Integration.Tests.ClqV01;
@@ -37,7 +38,7 @@ public sealed class ClqV01TrialTests
     {
         var configPath = FindConfigAssetPath();
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = ControlLevelQuestionValidationV01ConfigLoader.Load(configJson);
+        var config = ConfigLoader.Load<ClqV01Config>(configJson, c => c.Validate());
 
         var baseline = ClqV01BaselineFactory.Build(config);
         var scenario = ClqV01TrialScenario.Build(baseline);
@@ -131,7 +132,7 @@ public sealed class ClqV01TrialTests
     {
         var configPath = FindConfigAssetPath();
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = ControlLevelQuestionValidationV01ConfigLoader.Load(configJson);
+        var config = ConfigLoader.Load<ClqV01Config>(configJson, c => c.Validate());
 
         var baseline = ClqV01BaselineFactory.Build(config);
         var structural = ClqV01TrialScenario.BuildStructuralPerturbations(baseline);

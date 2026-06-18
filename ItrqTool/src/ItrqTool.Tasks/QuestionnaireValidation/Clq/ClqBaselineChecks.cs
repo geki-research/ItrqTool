@@ -11,7 +11,7 @@ namespace ItrqTool.Tasks.QuestionnaireValidation.Clq;
 /// Pure static, reads no files, never throws for a no-data condition — every anomaly
 /// is a finding, never an exception. Severity per finding is resolved by the
 /// <see cref="FindingEmitter"/> at emit time. Faithful port of CLQ_v01's
-/// <c>ClqValidationChecks.Build</c>; column letters come from
+/// original validation checks; column letters come from
 /// <see cref="IClqBaselineConfig"/> (never hard-coded), the non-identity payload
 /// from <see cref="ClqBaselineRoleMap{T}"/>, the identity fields from
 /// <see cref="IAlignmentIdentity"/>.

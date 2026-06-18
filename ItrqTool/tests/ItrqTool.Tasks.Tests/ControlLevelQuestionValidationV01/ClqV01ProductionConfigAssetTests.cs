@@ -1,17 +1,17 @@
 using FluentAssertions;
-using ItrqTool.Tasks.ControlLevelQuestionValidationV01Core;
+using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using Xunit;
 
-namespace ItrqTool.Tasks.Tests.ControlLevelQuestionValidationV01Core;
+namespace ItrqTool.Tasks.Tests.ControlLevelQuestionValidationV01;
 
 /// <summary>
-/// Pins the TEMP v01-on-core production config asset (configs/clq-v01-core-validation-config.json):
-/// value-identical to the bespoke v01 config except ChapterRows is a STRING array. Mirrors
-/// ClqV02ProductionConfigAssetTests. Asserts the v01 column map (provided-by M / xref-id N, no K),
-/// the 7-string ChapterRows, the 30 SectionRows, and that LayoutParser derives exactly 30 sections.
+/// Pins the CLQ_v01 production config asset (configs/clq-v01-validation-config.json), whose
+/// ChapterRows is a STRING array. Mirrors ClqV02ProductionConfigAssetTests. Asserts the v01
+/// column map (provided-by M / xref-id N, no K), the 7-string ChapterRows, the 30 SectionRows,
+/// and that LayoutParser derives exactly 30 sections.
 /// </summary>
-public sealed class ClqV01CoreProductionConfigAssetTests
+public sealed class ClqV01ProductionConfigAssetTests
 {
     private static string ConfigAssetPath()
     {
@@ -20,7 +20,7 @@ public sealed class ClqV01CoreProductionConfigAssetTests
             dir = dir.Parent;
         if (dir is null)
             throw new InvalidOperationException("Solution root (.slnx) not found above test output directory.");
-        return Path.Combine(dir.FullName, "configs", "clq-v01-core-validation-config.json");
+        return Path.Combine(dir.FullName, "configs", "clq-v01-validation-config.json");
     }
 
     [Fact]
@@ -63,6 +63,6 @@ public sealed class ClqV01CoreProductionConfigAssetTests
                 config.ChapterRows, config.SectionRows,
                 config.TextColumn, config.TextColumn, config.TextColumn)
             .Sections.Should().HaveCount(30,
-                "the v01-on-core production config's SectionRows must parse to exactly 30 sections (v01 parity)");
+                "the v01 production config's SectionRows must parse to exactly 30 sections");
     }
 }

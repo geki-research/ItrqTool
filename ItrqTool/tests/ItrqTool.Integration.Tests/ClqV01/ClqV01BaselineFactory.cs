@@ -1,5 +1,6 @@
 using System.IO;
-using ItrqTool.Tasks.ControlLevelQuestionValidation;
+using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
+using ItrqTool.Tasks.QuestionnaireValidation.Config;
 
 namespace ItrqTool.Integration.Tests.ClqV01;
 
@@ -21,7 +22,7 @@ public sealed record ClqV01BaselineTrio(
 );
 
 /// <summary>
-/// Builds a fully-consistent baseline trio against a <see cref="ControlLevelQuestionValidationV01Config"/>.
+/// Builds a fully-consistent baseline trio against a <see cref="ClqV01Config"/>.
 /// Every question satisfies all validation checks so the baseline produces zero findings.
 /// </summary>
 /// <remarks>
@@ -72,9 +73,15 @@ public static class ClqV01BaselineFactory
     private static string QuestionText(string prefix, int globalQ)
         => $"{prefix}) {_realQuestions[globalQ - 1]}";
 
-    public static ClqV01BaselineTrio Build(ControlLevelQuestionValidationV01Config config)
+    public static ClqV01BaselineTrio Build(ClqV01Config config)
     {
-        var sortedChapters = config.ChapterRows.OrderBy(r => r).ToList();
+        // ChapterRows are strings on the core config; parse to int for numeric row ordering.
+        var sortedChapters = config.ChapterRows.Select(int.Parse).OrderBy(r => r).ToList();
+
+        // Sections derive at run via LayoutParser (no ParsedSections property on the core config).
+        var parsedSections = LayoutParser.Parse(
+            config.ChapterRows, config.SectionRows,
+            config.TextColumn, config.TextColumn, config.TextColumn).Sections;
 
         // Pre-build chapter headers (same text across all three workbooks).
         var chapterHeaders = sortedChapters
@@ -88,7 +95,7 @@ public static class ClqV01BaselineFactory
             int thisChapter = sortedChapters[ci];
             int nextChapter = ci + 1 < sortedChapters.Count ? sortedChapters[ci + 1] : int.MaxValue;
 
-            var sectionsInChapter = config.ParsedSections
+            var sectionsInChapter = parsedSections
                 .Where(s => s.SectionRow > thisChapter && s.SectionRow < nextChapter)
                 .OrderBy(s => s.SectionRow)
                 .ToList();
@@ -108,7 +115,7 @@ public static class ClqV01BaselineFactory
             int thisChapter = sortedChapters[ci];
             int nextChapter = ci + 1 < sortedChapters.Count ? sortedChapters[ci + 1] : int.MaxValue;
 
-            var sectionsInChapter = config.ParsedSections
+            var sectionsInChapter = parsedSections
                 .Where(s => s.SectionRow > thisChapter && s.SectionRow < nextChapter)
                 .OrderBy(s => s.SectionRow)
                 .ToList();

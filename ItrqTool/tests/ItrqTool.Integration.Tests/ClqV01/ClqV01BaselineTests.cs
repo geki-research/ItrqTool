@@ -7,7 +7,8 @@ using ItrqTool.Domain.Validation;
 using ItrqTool.Infrastructure;
 using ItrqTool.Tasks;
 using DiffTextSimilarity = ItrqTool.Tasks.ControlLevelQuestionDiff.TextSimilarity;
-using ItrqTool.Tasks.ControlLevelQuestionValidation;
+using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
+using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.Validation;
 
 namespace ItrqTool.Integration.Tests.ClqV01;
@@ -38,7 +39,7 @@ public sealed class ClqV01BaselineTests
     {
         var configPath = FindConfigAssetPath();
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = ControlLevelQuestionValidationV01ConfigLoader.Load(configJson);
+        var config = ConfigLoader.Load<ClqV01Config>(configJson, c => c.Validate());
 
         var trio = ClqV01BaselineFactory.Build(config);
 
@@ -105,7 +106,7 @@ public sealed class ClqV01BaselineTests
     {
         var configPath = FindConfigAssetPath();
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = ControlLevelQuestionValidationV01ConfigLoader.Load(configJson);
+        var config = ConfigLoader.Load<ClqV01Config>(configJson, c => c.Validate());
 
         var trio = ClqV01BaselineFactory.Build(config);
         int targetRow = trio.Current.Questions[0].RowNumber;
@@ -182,7 +183,7 @@ public sealed class ClqV01BaselineTests
     {
         var configPath = FindConfigAssetPath();
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = ControlLevelQuestionValidationV01ConfigLoader.Load(configJson);
+        var config = ConfigLoader.Load<ClqV01Config>(configJson, c => c.Validate());
 
         var trio = ClqV01BaselineFactory.Build(config);
         var questions = trio.Current.Questions;

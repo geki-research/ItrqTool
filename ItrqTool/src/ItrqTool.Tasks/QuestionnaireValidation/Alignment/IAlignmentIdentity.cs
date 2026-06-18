@@ -3,7 +3,7 @@ namespace ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 /// <summary>
 /// The six identity fields the generic <see cref="AlignmentEngine"/> reads from a
 /// question. Mirrors the nullability of the corresponding fields on CLQ_v01's
-/// <c>InternalClqQuestion</c> exactly:
+/// original question record exactly:
 /// <list type="bullet">
 ///   <item><see cref="RowNumber"/>      — int (within-year row-shift detection)</item>
 ///   <item><see cref="XrefId"/>         — string? (cross-year key; null/blank ⇒ malformed)</item>

@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace ItrqTool.Tasks.QuestionnaireValidation.Parsing;
 
 /// <summary>
-/// Verbatim port of CLQ_v01's <c>InternalClqPrefixParser</c> — the
+/// Verbatim port of CLQ_v01's original prefix parser — the
 /// "number embedded in the text-column prefix" scheme. This is a
 /// per-version concern: the shared <see cref="QuestionParser"/> does NOT
 /// call it; a per-version record factory does (RLQ reads the number from

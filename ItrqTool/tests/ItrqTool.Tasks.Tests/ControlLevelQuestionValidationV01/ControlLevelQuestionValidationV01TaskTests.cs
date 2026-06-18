@@ -8,24 +8,32 @@ using ItrqTool.Domain.Validation;
 using ItrqTool.Tasks;
 using ItrqTool.Tasks.Validation;
 
-namespace ItrqTool.Tasks.Tests.ControlLevelQuestionValidation;
+namespace ItrqTool.Tasks.Tests.ControlLevelQuestionValidationV01;
 
+/// <summary>
+/// Black-box smoke for the CLQ_v01 task: canonical TaskType, success path writes a
+/// deserializable report carrying the canonical taskType plus findings, a Fatal finding
+/// does not fail the task, zero questions still succeeds, and the failure / cancellation
+/// paths behave. Merges the former bespoke task-test and v01-on-core task-test suites.
+/// </summary>
 public sealed class ControlLevelQuestionValidationV01TaskTests
 {
     private static string TestWorkDir() =>
-        Path.Combine(Path.GetTempPath(), "ItrqTool-clqval-tests", Guid.NewGuid().ToString("N"));
+        Path.Combine(Path.GetTempPath(), "ItrqTool-clqv01-tests", Guid.NewGuid().ToString("N"));
 
+    // v01 column map: D/E/F/H/I/J/M/N — no K, no answer-stability fields.
+    // ChapterRows is a STRING array (LayoutParser parses each with int.TryParse).
     private const string ValidConfigJson = """
     {
       "textColumn":"C","guidanceColumn":"E","previousAnswerColumn":"F","answerColumn":"H",
       "strengthsColumn":"I","weaknessesColumn":"J","providedByColumn":"M","xrefIdColumn":"N",
-      "sheetName":"CLQ","chapterRows":[1],"sectionRows":["2:3-3"],
+      "sheetName":"CLQ","chapterRows":["1"],"sectionRows":["2:3-3"],
       "allowedAnswers":["1","2","3","4","N/A"],"deviationThreshold":2
     }
     """;
 
     // Rows that parse to one current question with a BLANK identity key → malformed key →
-    // one XrefIdEmptyOrDuplicated (Fatal) finding per workbook.
+    // one XrefId-empty (Fatal) finding per workbook.
     private static IReadOnlyList<ExcelRowStructure> MalformedKeyRows() =>
     [
         new ExcelRowStructure(1, new Dictionary<string, ExcelCellStructure> { ["C"] = new("Chapter", null, null, null) }),
@@ -40,6 +48,12 @@ public sealed class ControlLevelQuestionValidationV01TaskTests
 
     private static ControlLevelQuestionValidationV01Task MakeTask(IExcelStructureReader reader) =>
         new(reader, NullLogger<ControlLevelQuestionValidationV01Task>.Instance);
+
+    // DvPatcher re-reads the answer column over the question-row span; stub it to a
+    // non-null (empty) result so the pipeline can run when there are questions.
+    private static void StubReadCells(IExcelStructureReader reader) =>
+        reader.ReadCells(Arg.Any<string>(), "CLQ", Arg.Any<IReadOnlyList<string>>())
+              .Returns(new Dictionary<string, ExcelCellStructure>());
 
     private static (string current, string template, string previous, string config) WriteInputs(
         string dir, string configJson, bool createCurrent = true)
@@ -80,10 +94,19 @@ public sealed class ControlLevelQuestionValidationV01TaskTests
         };
     }
 
-    // ── Success path: report written, deserializable, ≥1 finding ─────────────────
+    // ── TaskType is the canonical v01 string ─────────────────────────────────────
 
     [Fact]
-    public async Task ExecuteAsync_ValidInputs_WritesDeserializableReportWithFindings()
+    public void TaskType_IsCanonicalV01()
+    {
+        var reader = Substitute.For<IExcelStructureReader>();
+        MakeTask(reader).TaskType.Should().Be("ControlLevelQuestionValidation_v01");
+    }
+
+    // ── Success path: report written, deserializable, canonical taskType, ≥1 finding ─
+
+    [Fact]
+    public async Task ExecuteAsync_ValidInputs_WritesDeserializableReport_CanonicalTaskType_WithFindings()
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
@@ -92,6 +115,7 @@ public sealed class ControlLevelQuestionValidationV01TaskTests
             var (c, t, p, cfg) = WriteInputs(dir, ValidConfigJson);
             var reader = Substitute.For<IExcelStructureReader>();
             reader.ReadRows(Arg.Any<string>(), "CLQ").Returns(MalformedKeyRows());
+            StubReadCells(reader);
 
             var ctx = Ctx(dir, c, t, p, cfg, out var reportPath);
 
@@ -120,6 +144,7 @@ public sealed class ControlLevelQuestionValidationV01TaskTests
             var (c, t, p, cfg) = WriteInputs(dir, ValidConfigJson);
             var reader = Substitute.For<IExcelStructureReader>();
             reader.ReadRows(Arg.Any<string>(), "CLQ").Returns(MalformedKeyRows());
+            StubReadCells(reader);
 
             var ctx = Ctx(dir, c, t, p, cfg, out var reportPath);
 

@@ -2,7 +2,7 @@ namespace ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 
 /// <summary>
 /// Version-neutral reconciliation core. Faithful generic port of CLQ_v01's
-/// <c>ClqAlignmentEngine</c> over any question type carrying the six
+/// original alignment engine over any question type carrying the six
 /// <see cref="IAlignmentIdentity"/> fields. Aligns the current-year response
 /// against the empty template (within-year) and the previous-year response
 /// (cross-year, Option B). No config, no I/O, no cancellation — a pure

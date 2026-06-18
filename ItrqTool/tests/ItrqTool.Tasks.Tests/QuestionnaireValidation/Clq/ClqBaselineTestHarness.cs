@@ -8,7 +8,7 @@ namespace ItrqTool.Tasks.Tests.QuestionnaireValidation.Clq;
 
 // ── Shared test infrastructure for the CLQ baseline checks ───────────────────
 //
-// Re-typed port of v01 ClqValidationChecksTests' fixtures (recon §4), targeting the
+// Re-typed port of v01's original validation-checks test fixtures, targeting the
 // version-neutral surface (ClqBaselineChecks.Run / ClqBaselineRoleMap / IClqBaselineConfig
 // / FindingEmitter). D1b/D1c reuse this harness; their checks INSERT into the same
 // Run<T> the D1a tests already exercise here.

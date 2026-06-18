@@ -6,7 +6,8 @@ using Xunit;
 using ItrqTool.Application;
 using ItrqTool.Domain;
 using ItrqTool.Presentation;
-using ItrqTool.Tasks.ControlLevelQuestionValidation;
+using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
+using ItrqTool.Tasks.QuestionnaireValidation.Config;
 
 namespace ItrqTool.Integration.Tests.ClqV01;
 
@@ -36,7 +37,7 @@ public sealed class ClqV01EndToEndWorkflowTests
         var configAbsPath = Path.Combine(
             solutionRoot.FullName, "configs", "clq-v01-validation-config.json");
         var configJson = await File.ReadAllTextAsync(configAbsPath);
-        var config = ControlLevelQuestionValidationV01ConfigLoader.Load(configJson);
+        var config = ConfigLoader.Load<ClqV01Config>(configJson, c => c.Validate());
 
         // ── Build the full 23-finding perturbed scenario ──────────────────────────
         var baseline   = ClqV01BaselineFactory.Build(config);

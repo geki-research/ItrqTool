@@ -5,7 +5,7 @@ namespace ItrqTool.Tasks.QuestionnaireValidation.Parsing;
 
 /// <summary>
 /// Sheet-agnostic question parser. Faithful generalization of CLQ_v01's
-/// <c>InternalClqQuestionParser</c>: it owns the structural machinery (iterate rows over the
+/// original question parser: it owns the structural machinery (iterate rows over the
 /// layout, classify chapter / section / question rows, capture the current chapter and
 /// section names, skip blank question rows with a warning, collect <see cref="TaskMessage"/>s)
 /// and hands each question row to a per-version <paramref name="recordFactory"/> as a

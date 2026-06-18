@@ -2,16 +2,15 @@ using System.Text.RegularExpressions;
 using ItrqTool.Domain.Validation;
 using ItrqTool.Tasks.QuestionnaireValidation.Clq;
 
-namespace ItrqTool.Tasks.ControlLevelQuestionValidationV01Core;
+namespace ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 
-// v01-on-core config. Mirrors the frozen bespoke ControlLevelQuestionValidationV01Config
-// fields with TWO changes only (recon §G2/§G4):
+// CLQ_v01 config. Two notable shapes:
 //   (a) ChapterRows is IReadOnlyList<string> (not int) — LayoutParser.Parse parses each
 //       entry with int.TryParse; the production JSON carries the rows as strings.
 //   (b) it implements IClqBaselineConfig (the version-neutral baseline read-surface).
 // There is NO ParsedSections property: sections derive at run via LayoutParser, exactly
-// like v02. Validate() mirrors the bespoke v01 structural rules EXCEPT the section-format
-// check (now surfaced at run by LayoutParser.Parse → FormatException → task catch) and the
+// like v02. Validate() covers the v01 structural rules EXCEPT the section-format check
+// (now surfaced at run by LayoutParser.Parse → FormatException → task catch) and the
 // override-key check (now in ValidationPipeline.Run) — i.e. the v02 config's Validate()
 // shape minus the answer-stability rules.
 public sealed class ClqV01Config : IClqBaselineConfig

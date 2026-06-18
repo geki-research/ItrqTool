@@ -5,14 +5,15 @@ using Xunit;
 using ItrqTool.Domain;
 using ItrqTool.Infrastructure;
 using ItrqTool.Tasks;
-using ItrqTool.Tasks.ControlLevelQuestionValidation;
+using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
+using ItrqTool.Tasks.QuestionnaireValidation.Config;
 
 namespace ItrqTool.Integration.Tests.ClqV01;
 
 /// <summary>
 /// Identifies one captured golden scenario: its stable key, the embedded golden
 /// resource file name, and how to build the perturbed trio + DV overrides that
-/// drive the frozen bespoke v01 task.
+/// drive the CLQ_v01 task.
 /// </summary>
 public sealed record ClqV01GoldenScenario(
     string Key,
@@ -23,11 +24,10 @@ public sealed record ClqV01GoldenScenario(
 /// Shared harness for the CLQ_v01 golden fixtures. Drives the REAL
 /// <see cref="ControlLevelQuestionValidationV01Task"/> over a temp working directory
 /// exactly as the shipping task runs, then returns the serialized report JSON it wrote.
-/// This guarantees the captured golden is byte-identical to production task output.
+/// This guarantees the report is byte-identical to production task output.
 ///
-/// Used by both the one-off capture step (m2) and the assert tests below, which pin
-/// the frozen stack and serve as the durable byte-for-byte parity anchor for the
-/// v01-on-core re-implementation (m3) — surviving the bespoke stack's deletion (m4).
+/// The assert tests below re-derive each scenario and compare to the committed golden:
+/// the durable byte-for-byte regression guard for the CLQ_v01 task.
 /// </summary>
 public static class ClqV01GoldenHarness
 {
@@ -84,7 +84,7 @@ public static class ClqV01GoldenHarness
     {
         var configPath = ConfigAssetPath();
         var configJson = await File.ReadAllTextAsync(configPath);
-        var config = ControlLevelQuestionValidationV01ConfigLoader.Load(configJson);
+        var config = ConfigLoader.Load<ClqV01Config>(configJson, c => c.Validate());
 
         var baseline = ClqV01BaselineFactory.Build(config);
         var (trio, dvOverrides) = scenario.Compose(baseline);
@@ -151,10 +151,9 @@ public static class ClqV01GoldenHarness
 }
 
 /// <summary>
-/// Pins the FROZEN bespoke CLQ_v01 stack: re-derives each scenario's serialized report
-/// from the same harness and asserts it equals the committed golden by ordinal string
-/// equality. Proves the capture is deterministic/reproducible and is the durable parity
-/// anchor that the v01-on-core re-implementation reproduces byte-for-byte.
+/// Permanent golden regression guard for the CLQ_v01 task: re-derives each scenario's
+/// serialized report by driving the live task through the harness and asserts it equals
+/// the committed golden by ordinal string equality.
 /// </summary>
 public sealed class ClqV01GoldenFixtureTests
 {

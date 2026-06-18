@@ -4,9 +4,9 @@ using ItrqTool.Tasks.QuestionnaireValidation.Clq;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.QuestionnaireValidation.Parsing;
 
-namespace ItrqTool.Tasks.ControlLevelQuestionValidationV01Core;
+namespace ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 
-// v01-on-core profile. This is ClqV02Profile.Build MINUS answer-stability (recon §G2):
+// CLQ_v01 profile. This is ClqV02Profile.Build MINUS answer-stability:
 //   - the SAME 12-selector ClqBaselineRoleMap (field names match v02's first 18 fields);
 //   - the SAME LayoutParser.Parse call (TextColumn for chapter / section / blank-test);
 //   - a RecordFactory building the 18-field ClqV01Question (DV fields null at parse;
