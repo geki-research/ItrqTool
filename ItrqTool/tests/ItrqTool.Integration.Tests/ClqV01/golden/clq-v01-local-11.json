@@ -1,0 +1,104 @@
+{
+  "sheet": "IT Risk Control Self-Assessment",
+  "taskType": "ControlLevelQuestionValidation_v01",
+  "findings": [
+    {
+      "check": "Deviation",
+      "evaluation": "Warning",
+      "cellAddresses": "H7",
+      "questionNumber": "1.2",
+      "questionText": "Senior management of the business line(s) is adequately involved in the definition of the supervised entity\u2019s strategic ICT priorities and aware of the development, design and initiation of major business strategies and initiatives.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer deviates from the previous year by 3 (threshold 2): 1 \u2192 4."
+    },
+    {
+      "check": "FrozenValue",
+      "evaluation": "Warning",
+      "cellAddresses": "F12",
+      "questionNumber": "1.7",
+      "questionText": "The supervised entity analyses existing and emerging technologies.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Injected previous answer at F12 (\u00274\u0027) differs from the prior year\u0027s actual answer (\u00272\u0027)."
+    },
+    {
+      "check": "Deviation",
+      "evaluation": "Information",
+      "cellAddresses": "H18",
+      "questionNumber": "1.12",
+      "questionText": "The supervised entity includes in its human resource policy or other relevant policies all of the following ICT security related elements: (a) the identification and assignment of any specific ICT security responsibilities; (b) requirements for staff of the financial entity and of the ICT third-party service providers using or accessing ICT assets of the financial entity to: (i) be informed about, and adhere to, the financial entity\u0027s ICT security policies, procedures, and protocols; (ii) be aware of the reporting channels put in place by the financial entity for the detection of anomalous behaviour, including, where applicable, the reporting channels established in line with Directive (EU) 2019/1937 of the European Parliament and of the Council; (iii) for the staff, to return to the financial entity, upon termination of employment, all ICT assets and tangible information assets in their possession that belong to the financial entity.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Year-over-year deviation cannot be evaluated: the confidently-matched previous answer is empty or not in the allowed set."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Error",
+      "cellAddresses": "H23",
+      "questionNumber": "1.17",
+      "questionText": "The supervised entity maintains an inventory of all processes that are dependent on ICT third-party service providers, and identified interconnections with ICT third-party service providers that provide services that support critical or important functions. This inventory is updated periodically and every time any major change in the network and information system infrastructure, in the processes or procedures affecting its ICT supported business functions, information assets or ICT assets occurs.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer cell H23 is empty; the question was not answered."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Fatal",
+      "cellAddresses": "H30",
+      "questionNumber": "1.23",
+      "questionText": "The supervised entity assigns the responsibility for managing and overseeing ICT risk to a control function and ensures an appropriate level of independence of such control function in order to avoid conflicts of interest. The supervised entity ensures appropriate segregation and independence of ICT risk management functions, control functions, and internal audit functions, according to the three lines of defence model, or an internal risk management and control model.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer \u00279\u0027 at H30 is not in the allowed set [1, 2, 3, 4]."
+    },
+    {
+      "check": "FrozenValue",
+      "evaluation": "Warning",
+      "cellAddresses": "F30",
+      "questionNumber": "1.23",
+      "questionText": "The supervised entity assigns the responsibility for managing and overseeing ICT risk to a control function and ensures an appropriate level of independence of such control function in order to avoid conflicts of interest. The supervised entity ensures appropriate segregation and independence of ICT risk management functions, control functions, and internal audit functions, according to the three lines of defence model, or an internal risk management and control model.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Injected previous answer at F30 (\u00271\u0027) differs from the prior year\u0027s actual answer (\u00273\u0027)."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Error",
+      "cellAddresses": "I42",
+      "questionNumber": "1.34",
+      "questionText": "The ICT risk management framework is subject to internal audit by auditors on a regular basis in line with the supervised entity\u2019s audit plan. The auditors possess sufficient knowledge, skills and expertise in ICT risk, as well as appropriate independence.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer \u00271\u0027 requires a strengths explanation but I42 is empty."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Error",
+      "cellAddresses": "J48",
+      "questionNumber": "1.39",
+      "questionText": "Secured channels are used for the distribution of ICT reports.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer \u00274\u0027 requires a weaknesses explanation but J48 is empty."
+    },
+    {
+      "check": "FrozenValue",
+      "evaluation": "Warning",
+      "cellAddresses": "D59, E59",
+      "questionText": "[test] Backup copies of business-critical data are validated through scheduled restoration exercises and retained at a geographically separate recovery location.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Frozen reference text differs from the template in: question text, guidance."
+    },
+    {
+      "check": "FrozenConstraint",
+      "evaluation": "Error",
+      "cellAddresses": "H68",
+      "questionNumber": "2.14",
+      "questionText": "The ICT TP usage policy specifies the requirements, including the rules, the responsibilities and the processes, for each main phase of the lifecycle of the contractual arrangement, covering at least the following: (a) the responsibilities of the management body, including its involvement, as appropriate, in the decision-making process on the use of ICT services supporting critical or important functions provided by ICT third-party service providers; (b) the planning of contractual arrangements, including the risk assessment, the due diligence as set out in Articles 5 and 6 of the RTS to specify the policy on ICT services and the approval process regarding new or material changes to contractual arrangements as set out in Article 8(4) of the RTS to specify the policy on ICT services. The risk assessment is done at financial entity level and, where applicable, at consolidated and sub-consolidated level before a contractual arrangement is concluded. The risk assessment takes into account all the relevant requirements laid down in Regulation (EU) 2022/2554, and all the risk posed by the provision of ICT services as detailed in article 5 para. 2 of the RTS to specify the policy on ICT services. c) For ICT services supporting critical or important functions, the due diligence verifies the existence of risk mitigation and business continuity measures and how their functioning within the ICT third-party service provider is ensured.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer-cell data-validation rule at H68 differs from the template."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Warning",
+      "cellAddresses": "D88",
+      "questionNumber": "3.1",
+      "questionText": ".1) The supervised entity has established an information security policy approved by the management body and aligned to the information security objectives included in the digital operational resilience strategy.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Question-number prefix at D88 is not a recognised two-level form: \u00273.1.1) The supervised entity has established an information security policy approved by the management body and aligned to the information security objectives included in the digital operational resilience strategy.\u0027."
+    }
+  ]
+}

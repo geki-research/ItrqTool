@@ -1,0 +1,196 @@
+{
+  "sheet": "IT Risk Control Self-Assessment",
+  "taskType": "ControlLevelQuestionValidation_v01",
+  "findings": [
+    {
+      "check": "Structure",
+      "evaluation": "Fatal",
+      "cellAddresses": "N210",
+      "checkResult": "Identity key in the current response at row 210 is blank; the question cannot be reliably matched within or across years."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Fatal",
+      "cellAddresses": "N214",
+      "checkResult": "Identity key in the current response at row 214 is duplicated (\u0027Q176\u0027); the question cannot be reliably matched within or across years."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Fatal",
+      "cellAddresses": "N215",
+      "checkResult": "Identity key in the current response at row 215 is duplicated (\u0027Q176\u0027); the question cannot be reliably matched within or across years."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Error",
+      "cellAddresses": "N102",
+      "questionNumber": "3.14",
+      "questionText": "As part of their control of access management rights, financial entity develops, documents, and implements identity and access management policies and procedures. Identity management ensures unique identification and authentication of natural persons and systems accessing the financial entities\u2019 information to enable assignment of user access rights .",
+      "checkResult": "Template question (identity key \u0027Q083\u0027, template row 102) is absent from the response."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Error",
+      "cellAddresses": "N210",
+      "questionNumber": "7.3",
+      "questionText": "As part of the ICT risk management framework referred to in Article 6(1) of Regulation (EU) 2022/2554 and based on the identification requirements set out in Article 8 of Regulation (EU) 2022/2554, the supervised entity has in place a comprehensive ICT business continuity policy, which may be adopted as a dedicated specific policy, forming an integral part of the overall business continuity policy.",
+      "checkResult": "Template question (identity key \u0027Q172\u0027, template row 210) is absent from the response."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Error",
+      "cellAddresses": "N214",
+      "questionNumber": "7.7",
+      "questionText": "The supervised entity includes in the ICT business continuity policy provisions on: (i) the development, testing and review of ICT response and recovery plans, in accordance with Articles 25 and 26 of the RTS on ICT risk management; (ii) the review of the effectiveness of the implemented ICT business continuity arrangements, plans, procedures and mechanisms, in accordance with Article 26 of the RTS on ICT risk management.",
+      "checkResult": "Template question (identity key \u0027Q176\u0027, template row 214) is absent from the response."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Error",
+      "cellAddresses": "N215",
+      "questionNumber": "7.8",
+      "questionText": "The supervised entity has implemented the ICT business continuity policy through dedicated, appropriate and documented arrangements, plans, procedures and mechanisms aiming to: (a) ensure the continuity of the financial entity\u2019s critical or important functions; (b) quickly, appropriately and effectively respond to, and resolve, all ICT-related incidents in a way that limits damage and prioritises the resumption of activities and recovery actions; (c) activate, without delay, dedicated plans that enable containment measures, processes and technologies suited to each type of ICT-related incident and prevent further damage, as well as tailored response and recovery procedures established in accordance with Article 12 of Regulation (EU) 2022/2554; (d) estimate preliminary impacts, damages and losses; (e) set out communication and crisis management actions that ensure that updated information is transmitted to all relevant internal staff and external stakeholders in accordance with Article 14 of Regulation (EU) 2022/2554, and report to the competent authorities in accordance with Article 19 of Regulation (EU) 2022/2554.",
+      "checkResult": "Template question (identity key \u0027Q177\u0027, template row 215) is absent from the response."
+    },
+    {
+      "check": "Deviation",
+      "evaluation": "Warning",
+      "cellAddresses": "H7",
+      "questionNumber": "1.2",
+      "questionText": "Senior management of the business line(s) is adequately involved in the definition of the supervised entity\u2019s strategic ICT priorities and aware of the development, design and initiation of major business strategies and initiatives.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer deviates from the previous year by 3 (threshold 2): 1 \u2192 4."
+    },
+    {
+      "check": "FrozenValue",
+      "evaluation": "Warning",
+      "cellAddresses": "F12",
+      "questionNumber": "1.7",
+      "questionText": "The supervised entity analyses existing and emerging technologies.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Injected previous answer at F12 (\u00274\u0027) differs from the prior year\u0027s actual answer (\u00272\u0027)."
+    },
+    {
+      "check": "Deviation",
+      "evaluation": "Information",
+      "cellAddresses": "H18",
+      "questionNumber": "1.12",
+      "questionText": "The supervised entity includes in its human resource policy or other relevant policies all of the following ICT security related elements: (a) the identification and assignment of any specific ICT security responsibilities; (b) requirements for staff of the financial entity and of the ICT third-party service providers using or accessing ICT assets of the financial entity to: (i) be informed about, and adhere to, the financial entity\u0027s ICT security policies, procedures, and protocols; (ii) be aware of the reporting channels put in place by the financial entity for the detection of anomalous behaviour, including, where applicable, the reporting channels established in line with Directive (EU) 2019/1937 of the European Parliament and of the Council; (iii) for the staff, to return to the financial entity, upon termination of employment, all ICT assets and tangible information assets in their possession that belong to the financial entity.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Year-over-year deviation cannot be evaluated: the confidently-matched previous answer is empty or not in the allowed set."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Error",
+      "cellAddresses": "H23",
+      "questionNumber": "1.17",
+      "questionText": "The supervised entity maintains an inventory of all processes that are dependent on ICT third-party service providers, and identified interconnections with ICT third-party service providers that provide services that support critical or important functions. This inventory is updated periodically and every time any major change in the network and information system infrastructure, in the processes or procedures affecting its ICT supported business functions, information assets or ICT assets occurs.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer cell H23 is empty; the question was not answered."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Fatal",
+      "cellAddresses": "H30",
+      "questionNumber": "1.23",
+      "questionText": "The supervised entity assigns the responsibility for managing and overseeing ICT risk to a control function and ensures an appropriate level of independence of such control function in order to avoid conflicts of interest. The supervised entity ensures appropriate segregation and independence of ICT risk management functions, control functions, and internal audit functions, according to the three lines of defence model, or an internal risk management and control model.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer \u00279\u0027 at H30 is not in the allowed set [1, 2, 3, 4]."
+    },
+    {
+      "check": "FrozenValue",
+      "evaluation": "Warning",
+      "cellAddresses": "F30",
+      "questionNumber": "1.23",
+      "questionText": "The supervised entity assigns the responsibility for managing and overseeing ICT risk to a control function and ensures an appropriate level of independence of such control function in order to avoid conflicts of interest. The supervised entity ensures appropriate segregation and independence of ICT risk management functions, control functions, and internal audit functions, according to the three lines of defence model, or an internal risk management and control model.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Injected previous answer at F30 (\u00271\u0027) differs from the prior year\u0027s actual answer (\u00273\u0027)."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Error",
+      "cellAddresses": "I42",
+      "questionNumber": "1.34",
+      "questionText": "The ICT risk management framework is subject to internal audit by auditors on a regular basis in line with the supervised entity\u2019s audit plan. The auditors possess sufficient knowledge, skills and expertise in ICT risk, as well as appropriate independence.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer \u00271\u0027 requires a strengths explanation but I42 is empty."
+    },
+    {
+      "check": "MissingResponse",
+      "evaluation": "Error",
+      "cellAddresses": "J48",
+      "questionNumber": "1.39",
+      "questionText": "Secured channels are used for the distribution of ICT reports.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer \u00274\u0027 requires a weaknesses explanation but J48 is empty."
+    },
+    {
+      "check": "FrozenValue",
+      "evaluation": "Warning",
+      "cellAddresses": "D59, E59",
+      "questionText": "[test] Backup copies of business-critical data are validated through scheduled restoration exercises and retained at a geographically separate recovery location.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Frozen reference text differs from the template in: question text, guidance."
+    },
+    {
+      "check": "FrozenConstraint",
+      "evaluation": "Error",
+      "cellAddresses": "H68",
+      "questionNumber": "2.14",
+      "questionText": "The ICT TP usage policy specifies the requirements, including the rules, the responsibilities and the processes, for each main phase of the lifecycle of the contractual arrangement, covering at least the following: (a) the responsibilities of the management body, including its involvement, as appropriate, in the decision-making process on the use of ICT services supporting critical or important functions provided by ICT third-party service providers; (b) the planning of contractual arrangements, including the risk assessment, the due diligence as set out in Articles 5 and 6 of the RTS to specify the policy on ICT services and the approval process regarding new or material changes to contractual arrangements as set out in Article 8(4) of the RTS to specify the policy on ICT services. The risk assessment is done at financial entity level and, where applicable, at consolidated and sub-consolidated level before a contractual arrangement is concluded. The risk assessment takes into account all the relevant requirements laid down in Regulation (EU) 2022/2554, and all the risk posed by the provision of ICT services as detailed in article 5 para. 2 of the RTS to specify the policy on ICT services. c) For ICT services supporting critical or important functions, the due diligence verifies the existence of risk mitigation and business continuity measures and how their functioning within the ICT third-party service provider is ensured.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Answer-cell data-validation rule at H68 differs from the template."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Warning",
+      "cellAddresses": "D88",
+      "questionNumber": "3.1",
+      "questionText": ".1) The supervised entity has established an information security policy approved by the management body and aligned to the information security objectives included in the digital operational resilience strategy.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Question-number prefix at D88 is not a recognised two-level form: \u00273.1.1) The supervised entity has established an information security policy approved by the management body and aligned to the information security objectives included in the digital operational resilience strategy.\u0027."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Error",
+      "cellAddresses": "N102",
+      "questionText": "[test] A documented data classification scheme is applied consistently across all information assets and is reviewed at least annually by the information security function.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Response question (identity key \u0027QNEW102\u0027, row 102) is absent from the empty template."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Information",
+      "cellAddresses": "N102",
+      "questionText": "[test] A documented data classification scheme is applied consistently across all information assets and is reviewed at least annually by the information security function.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "No previous-year counterpart by key or text; ordinary new/orphan question with no cross-year baseline."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Warning",
+      "cellAddresses": "N130",
+      "questionNumber": "3.39",
+      "questionText": "Efficiency of Security event logging and monitoring (SIEM) process is increased by the use of supporting technologies to correlate security events (e.g. Security Incident Event Management) and/or the use of dedicated teams (e.g. SOC - Security Operating Centre, CERT - Computer Emergency Response Team).",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "New identity key \u0027Q108\u0027 (absent from the previous year) but a textual twin exists: previous question at row 130 (number \u00273.39\u0027, \u0022Efficiency of Security event logging and monitoring (SIEM) p\u2026\u0022). Verify whether this is a rescope or a mistyped key (not auto-used as a baseline)."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Warning",
+      "cellAddresses": "N161",
+      "questionText": "[test] Logical access to production systems is granted strictly on a least-privilege basis and is recertified by the respective asset owners on a defined periodic cadence.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Identity key \u0027Q133\u0027 is shared with previous question at row 161 (number \u00274.13\u0027, \u0022A documented process providing guidance on incident manageme\u2026\u0022) but the question text has diverged beyond the match threshold. Verify whether this is a heavy rewrite or a reused key."
+    },
+    {
+      "check": "Structure",
+      "evaluation": "Error",
+      "cellAddresses": "N179",
+      "questionNumber": "5.1",
+      "questionText": "A project management framework is in place for the management of all ICT projects covering as a minimum project objectives; roles and responsibilities; a project risk assessment; a project plan, timeframe and steps; key milestones and change management requirements as well as a proper analysis of information security requirements approved by a function that is independent from the development function.",
+      "providedBy": "TestOrgUnit",
+      "checkResult": "Identity key and question text disagree about the previous-year question: the key \u0027QOLD179\u0027 points to previous question at row 210 (number \u00277.3\u0027, \u0022As part of the ICT risk management framework referred to in \u2026\u0022), but the text best matches previous question at row 179 (number \u00275.1\u0027, \u0022A project management framework is in place for the managemen\u2026\u0022). Verify which previous question this is."
+    }
+  ]
+}

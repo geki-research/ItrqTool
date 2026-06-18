@@ -1,0 +1,6 @@
+# Golden report fixtures are byte-exact snapshots of the v01 task's serialized
+# output, which uses CRLF line endings (System.Text.Json WriteIndented on Windows).
+# The repo-wide `*.json text eol=lf` rule would rewrite these to LF on checkout and
+# break the byte-for-byte parity assertion. `-text` disables EOL normalization so the
+# committed bytes round-trip exactly on every platform and git config.
+*.json -text
