@@ -1,0 +1,50 @@
+using ItrqTool.Domain;
+using ItrqTool.Tasks.QuestionnaireValidation;
+using ItrqTool.Tasks.QuestionnaireValidation.Config;
+
+namespace ItrqTool.Tasks.RiskLevelQuestionValidationV01;
+
+/// <summary>
+/// Builds the RLQ_v01 <see cref="ValidationPipelineProfile{T}"/>. Mirrors
+/// <c>ClqV02Profile.Build</c> with the RLQ differences:
+///   - sections only (empty chapterRows) — section name + question text both read from
+///     column D, so the layout's section-name and question-text columns are both
+///     <c>config.TextColumn</c>;
+///   - the RLQ path parses with <c>RlqV01QuestionParser</c> and runs
+///     <see cref="ValidationPipeline.RunFromParsed{T}"/>, so <see cref="RecordFactory"/> is
+///     never reached — it is a documenting throw rather than a real factory;
+///   - one DV-role: the answer column (H), stamping the four answer-DV fields exactly as the
+///     CLQ answer DV-role does;
+///   - no findings this chunk: empty baseline descriptors, a no-op baseline runner, no
+///     extensions.
+/// </summary>
+public static class RlqV01Profile
+{
+    public static ValidationPipelineProfile<RlqV01Question> Build(RlqV01Config config)
+    {
+        return new ValidationPipelineProfile<RlqV01Question>(
+            SheetName: config.SheetName,
+            Layout: LayoutParser.Parse(
+                [],                  // RLQ has no chapters — sections only
+                config.SectionRows,
+                config.TextColumn,   // chapter-name column (unused — no chapters)
+                config.TextColumn,   // section-name column = D
+                config.TextColumn),  // question-text column = D
+            RecordFactory: _ => throw new InvalidOperationException(
+                "RLQ uses RlqV01QuestionParser; RecordFactory is not used"),
+            DvRoles:
+            [
+                (Column: config.AnswerColumn,
+                 ApplyDv: (RlqV01Question q, ExcelCellStructure cell) => q with
+                 {
+                     AnswerDvType     = cell.DataValidationType,
+                     AnswerDvFormula  = cell.DataValidationFormula,
+                     AnswerDvOperator = cell.DataValidationOperator,
+                     AnswerDvFormula2 = cell.DataValidationFormula2,
+                 }),
+            ],
+            BaselineDescriptors: [],
+            RunBaseline: (alignment, emitter) => [],
+            Extensions: []);
+    }
+}
