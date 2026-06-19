@@ -1,0 +1,48 @@
+{
+  "id": "clq-inject-trial",
+  "name": "CLQ Inject Trial (v02 → v01)",
+  "tasks": [
+    {
+      "id": "load-previous-response",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "clq_previous_response.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/clq-inject/clq_previous_response.xlsx"
+      }
+    },
+    {
+      "id": "load-current-template",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "clq_current_template.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/clq-inject/clq_current_template.xlsx"
+      }
+    },
+    {
+      "id": "inject",
+      "type": "ControlLevelQuestionInject_v02_to_v01",
+      "inputs": {
+        "previousResponse": "load-previous-response.output",
+        "currentTemplate": "load-current-template.output"
+      },
+      "outputs": { "output": "injected.xlsx" },
+      "parameters": {
+        "configurationFullFilename": "configs/clq-inject-config.json"
+      }
+    },
+    {
+      "id": "sink",
+      "type": "StaticFileSink",
+      "inputs": {
+        "input": "inject.output"
+      },
+      "outputs": {},
+      "parameters": {
+        "destinationFolder": "inject-output/clq-inject",
+        "destinationFileName": "clq_injected_current.xlsx"
+      }
+    }
+  ]
+}
