@@ -163,6 +163,11 @@ separately (and its keys validated here against the catalogue). The pipeline: Re
 `QuestionParser.Parse<T>` ×3 → `DvPatcher.Patch<T>` per DV-role → `AlignmentEngine.Align<T>` → baseline checks +
 extension primitives → findings; the **task** wraps them in `ValidationReport` and serializes to the `report`
 output. *(This supersedes the design's sketched `Run<T,TConfig>(…, config, profile, …)` — see §8 flag 5.)*
+*(Post-v02: the pipeline was later split into `Run` — read + parse + DV-patch — and a new **public**
+`RunFromParsed<T>` covering the align-and-check tail, so multi-row validators (e.g. RLQ-v01) can supply their
+own parser and call `RunFromParsed` directly rather than going through `QuestionParser.Parse`. See CLAUDE.md
+"Validation tasks".)*
+
 The per-version **task** (`ControlLevelQuestionValidationV02Task`, TaskType `ControlLevelQuestionValidation_v02`)
 is a thin `IWorkflowTask`: ctor injects `IExcelStructureReader` + logger; resolves the 3 inputs +
 `configurationFullFilename` param + loads config via `ConfigLoader.Load`, then calls the pipeline with v02's

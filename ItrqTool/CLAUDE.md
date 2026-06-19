@@ -266,12 +266,17 @@ response (cross-year: question identity), emitting a `ValidationReport` consumed
 `FeedbackChecklistAssembler`. They are documented in skills, loaded on demand:
 `.claude/skills/{clq-validation,clq-validation-v02}/SKILL.md`.
 
-Both stacks run on the version-neutral `ItrqTool.Tasks.QuestionnaireValidation` core: a per-version
+All validation stacks run on the version-neutral `ItrqTool.Tasks.QuestionnaireValidation` core: a per-version
 record (`: IAlignmentIdentity`), a config (`: IClqBaselineConfig`), a `…Profile.Build` that composes
-`ClqBaselineChecks` (the 18 CLQ findings) plus declarative extension primitives, and a thin task that
-calls `ValidationPipeline.Run`.
+`ClqBaselineChecks` (the 18 CLQ findings) plus declarative extension primitives, and a thin task that calls
+either `ValidationPipeline.Run` (single-row validators, e.g. CLQ) or `ValidationPipeline.RunFromParsed`
+(multi-row validators such as RLQ-v01 that supply their own bespoke parser and call `RunFromParsed` after their
+own read/parse/patch).
 - **`clq-validation` (v01)** — `ClqV01Profile`; column map D/E/F/H/I/J/**M**/**N**, no K stability column.
 - **`clq-validation-v02`** — `ClqV02Profile`; inserts answer-stability at **K** (provided-by → N, xref-id → O).
+- **RLQ-v01** (`RiskLevelQuestionValidation_v01`) — `RlqV01Profile`; bespoke multi-row parser
+  (`RlqV01QuestionParser`, equal-XrefId grouping, merged once-per-question cells); task calls `RunFromParsed`.
+  Findings land in chunk 2; a dedicated `rlq-validation` skill is to be created at track end.
 
 The cheap, supported change is **adding, removing, or altering a within-year input column** on the
 core — see "Implementing an auditor-mandated column change" below. A change affecting **cross-year
