@@ -3,7 +3,7 @@
   "PreviousConfigFilename": "clq-v02-validation-config.json",
   "CarryForwardEnabled": true,
   "StabilityTriggerToken": "No",
-  "ExplanationMergeSeparator": "\n",
-  "ExplanationStrengthsPrefix": "Strengths:\n",
-  "ExplanationWeaknessesPrefix": "Weaknesses:\n"
+  "ExplanationMergeSeparator": "{nl}{nl}{nl}",
+  "ExplanationStrengthsPrefix": "Strengths:{nl}",
+  "ExplanationWeaknessesPrefix": "Weaknesses:{nl}"
 }

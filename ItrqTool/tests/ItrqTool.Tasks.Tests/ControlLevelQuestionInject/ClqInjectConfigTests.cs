@@ -42,9 +42,9 @@ public sealed class ClqInjectConfigTests
         config.PreviousConfigFilename.Should().Be("clq-v02-validation-config.json");
         config.CarryForwardEnabled.Should().BeTrue();
         config.StabilityTriggerToken.Should().Be("No");
-        config.ExplanationMergeSeparator.Should().Be("\n");
-        config.ExplanationStrengthsPrefix.Should().Be("Strengths:\n");
-        config.ExplanationWeaknessesPrefix.Should().Be("Weaknesses:\n");
+        config.ExplanationMergeSeparator.Should().Be("{nl}{nl}{nl}");
+        config.ExplanationStrengthsPrefix.Should().Be("Strengths:{nl}");
+        config.ExplanationWeaknessesPrefix.Should().Be("Weaknesses:{nl}");
     }
 
     // ── valid config ──────────────────────────────────────────────────────────
