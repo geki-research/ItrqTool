@@ -46,10 +46,39 @@ public static class ValidationPipeline
             template = DvPatcher.Patch(reader, templatePath, profile.SheetName, column, template, applyDv);
             previous = DvPatcher.Patch(reader, previousPath, profile.SheetName, column, previous, applyDv);
         }
+
+        // 4+. Align-and-check half — shared, IO-free, reusable by multi-row validators.
+        return RunFromParsed(current, template, previous, profile, severityOverrides, messages, ct);
+    }
+
+    /// <summary>
+    /// IO-free align-and-check half of the pipeline: the three already-read,
+    /// already-parsed, already-DV-patched question lists flow in, alignment and the
+    /// full finding catalogue run, and the combined finding list flows out. Carries no
+    /// <see cref="IExcelStructureReader"/> and no file paths — purely the post-DV-patch
+    /// steps in their original order. Behaviour is identical to the tail of <see cref="Run{T}"/>.
+    /// </summary>
+    public static IReadOnlyList<ValidationFinding> RunFromParsed<T>(
+        IReadOnlyList<T> currentResponse,
+        IReadOnlyList<T> emptyTemplate,
+        IReadOnlyList<T> previousResponse,
+        ValidationPipelineProfile<T> profile,
+        IReadOnlyDictionary<string, FindingEvaluation> severityOverrides,
+        ICollection<TaskMessage> messages,
+        CancellationToken ct)
+        where T : class, IAlignmentIdentity
+    {
+        ArgumentNullException.ThrowIfNull(currentResponse);
+        ArgumentNullException.ThrowIfNull(emptyTemplate);
+        ArgumentNullException.ThrowIfNull(previousResponse);
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(severityOverrides);
+        ArgumentNullException.ThrowIfNull(messages);
+
         ct.ThrowIfCancellationRequested();
 
         // 4. Align.
-        var alignment = AlignmentEngine.Align(current, template, previous);
+        var alignment = AlignmentEngine.Align(currentResponse, emptyTemplate, previousResponse);
 
         // 5. Catalogue (baseline + extension descriptors) → validate overrides → emitter.
         var allDescriptors = profile.BaselineDescriptors
