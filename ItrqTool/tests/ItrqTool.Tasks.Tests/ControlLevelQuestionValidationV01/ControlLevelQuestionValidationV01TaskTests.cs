@@ -25,7 +25,7 @@ public sealed class ControlLevelQuestionValidationV01TaskTests
     // ChapterRows is a STRING array (LayoutParser parses each with int.TryParse).
     private const string ValidConfigJson = """
     {
-      "textColumn":"C","guidanceColumn":"E","previousAnswerColumn":"F","answerColumn":"H",
+      "textColumn":"C","guidanceColumn":"E","previousAnswerColumn":"F","previousExplanationColumn":"G","answerColumn":"H",
       "strengthsColumn":"I","weaknessesColumn":"J","providedByColumn":"M","xrefIdColumn":"N",
       "sheetName":"CLQ","chapterRows":["1"],"sectionRows":["2:3-3"],
       "allowedAnswers":["1","2","3","4","N/A"],"deviationThreshold":2
@@ -218,7 +218,7 @@ public sealed class ControlLevelQuestionValidationV01TaskTests
         {
             const string badConfig = """
             {
-              "textColumn":"C","guidanceColumn":"E","previousAnswerColumn":"F","answerColumn":"H",
+              "textColumn":"C","guidanceColumn":"E","previousAnswerColumn":"F","previousExplanationColumn":"G","answerColumn":"H",
               "strengthsColumn":"I","weaknessesColumn":"J","providedByColumn":"M","xrefIdColumn":"N",
               "sheetName":"CLQ","allowedAnswers":["1"],"deviationThreshold":0
             }

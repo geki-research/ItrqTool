@@ -1,0 +1,9 @@
+{
+  "CurrentConfigFilename": "clq-v01-validation-config.json",
+  "PreviousConfigFilename": "clq-v02-validation-config.json",
+  "CarryForwardEnabled": true,
+  "StabilityTriggerToken": "No",
+  "ExplanationMergeSeparator": "\n",
+  "ExplanationStrengthsPrefix": "Strengths:\n",
+  "ExplanationWeaknessesPrefix": "Weaknesses:\n"
+}

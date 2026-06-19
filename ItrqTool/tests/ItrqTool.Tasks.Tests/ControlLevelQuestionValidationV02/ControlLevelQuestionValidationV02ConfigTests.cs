@@ -13,6 +13,7 @@ public sealed class ControlLevelQuestionValidationV02ConfigTests
         TextColumn = "D",
         GuidanceColumn = "E",
         PreviousAnswerColumn = "F",
+        PreviousExplanationColumn = "G",
         AnswerColumn = "H",
         StrengthsColumn = "I",
         WeaknessesColumn = "J",
@@ -318,7 +319,8 @@ public sealed class ControlLevelQuestionValidationV02ConfigTests
         var c = new ControlLevelQuestionValidationV02Config
         {
             TextColumn = "D", GuidanceColumn = "E", PreviousAnswerColumn = "F",
-            AnswerColumn = "H", StrengthsColumn = "I", WeaknessesColumn = "J",
+            PreviousExplanationColumn = "G", AnswerColumn = "H",
+            StrengthsColumn = "I", WeaknessesColumn = "J",
             ProvidedByColumn = "N", XrefIdColumn = "O", AnswerStabilityColumn = "K",
             SheetName = "CLQ", AllowedAnswers = ["1"], AllowedStabilityAnswers = ["Yes"],
             DeviationThreshold = 1,

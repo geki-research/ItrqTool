@@ -18,6 +18,7 @@ public sealed class ClqV01ConfigTests
         TextColumn = "D",
         GuidanceColumn = "E",
         PreviousAnswerColumn = "F",
+        PreviousExplanationColumn = "G",
         AnswerColumn = "H",
         StrengthsColumn = "I",
         WeaknessesColumn = "J",
@@ -31,7 +32,8 @@ public sealed class ClqV01ConfigTests
     // A config identical to ValidConfig() except for the overrides applied via the action.
     // ClqV01Config is a sealed class (not a record), so each case builds a fresh instance.
     private static ClqV01Config ConfigWith(
-        string text = "D", string guidance = "E", string prevAnswer = "F", string answer = "H",
+        string text = "D", string guidance = "E", string prevAnswer = "F",
+        string prevExplanation = "G", string answer = "H",
         string strengths = "I", string weaknesses = "J", string providedBy = "M", string xrefId = "N",
         string sheetName = "Control Level Questions",
         IReadOnlyList<string>? allowedAnswers = null, int deviationThreshold = 2) => new()
@@ -39,6 +41,7 @@ public sealed class ClqV01ConfigTests
         TextColumn = text,
         GuidanceColumn = guidance,
         PreviousAnswerColumn = prevAnswer,
+        PreviousExplanationColumn = prevExplanation,
         AnswerColumn = answer,
         StrengthsColumn = strengths,
         WeaknessesColumn = weaknesses,
@@ -184,7 +187,8 @@ public sealed class ClqV01ConfigTests
     {
         var c = new ClqV01Config
         {
-            TextColumn = "D", GuidanceColumn = "E", PreviousAnswerColumn = "F", AnswerColumn = "H",
+            TextColumn = "D", GuidanceColumn = "E", PreviousAnswerColumn = "F",
+            PreviousExplanationColumn = "G", AnswerColumn = "H",
             StrengthsColumn = "I", WeaknessesColumn = "J", ProvidedByColumn = "M", XrefIdColumn = "N",
             SheetName = "CLQ", AllowedAnswers = ["1"], DeviationThreshold = 1,
             SeverityOverrides = new Dictionary<string, FindingEvaluation>

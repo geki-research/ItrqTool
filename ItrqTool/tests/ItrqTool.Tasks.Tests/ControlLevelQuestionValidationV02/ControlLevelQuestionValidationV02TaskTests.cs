@@ -17,7 +17,7 @@ public sealed class ControlLevelQuestionValidationV02TaskTests
 
     private const string ValidConfigJson = """
     {
-      "textColumn":"D","guidanceColumn":"E","previousAnswerColumn":"F","answerColumn":"H",
+      "textColumn":"D","guidanceColumn":"E","previousAnswerColumn":"F","previousExplanationColumn":"G","answerColumn":"H",
       "strengthsColumn":"I","weaknessesColumn":"J",
       "answerStabilityColumn":"K","providedByColumn":"N","xrefIdColumn":"O",
       "sheetName":"CLQ","chapterRows":["1"],"sectionRows":["2:3-4"],

@@ -3,6 +3,7 @@
   "TextColumn": "D",
   "GuidanceColumn": "E",
   "PreviousAnswerColumn": "F",
+  "PreviousExplanationColumn": "G",
   "AnswerColumn": "H",
   "StrengthsColumn": "I",
   "WeaknessesColumn": "J",

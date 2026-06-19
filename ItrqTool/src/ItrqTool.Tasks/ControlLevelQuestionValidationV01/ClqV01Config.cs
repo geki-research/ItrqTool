@@ -18,6 +18,7 @@ public sealed class ClqV01Config : IClqBaselineConfig
     public string TextColumn { get; init; } = "";
     public string GuidanceColumn { get; init; } = "";
     public string PreviousAnswerColumn { get; init; } = "";
+    public string PreviousExplanationColumn { get; init; } = "";
     public string AnswerColumn { get; init; } = "";
     public string StrengthsColumn { get; init; } = "";
     public string WeaknessesColumn { get; init; } = "";
@@ -41,6 +42,7 @@ public sealed class ClqV01Config : IClqBaselineConfig
         ValidateColumnLetter(nameof(TextColumn), TextColumn, errors);
         ValidateColumnLetter(nameof(GuidanceColumn), GuidanceColumn, errors);
         ValidateColumnLetter(nameof(PreviousAnswerColumn), PreviousAnswerColumn, errors);
+        ValidateColumnLetter(nameof(PreviousExplanationColumn), PreviousExplanationColumn, errors);
         ValidateColumnLetter(nameof(AnswerColumn), AnswerColumn, errors);
         ValidateColumnLetter(nameof(StrengthsColumn), StrengthsColumn, errors);
         ValidateColumnLetter(nameof(WeaknessesColumn), WeaknessesColumn, errors);
