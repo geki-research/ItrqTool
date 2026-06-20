@@ -1,5 +1,6 @@
 using ItrqTool.Domain;
 using ItrqTool.Tasks.QuestionnaireValidation;
+using ItrqTool.Tasks.QuestionnaireValidation.Checks;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 
 namespace ItrqTool.Tasks.RiskLevelQuestionValidationV01;
@@ -15,8 +16,9 @@ namespace ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 ///     never reached — it is a documenting throw rather than a real factory;
 ///   - one DV-role: the answer column (H), stamping the four answer-DV fields exactly as the
 ///     CLQ answer DV-role does;
-///   - no findings this chunk: empty baseline descriptors, a no-op baseline runner, no
-///     extensions.
+///   - two extensions (chunk 2, finding 1): RequiredInputCellAnyValue for column L
+///     (material-change, role "material-change") and column H (answer, role "answer"),
+///     both emitting input-cell.{role}.missing (Error) when blank.
 /// </summary>
 public static class RlqV01Profile
 {
@@ -45,6 +47,18 @@ public static class RlqV01Profile
             ],
             BaselineDescriptors: [],
             RunBaseline: (alignment, emitter) => [],
-            Extensions: []);
+            Extensions:
+            [
+                new RequiredInputCellAnyValue<RlqV01Question>(
+                    valueSelector:      q => q.MaterialChange,
+                    providedBySelector: q => q.ProvidedBy,
+                    role:               "material-change",
+                    column:             config.MaterialChangeColumn),
+                new RequiredInputCellAnyValue<RlqV01Question>(
+                    valueSelector:      q => q.Answer,
+                    providedBySelector: q => q.ProvidedBy,
+                    role:               "answer",
+                    column:             config.AnswerColumn),
+            ]);
     }
 }
