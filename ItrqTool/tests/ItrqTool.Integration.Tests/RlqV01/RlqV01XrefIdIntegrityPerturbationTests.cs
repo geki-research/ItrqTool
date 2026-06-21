@@ -115,6 +115,10 @@ public sealed class RlqV01XrefIdIntegrityPerturbationTests
             var report = ValidationReportSerializer.Deserialize(
                 await File.ReadAllTextAsync(reportPath));
 
+            // ── Identity gate halted the run (malformed keys present) ──
+            report.Halted.Should().BeTrue(
+                "the identity-integrity gate halts the chain when malformed XrefId keys are present");
+
             // ── Exact-set: exactly 3 findings, all structure.xrefid-empty-or-duplicated ──
 
             report.Findings.Should().HaveCount(3,
@@ -133,11 +137,11 @@ public sealed class RlqV01XrefIdIntegrityPerturbationTests
                     because: $"expected Fatal/Structure finding at {addr} with 'duplicated' and 'x1'");
 
             // ── Complementarity: no input-presence (MissingResponse) findings ──
-            // L6, L8, L13 are blank, but all three rows are NotEvaluatedMalformedKey
-            // → RequiredInputCellAnyValue skips them. Q2 (row 7, valid) has L7 filled.
+            // L6, L8, L13 are blank, but the gate halted the chain before the input checks ran,
+            // so no input-cell.material-change.missing (MissingResponse) finding can appear.
             report.Findings.Should().NotContain(
                 f => f.Check == ValidationCheck.MissingResponse,
-                "input-presence checks must be suppressed on malformed-key rows");
+                "the gate halts before input-presence checks run on malformed-key workbooks");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
@@ -215,6 +219,10 @@ public sealed class RlqV01XrefIdIntegrityPerturbationTests
             var report = ValidationReportSerializer.Deserialize(
                 await File.ReadAllTextAsync(reportPath));
 
+            // ── Identity gate halted the run (blank key present) ──
+            report.Halted.Should().BeTrue(
+                "the identity-integrity gate halts the chain when a blank XrefId key is present");
+
             // ── Exact-set: exactly 1 finding ──
             report.Findings.Should().HaveCount(1,
                 "exactly one blank-key finding expected (Q2's XrefId at Q7); actual: {0}",
@@ -229,10 +237,10 @@ public sealed class RlqV01XrefIdIntegrityPerturbationTests
                 because: "expected Fatal/Structure finding at Q7 with 'blank' in CheckResult");
 
             // ── Complementarity: no MissingResponse findings ──
-            // L7 is blank but row 7 is NotEvaluatedMalformedKey → RequiredInputCellAnyValue skips it.
+            // L7 is blank but the gate halted the chain before the input checks ran.
             report.Findings.Should().NotContain(
                 f => f.Check == ValidationCheck.MissingResponse,
-                "input-presence checks must be suppressed on the malformed (blank-XrefId) row");
+                "the gate halts before input-presence checks run on the malformed (blank-XrefId) workbook");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }

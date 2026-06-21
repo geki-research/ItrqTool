@@ -18,5 +18,13 @@ public sealed record ValidationPipelineProfile<T>(
     IReadOnlyList<(string Column, Func<T, ExcelCellStructure, T> ApplyDv)> DvRoles,
     IReadOnlyList<FindingDescriptor> BaselineDescriptors,
     Func<AlignmentResult<T>, FindingEmitter, IReadOnlyList<ValidationFinding>> RunBaseline,
-    IReadOnlyList<IExtensionCheck<T>> Extensions
+    IReadOnlyList<IExtensionCheck<T>> Extensions,
+    // ── identity-integrity gate (opt-in) ──
+    // When HaltOnMalformedKeys is true AND alignment surfaces any malformed XrefId key,
+    // the pipeline emits ONLY IdentityGateCheck's findings, marks the run halted, and
+    // returns WITHOUT running baseline/extension checks. Both default to off so existing
+    // profiles (CLQ v01/v02) are byte-identical; RLQ-v01 opts in and supplies a
+    // pre-constructed MalformedKeyCheck as the gate check.
+    bool HaltOnMalformedKeys = false,
+    IExtensionCheck<T>? IdentityGateCheck = null
 ) where T : class, IAlignmentIdentity;

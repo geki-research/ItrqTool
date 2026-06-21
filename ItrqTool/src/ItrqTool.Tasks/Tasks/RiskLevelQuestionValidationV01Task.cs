@@ -107,10 +107,12 @@ public sealed class RiskLevelQuestionValidationV01Task : IWorkflowTask
             var template = ReadParsePatch(templatePath, profile, config, messages);
             var previous = ReadParsePatch(previousPath, profile, config, messages);
 
-            IReadOnlyList<ValidationFinding> findings;
+            ValidationRunResult runResult;
             try
             {
-                findings = ValidationPipeline.RunFromParsed(
+                // Gated entry: RLQ opts into the identity-integrity gate (HaltOnMalformedKeys),
+                // so a malformed XrefId in any workbook yields ONLY the gate findings + Halted=true.
+                runResult = ValidationPipeline.RunFromParsedGated(
                     current, template, previous,
                     profile, config.SeverityOverrides, messages, ct);
             }
@@ -123,7 +125,12 @@ public sealed class RiskLevelQuestionValidationV01Task : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            var report = new ValidationReport(config.SheetName, TaskType, findings);
+            var findings = runResult.Findings;
+            // bool? Halted: true only on a deliberate gate halt; null otherwise so the serializer
+            // (WhenWritingNull) omits the key on a normal run — the report stays byte-identical.
+            var report = new ValidationReport(
+                config.SheetName, TaskType, findings,
+                runResult.Halted ? true : (bool?)null);
             await File.WriteAllTextAsync(reportPath, ValidationReportSerializer.Serialize(report), ct);
 
             if (findings.Count == 0)

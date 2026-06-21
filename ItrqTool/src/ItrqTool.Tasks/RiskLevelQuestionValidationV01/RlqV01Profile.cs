@@ -16,16 +16,23 @@ namespace ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 ///     never reached — it is a documenting throw rather than a real factory;
 ///   - one DV-role: the answer column (H), stamping the four answer-DV fields exactly as the
 ///     CLQ answer DV-role does;
-///   - three extensions (chunk 2): RequiredInputCellAnyValue for column L
+///   - two extensions (chunk 2): RequiredInputCellAnyValue for column L
 ///     (material-change, role "material-change") and column H (answer, role "answer"),
-///     both emitting input-cell.{role}.missing (Error) when blank; plus
-///     MalformedKeyCheck for column Q (XrefId), emitting
-///     structure.xrefid-empty-or-duplicated (Fatal) for blank or duplicate keys.
+///     both emitting input-cell.{role}.missing (Error) when blank;
+///   - the identity-integrity gate (opt-in): MalformedKeyCheck for column Q (XrefId),
+///     emitting structure.xrefid-empty-or-duplicated (Fatal) for blank or duplicate keys,
+///     carried in IdentityGateCheck with HaltOnMalformedKeys=true so any malformed key
+///     halts the chain (emits ONLY the gate findings) before the input checks run.
 /// </summary>
 public static class RlqV01Profile
 {
     public static ValidationPipelineProfile<RlqV01Question> Build(RlqV01Config config)
     {
+        // Identity-integrity gate check: surfaces blank/duplicate XrefId keys (column Q) as
+        // structure.xrefid-empty-or-duplicated (Fatal). Lifted out of Extensions into the gate
+        // slot so that any malformed key halts the chain before the input/structure checks run.
+        var gateCheck = new MalformedKeyCheck<RlqV01Question>(config.XrefIdColumn);
+
         return new ValidationPipelineProfile<RlqV01Question>(
             SheetName: config.SheetName,
             Layout: LayoutParser.Parse(
@@ -61,7 +68,8 @@ public static class RlqV01Profile
                     providedBySelector: q => q.ProvidedBy,
                     role:               "answer",
                     column:             config.AnswerColumn),
-                new MalformedKeyCheck<RlqV01Question>(config.XrefIdColumn),
-            ]);
+            ],
+            HaltOnMalformedKeys: true,
+            IdentityGateCheck: gateCheck);
     }
 }
