@@ -16,9 +16,12 @@ namespace ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 ///     never reached — it is a documenting throw rather than a real factory;
 ///   - one DV-role: the answer column (H), stamping the four answer-DV fields exactly as the
 ///     CLQ answer DV-role does;
-///   - two extensions (chunk 2): RequiredInputCellAnyValue for column L
+///   - three extensions (chunk 2): RequiredInputCellAnyValue for column L
 ///     (material-change, role "material-change") and column H (answer, role "answer"),
-///     both emitting input-cell.{role}.missing (Error) when blank;
+///     both emitting input-cell.{role}.missing (Error) when blank; plus
+///     WithinYearStructureCheck for the XrefId column (Q), emitting
+///     structure.question-removed / structure.question-added (Error) — filter-free,
+///     since the gate guarantees clean keys before any extension runs;
 ///   - the identity-integrity gate (opt-in): MalformedKeyCheck for column Q (XrefId),
 ///     emitting structure.xrefid-empty-or-duplicated (Fatal) for blank or duplicate keys,
 ///     carried in IdentityGateCheck with HaltOnMalformedKeys=true so any malformed key
@@ -68,6 +71,9 @@ public static class RlqV01Profile
                     providedBySelector: q => q.ProvidedBy,
                     role:               "answer",
                     column:             config.AnswerColumn),
+                new WithinYearStructureCheck<RlqV01Question>(
+                    providedBySelector: q => q.ProvidedBy,
+                    column:             config.XrefIdColumn),
             ],
             HaltOnMalformedKeys: true,
             IdentityGateCheck: gateCheck);
