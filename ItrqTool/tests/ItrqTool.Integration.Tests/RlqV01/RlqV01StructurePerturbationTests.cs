@@ -140,4 +140,111 @@ public sealed class RlqV01StructurePerturbationTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    [Fact]
+    public async Task InPlaceXrefIdReorder_ExactlyOneRowShiftFinding_NamingNeighbours()
+    {
+        // Baseline order (anchor rows): x1@6, x2@7, x3@8 (multi-row 8–10), x4@13.
+        // Template ranks by anchor row: x1=1, x2=2, x3=3, x4=4.
+        //
+        // Perturbation (current workbook only): reorder x2 ↔ x3 IN PLACE by relabelling their
+        // XrefId cells — Q7 ← "x3" (the single-row question at row 7) and Q8/Q9/Q10 ← "x2" (the
+        // whole multi-row group). Every relabelled row stays inside section 1's declared range
+        // (6–10), so the parser still parses them. The keys remain {x1,x3,x2,x4} (each once),
+        // so the identity gate does NOT fire.
+        //
+        // Current order of MATCHED questions becomes x1(rank1), x3(rank3), x2(rank2), x4(rank4)
+        // ⇒ rank sequence [1,3,2,4]. The rank-minimal LIS keeps 1,2,4, flagging the rank-3
+        // question (now at row 7) as a single structure.question-row-shifted at Q7. There is no
+        // removed/added finding (all four template keys are still present and matched).
+
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var currentPath  = Path.Combine(dir, "current.xlsx");
+            var templatePath = Path.Combine(dir, "template.xlsx");
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var configPath   = Path.Combine(dir, "config.json");
+            var reportPath   = Path.Combine(dir, "report.json");
+
+            RlqV01BaselineFactory.WriteCurrent(currentPath);
+            RlqV01BaselineFactory.WriteTemplate(templatePath);
+            RlqV01BaselineFactory.WritePrevious(previousPath);
+            await File.WriteAllTextAsync(configPath, RlqV01BaselineFactory.SyntheticConfigJson);
+
+            // Reopen the current workbook and reorder x2 ↔ x3 in place via their XrefId cells.
+            using (var wb = new XLWorkbook(currentPath))
+            {
+                var ws = wb.Worksheets.First();
+                ws.Cell(7, "Q").Value = "x3";    // single-row question at row 7 now carries x3
+                ws.Cell(8, "Q").Value = "x2";    // multi-row group (rows 8–10) now carries x2
+                ws.Cell(9, "Q").Value = "x2";
+                ws.Cell(10, "Q").Value = "x2";
+                wb.Save();
+            }
+
+            var task = new RiskLevelQuestionValidationV01Task(
+                new ClosedXmlExcelStructureReader(
+                    NullLogger<ClosedXmlExcelStructureReader>.Instance),
+                NullLogger<RiskLevelQuestionValidationV01Task>.Instance);
+
+            var ctx = new TaskExecutionContext(
+                TaskId: "validate",
+                InputPaths: new Dictionary<string, string>
+                {
+                    ["currentResponse"]  = currentPath,
+                    ["emptyTemplate"]    = templatePath,
+                    ["previousResponse"] = previousPath,
+                },
+                OutputPaths: new Dictionary<string, string> { ["report"] = reportPath },
+                Logger: NullLogger.Instance,
+                WorkingDirectory: dir)
+            {
+                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["configurationFullFilename"] = configPath,
+                },
+            };
+
+            var result = await task.ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue(
+                "task must succeed; errors: {0}",
+                string.Join("; ", result.Messages.Select(m => m.Text)));
+
+            var report = ValidationReportSerializer.Deserialize(
+                await File.ReadAllTextAsync(reportPath));
+
+            // ── Clean keys ⇒ the gate did NOT fire ──
+            (report.Halted ?? false).Should().BeFalse(
+                "the reorder keeps all XrefId keys distinct and non-blank, so the identity gate does not halt");
+
+            // ── Exact-set: exactly one row-shift finding at Q7, naming both neighbours ──
+            var shift = report.Findings.Should().ContainSingle(
+                "exactly one structure.question-row-shifted expected; actual: {0}",
+                string.Join("; ", report.Findings.Select(f =>
+                    $"[{f.Evaluation}] {f.Check} @ {f.CellAddresses}: {f.CheckResult}"))).Subject;
+
+            shift.Check.Should().Be(ValidationCheck.Structure);
+            shift.Evaluation.Should().Be(FindingEvaluation.Error);
+            shift.CellAddresses.Should().Be("Q7");
+            shift.CheckResult.Should()
+                .Contain("identity key 'x3'")
+                .And.Contain("expected to follow 'x2'")
+                .And.Contain("found following 'x1'");
+
+            // ── No removed/added findings spuriously fire ──
+            report.Findings.Should().NotContain(
+                f => f.CheckResult.Contains("absent from the response", StringComparison.Ordinal) ||
+                     f.CheckResult.Contains("absent from the empty template", StringComparison.Ordinal),
+                "all four template keys are still present and matched — no removed/added finding");
+
+            // ── No input-presence findings ──
+            report.Findings.Should().NotContain(
+                f => f.Check == ValidationCheck.MissingResponse,
+                "every relabelled question keeps its answer/material-change cells filled");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }
