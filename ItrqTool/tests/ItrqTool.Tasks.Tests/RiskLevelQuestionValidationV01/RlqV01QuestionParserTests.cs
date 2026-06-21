@@ -232,7 +232,7 @@ public sealed class RlqV01QuestionParserTests
     }
 
     [Fact]
-    public void Parse_BlankXrefIdQuestionRow_CollectsWarning_AndDoesNotFoldIntoNeighbour()
+    public void Parse_BlankXrefIdQuestionRow_EmitsDegenerateNullKeyRecord_AndDoesNotFoldIntoNeighbour()
     {
         var rows = new List<ExcelRowStructure>
         {
@@ -244,15 +244,50 @@ public sealed class RlqV01QuestionParserTests
 
         var result = RlqV01QuestionParser.Parse(rows, SingleSection(), Config(), messages);
 
-        // RLQ-1 closed by the blank row; the orphan is NOT appended to it.
-        var q = result.Should().ContainSingle().Subject;
-        q.RowNumber.Should().Be(3);
-        q.XrefId.Should().Be("RLQ-1");
-        q.ExplanationRows.Should().ContainSingle();
+        // Blank-xref row emits a degenerate null-key record; RLQ-1 is NOT extended by it.
+        result.Should().HaveCount(2);
 
-        messages.Should().ContainSingle();
-        messages[0].Severity.Should().Be(MessageSeverity.Warning);
-        messages[0].Text.Should().Contain("Row 4");
-        messages[0].Text.Should().Contain("XrefId");
+        var valid = result[0];
+        valid.RowNumber.Should().Be(3);
+        valid.XrefId.Should().Be("RLQ-1");
+        valid.ExplanationRows.Should().ContainSingle(); // RLQ-1 closed before the blank row
+
+        var degenerate = result[1];
+        degenerate.RowNumber.Should().Be(4);
+        degenerate.XrefId.Should().BeNull(); // null-key record ready for ClassifyKeys → Blank
+
+        messages.Should().BeEmpty(); // warning replaced by Fatal finding via MalformedKeyCheck
+    }
+
+    [Fact]
+    public void Parse_BlankXrefIdMidMultiRowQuestion_SplitsGroup_EmitsDegenerateRecord()
+    {
+        // A multi-row question "RLQ-X" intended across rows 3–5 with row 4's XrefId blank.
+        // The blank row closes the in-progress group (row 3 only) and becomes a degenerate
+        // record; row 5 starts a fresh RLQ-X group. Parser emits 3 records.
+        var rows = new List<ExcelRowStructure>
+        {
+            Row(2, ("D", "Section One")),
+            Row(3, ("D", "Spanning question"), ("Q", "RLQ-X")),
+            Row(4, ("D", "Blank-xref row"),    ("Q", "")),      // blank XrefId mid-group
+            Row(5, ("I", "req2"),              ("Q", "RLQ-X")), // resumes after blank
+        };
+        var messages = new List<TaskMessage>();
+
+        var result = RlqV01QuestionParser.Parse(rows, SingleSection(), Config(), messages);
+
+        result.Should().HaveCount(3);
+
+        result[0].RowNumber.Should().Be(3);
+        result[0].XrefId.Should().Be("RLQ-X");
+        result[0].ExplanationRows.Should().ContainSingle(); // group closed at the blank row
+
+        result[1].RowNumber.Should().Be(4);
+        result[1].XrefId.Should().BeNull(); // degenerate null-key record
+
+        result[2].RowNumber.Should().Be(5);
+        result[2].XrefId.Should().Be("RLQ-X"); // fresh group after the blank
+
+        messages.Should().BeEmpty();
     }
 }

@@ -72,13 +72,12 @@ public static class RlqV01QuestionParser
 
             if (xref is null)
             {
-                // A question row with a blank XrefId cannot be grouped. Close any open group,
-                // surface a warning, and do not fold this row into a neighbouring question.
-                // Richer structural findings are a later chunk; here we only surface a message.
+                // A blank XrefId cannot be grouped. Close any open group and emit the row as a
+                // degenerate one-row record (XrefId = null) so it flows through ClassifyKeys →
+                // MalformedKeyReason.Blank → MalformedKeyCheck (parity with CLQ blank-key handling),
+                // surfacing a Fatal structure.xrefid-empty-or-duplicated finding rather than a soft warning.
                 CloseGroup();
-                messages.Add(new TaskMessage(MessageSeverity.Warning,
-                    $"Row {row.RowNumber}: XrefId column ({config.XrefIdColumn}) is blank — row cannot be grouped into a question and was skipped.",
-                    DateTimeOffset.Now));
+                questions.Add(BuildQuestion([row], null, currentSection, config));
                 continue;
             }
 

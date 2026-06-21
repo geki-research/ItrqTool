@@ -141,4 +141,99 @@ public sealed class RlqV01XrefIdIntegrityPerturbationTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    [Fact]
+    public async Task BlankXrefId_SurfacedAsStructureFatal_AndSuppressesInputPresence()
+    {
+        // Baseline layout:
+        //   Q1 @ row 6  (xref x1, single-row)
+        //   Q2 @ row 7  (xref x2, single-row)
+        //   Q3 @ rows 8–10 (xref x3, multi-row)
+        //   Q4 @ row 13 (xref x4, single-row)
+        //
+        // Perturbation (current workbook only):
+        //   Q7  (Q2's XrefId)        ← "" — blank: parser emits a degenerate null-key record
+        //   L7  (Q2's MaterialChange) ← "" — blank: proves malformed row suppresses input-presence
+        //
+        // Expected: exactly 1 finding — Q7 blank XrefId (Fatal, Structure).
+        // Complementarity: no MissingResponse finding despite L7 blank
+        //   (degenerate record has WithinYear == NotEvaluatedMalformedKey
+        //    → RequiredInputCellAnyValue skips it).
+
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var currentPath  = Path.Combine(dir, "current.xlsx");
+            var templatePath = Path.Combine(dir, "template.xlsx");
+            var previousPath = Path.Combine(dir, "previous.xlsx");
+            var configPath   = Path.Combine(dir, "config.json");
+            var reportPath   = Path.Combine(dir, "report.json");
+
+            RlqV01BaselineFactory.WriteCurrent(currentPath);
+            RlqV01BaselineFactory.WriteTemplate(templatePath);
+            RlqV01BaselineFactory.WritePrevious(previousPath);
+            await File.WriteAllTextAsync(configPath, RlqV01BaselineFactory.SyntheticConfigJson);
+
+            using (var wb = new XLWorkbook(currentPath))
+            {
+                var ws = wb.Worksheets.First();
+                ws.Cell(7, "Q").Value = ""; // blank Q2's XrefId — degenerate null-key record
+                ws.Cell(7, "L").Value = ""; // blank L7 — proves malformed row suppresses input-presence
+                wb.Save();
+            }
+
+            var task = new RiskLevelQuestionValidationV01Task(
+                new ClosedXmlExcelStructureReader(
+                    NullLogger<ClosedXmlExcelStructureReader>.Instance),
+                NullLogger<RiskLevelQuestionValidationV01Task>.Instance);
+
+            var ctx = new TaskExecutionContext(
+                TaskId: "validate",
+                InputPaths: new Dictionary<string, string>
+                {
+                    ["currentResponse"]  = currentPath,
+                    ["emptyTemplate"]    = templatePath,
+                    ["previousResponse"] = previousPath,
+                },
+                OutputPaths: new Dictionary<string, string> { ["report"] = reportPath },
+                Logger: NullLogger.Instance,
+                WorkingDirectory: dir)
+            {
+                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["configurationFullFilename"] = configPath,
+                },
+            };
+
+            var result = await task.ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue(
+                "task must succeed; errors: {0}",
+                string.Join("; ", result.Messages.Select(m => m.Text)));
+
+            var report = ValidationReportSerializer.Deserialize(
+                await File.ReadAllTextAsync(reportPath));
+
+            // ── Exact-set: exactly 1 finding ──
+            report.Findings.Should().HaveCount(1,
+                "exactly one blank-key finding expected (Q2's XrefId at Q7); actual: {0}",
+                string.Join("; ", report.Findings.Select(f =>
+                    $"[{f.Evaluation}] {f.Check} @ {f.CellAddresses}: {f.CheckResult}")));
+
+            report.Findings.Should().Contain(f =>
+                f.Check == ValidationCheck.Structure &&
+                f.Evaluation == FindingEvaluation.Fatal &&
+                f.CellAddresses == "Q7" &&
+                f.CheckResult.Contains("blank", StringComparison.Ordinal),
+                because: "expected Fatal/Structure finding at Q7 with 'blank' in CheckResult");
+
+            // ── Complementarity: no MissingResponse findings ──
+            // L7 is blank but row 7 is NotEvaluatedMalformedKey → RequiredInputCellAnyValue skips it.
+            report.Findings.Should().NotContain(
+                f => f.Check == ValidationCheck.MissingResponse,
+                "input-presence checks must be suppressed on the malformed (blank-XrefId) row");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }
