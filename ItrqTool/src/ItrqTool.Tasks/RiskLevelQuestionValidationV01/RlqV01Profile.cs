@@ -16,9 +16,11 @@ namespace ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 ///     never reached — it is a documenting throw rather than a real factory;
 ///   - one DV-role: the answer column (H), stamping the four answer-DV fields exactly as the
 ///     CLQ answer DV-role does;
-///   - two extensions (chunk 2, finding 1): RequiredInputCellAnyValue for column L
+///   - three extensions (chunk 2): RequiredInputCellAnyValue for column L
 ///     (material-change, role "material-change") and column H (answer, role "answer"),
-///     both emitting input-cell.{role}.missing (Error) when blank.
+///     both emitting input-cell.{role}.missing (Error) when blank; plus
+///     MalformedKeyCheck for column Q (XrefId), emitting
+///     structure.xrefid-empty-or-duplicated (Fatal) for blank or duplicate keys.
 /// </summary>
 public static class RlqV01Profile
 {
@@ -59,6 +61,7 @@ public static class RlqV01Profile
                     providedBySelector: q => q.ProvidedBy,
                     role:               "answer",
                     column:             config.AnswerColumn),
+                new MalformedKeyCheck<RlqV01Question>(config.XrefIdColumn),
             ]);
     }
 }
