@@ -2,6 +2,7 @@ using ItrqTool.Domain;
 using ItrqTool.Tasks.QuestionnaireValidation;
 using ItrqTool.Tasks.QuestionnaireValidation.Checks;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
+using ItrqTool.Tasks.Shared;
 
 namespace ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 
@@ -55,6 +56,11 @@ public static class RlqV01Profile
                      AnswerDvFormula  = cell.DataValidationFormula,
                      AnswerDvOperator = cell.DataValidationOperator,
                      AnswerDvFormula2 = cell.DataValidationFormula2,
+                     AnswerDvListValues =
+                         string.Equals(cell.DataValidationType, "List", StringComparison.OrdinalIgnoreCase)
+                         && DvListParser.ClassifySource(cell.DataValidationFormula ?? "") == DvListSourceKind.Inline
+                             ? DvListParser.ParseInline(cell.DataValidationFormula ?? "")
+                             : null,
                  }),
                 (Column: config.MaterialChangeColumn,
                  ApplyDv: (RlqV01Question q, ExcelCellStructure cell) => q with
@@ -63,6 +69,11 @@ public static class RlqV01Profile
                      MaterialChangeDvFormula  = cell.DataValidationFormula,
                      MaterialChangeDvOperator = cell.DataValidationOperator,
                      MaterialChangeDvFormula2 = cell.DataValidationFormula2,
+                     MaterialChangeDvListValues =
+                         string.Equals(cell.DataValidationType, "List", StringComparison.OrdinalIgnoreCase)
+                         && DvListParser.ClassifySource(cell.DataValidationFormula ?? "") == DvListSourceKind.Inline
+                             ? DvListParser.ParseInline(cell.DataValidationFormula ?? "")
+                             : null,
                  }),
             ],
             BaselineDescriptors: [],
@@ -97,6 +108,26 @@ public static class RlqV01Profile
                     dvFormula2Selector: q => q.MaterialChangeDvFormula2,
                     providedBySelector: q => q.ProvidedBy,
                     role:   "material-change-dv",
+                    column: config.MaterialChangeColumn),
+                new DvConformanceCell<RlqV01Question>(
+                    valueSelector:      q => q.Answer,
+                    dvTypeSelector:     q => q.AnswerDvType,
+                    dvOperatorSelector: q => q.AnswerDvOperator,
+                    dvFormulaSelector:  q => q.AnswerDvFormula,
+                    dvFormula2Selector: q => q.AnswerDvFormula2,
+                    listValuesSelector: q => q.AnswerDvListValues,
+                    providedBySelector: q => q.ProvidedBy,
+                    role:   "answer",
+                    column: config.AnswerColumn),
+                new DvConformanceCell<RlqV01Question>(
+                    valueSelector:      q => q.MaterialChange,
+                    dvTypeSelector:     q => q.MaterialChangeDvType,
+                    dvOperatorSelector: q => q.MaterialChangeDvOperator,
+                    dvFormulaSelector:  q => q.MaterialChangeDvFormula,
+                    dvFormula2Selector: q => q.MaterialChangeDvFormula2,
+                    listValuesSelector: q => q.MaterialChangeDvListValues,
+                    providedBySelector: q => q.ProvidedBy,
+                    role:   "material-change",
                     column: config.MaterialChangeColumn),
             ],
             HaltOnMalformedKeys: true,
