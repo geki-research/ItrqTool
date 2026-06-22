@@ -30,9 +30,10 @@ public sealed class RlqV01Config
     public string SheetName { get; init; } = "";
     public IReadOnlyList<string> SectionRows { get; init; } = [];
 
-    // Cross-year numeric deviation threshold (finding 6a). A confidently-matched answer that moved
-    // from the previous year by >= this many units (WholeNumber/Decimal answers only) is flagged.
-    // Required, no code default: an absent/negative value is a config error (see Validate()).
+    // Cross-year RELATIVE deviation threshold (finding 6a), expressed as a FRACTION: 0.25 = 25%.
+    // A confidently-matched answer whose value moved from the previous year by >= this fraction of
+    // the previous value (|cur - prev| / |prev|, WholeNumber/Decimal answers only; prev == 0 skipped)
+    // is flagged. Required, no code default: a negative value is a config error (see Validate()).
     public double DeviationThreshold { get; init; }
 
     public IReadOnlyDictionary<string, FindingEvaluation> SeverityOverrides { get; init; }

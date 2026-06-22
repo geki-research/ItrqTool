@@ -10,15 +10,16 @@ namespace ItrqTool.Tasks.Tests.QuestionnaireValidation.Checks;
 
 // Coverage for the CrossYearDeviationCell<T> wrapper (finding 6a): the cross-year Agree gate
 // (PreviousMatch non-null IFF Agree), the numeric-only DV-type filter (WholeNumber/Decimal only;
-// List/Text/AnyValue/Date skipped), the present-gate + invariant parse-gate, the threshold compare
-// (|cur - prev| >= threshold), and the anchor address + Deviation check + Warning default. Mirrors
+// List/Text/AnyValue/Date skipped), the present-gate + invariant parse-gate, the zero-base skip
+// (prev == 0), the RELATIVE threshold compare (|cur - prev| / |prev| >= threshold, threshold a
+// FRACTION, inclusive), and the anchor address + Deviation check + Warning default. Mirrors
 // DvConformanceCellTests' direct AlignedQuestion-builder style; constructs real RlqV01Question
 // records so the generic check is exercised through its production type parameter.
 public sealed class CrossYearDeviationCellTests
 {
     private const string Role = "answer";
     private const string Column = "H";
-    private const double Threshold = 2;
+    private const double Threshold = 0.25; // 25% relative year-over-year change.
 
     private static CrossYearDeviationCell<RlqV01Question> Primitive(double threshold = Threshold) =>
         new(answerSelector:         q => q.Answer,
@@ -87,10 +88,11 @@ public sealed class CrossYearDeviationCellTests
     }
 
     [Fact]
-    public void WholeNumber_DeltaAtOrAboveThreshold_EmitsAtAnchor_Warning()
+    public void WholeNumber_RelativeChangeExactlyThreshold_EmitsAtAnchor_Warning()
     {
+        // prev 4 -> cur 5: |5 - 4| / |4| = 0.25 == threshold. The compare is >= (inclusive) → emits.
         var cur = Q(6, "5", providedBy: "Unit-B");
-        var prev = Q(6, "1");
+        var prev = Q(6, "4");
         var p = Primitive();
 
         var f = p.Run(Result(Aq(cur, prev)), Emitter(p)).Should().ContainSingle().Subject;
@@ -103,30 +105,47 @@ public sealed class CrossYearDeviationCellTests
     }
 
     [Fact]
-    public void WholeNumber_DeltaExactlyThreshold_Emits()
+    public void WholeNumber_RelativeChangeBelowThreshold_NoFinding()
     {
-        // delta = |3 - 1| = 2 == threshold → the comparison is >=, so this emits.
+        // prev 5 -> cur 6: |6 - 5| / |5| = 0.20 < 0.25 → no finding.
         var p = Primitive();
-        p.Run(Result(Aq(Q(7, "3"), Q(7, "1"))), Emitter(p))
-            .Should().ContainSingle().Which.CellAddresses.Should().Be("H7");
+        p.Run(Result(Aq(Q(7, "6"), Q(7, "5"))), Emitter(p)).Should().BeEmpty();
     }
 
     [Fact]
-    public void WholeNumber_DeltaBelowThreshold_NoFinding()
+    public void WholeNumber_RelativeChangeAboveThreshold_Emits()
     {
-        // delta = |2 - 1| = 1 < 2 → no finding.
+        // prev 4 -> cur 6: |6 - 4| / |4| = 0.50 >= 0.25 → one finding at the anchor.
         var p = Primitive();
-        p.Run(Result(Aq(Q(6, "2"), Q(6, "1"))), Emitter(p)).Should().BeEmpty();
+        p.Run(Result(Aq(Q(6, "6"), Q(6, "4"))), Emitter(p))
+            .Should().ContainSingle().Which.CellAddresses.Should().Be("H6");
     }
 
     [Fact]
-    public void Decimal_FractionalDeltaAtOrAboveThreshold_Emits()
+    public void Decimal_RelativeChangeBelowThreshold_NoFinding()
     {
-        // delta = |3.5 - 1.0| = 2.5 >= 2, DV type Decimal → emits.
-        var cur = Q(6, "3.5", dvType: "Decimal");
-        var prev = Q(6, "1.0", dvType: "Decimal");
+        // prev 4.0 -> cur 4.5: |4.5 - 4.0| / |4.0| = 0.125 < 0.25, DV type Decimal → no finding.
+        var cur = Q(6, "4.5", dvType: "Decimal");
+        var prev = Q(6, "4.0", dvType: "Decimal");
         var p = Primitive();
-        p.Run(Result(Aq(cur, prev)), Emitter(p))
+        p.Run(Result(Aq(cur, prev)), Emitter(p)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PreviousZero_NoFinding_ZeroBaseSkip()
+    {
+        // prev == 0 has no percentage base → skipped, regardless of the current value.
+        var p = Primitive();
+        p.Run(Result(Aq(Q(6, "3"), Q(6, "0"))), Emitter(p)).Should().BeEmpty();
+        p.Run(Result(Aq(Q(6, "0"), Q(6, "0"))), Emitter(p)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void NegativePrevious_RelativeChangeUsesAbsoluteDenominator_Emits()
+    {
+        // prev -4 -> cur -5: |-5 - (-4)| / |-4| = 1/4 = 0.25 == threshold → one finding.
+        var p = Primitive();
+        p.Run(Result(Aq(Q(6, "-5"), Q(6, "-4"))), Emitter(p))
             .Should().ContainSingle().Which.CellAddresses.Should().Be("H6");
     }
 
@@ -138,7 +157,8 @@ public sealed class CrossYearDeviationCellTests
     [InlineData(null)]
     public void NonNumericDvType_NoFinding_EvenWhenValuesNumericLooking(string? dvType)
     {
-        // Values are numeric and far apart, but the DV type is not WholeNumber/Decimal → skipped.
+        // Values are numeric and far apart (would be 400%), but the DV type is not
+        // WholeNumber/Decimal → skipped.
         var cur = Q(6, "5", dvType: dvType);
         var prev = Q(6, "1", dvType: dvType);
         var p = Primitive();
@@ -152,7 +172,7 @@ public sealed class CrossYearDeviationCellTests
     [InlineData(CrossYearOutcome.SameXrefIdTextDiverged)]
     public void NotAgree_NoFinding(CrossYearOutcome outcome)
     {
-        // Big numeric delta, but not a confident (Agree) match → no baseline, no deviation.
+        // Big relative delta, but not a confident (Agree) match → no baseline, no deviation.
         var cur = Q(6, "5");
         var prev = Q(6, "1");
         var p = Primitive();
@@ -163,7 +183,7 @@ public sealed class CrossYearDeviationCellTests
     public void BlankCurrentOrPreviousAnswer_NoFinding_PresentGate()
     {
         var p = Primitive();
-        p.Run(Result(Aq(Q(6, "   "), Q(6, "1"))), Emitter(p)).Should().BeEmpty();
+        p.Run(Result(Aq(Q(6, "   "), Q(6, "4"))), Emitter(p)).Should().BeEmpty();
         p.Run(Result(Aq(Q(6, "5"), Q(6, null))), Emitter(p)).Should().BeEmpty();
     }
 
@@ -171,13 +191,14 @@ public sealed class CrossYearDeviationCellTests
     public void UnparseableEitherSide_NoFinding_ParseGate()
     {
         var p = Primitive();
-        p.Run(Result(Aq(Q(6, "abc"), Q(6, "1"))), Emitter(p)).Should().BeEmpty();
+        p.Run(Result(Aq(Q(6, "abc"), Q(6, "4"))), Emitter(p)).Should().BeEmpty();
         p.Run(Result(Aq(Q(6, "5"), Q(6, "n/a"))), Emitter(p)).Should().BeEmpty();
     }
 
     [Fact]
     public void SeverityOverride_Applies()
     {
+        // prev 1 -> cur 5: |5 - 1| / |1| = 4.0 >= 0.25 → emits; override raises it to Error.
         var p = Primitive();
         var overrides = new Dictionary<string, FindingEvaluation>(StringComparer.Ordinal)
         {

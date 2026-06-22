@@ -8,10 +8,10 @@ using ItrqTool.Tasks.QuestionnaireValidation.Findings;
 // ── CrossYearDeviationCell<T> — cross-year numeric-answer deviation primitive (finding 6a) ──
 //
 // Sheet-agnostic extension check: a confidently-matched answer whose NUMERIC value moved from the
-// previous-year answer by at least the configured threshold is flagged. This is the first RLQ
-// consumer of the cross-year arm; it mirrors CLQ_v01's AnswerDeviation, generalised off the answer
-// column to any role/column and made type-aware (the answer's DV type decides whether a numeric
-// comparison even applies).
+// previous-year answer by at least the configured RELATIVE (percentage) threshold is flagged. This
+// is the first RLQ consumer of the cross-year arm; it mirrors CLQ_v01's AnswerDeviation, generalised
+// off the answer column to any role/column and made type-aware (the answer's DV type decides whether
+// a numeric comparison even applies).
 //
 // Gate: cross-year deviation is judged against the previous-RESPONSE match, so only Agree rows are
 // evaluated — AlignedQuestion<T>.PreviousMatch is non-null IFF CrossYear == Agree. Every other
@@ -24,12 +24,15 @@ using ItrqTool.Tasks.QuestionnaireValidation.Findings;
 //
 // Present-gate + parse-gate: a blank current or previous answer is skipped (missing-answer is
 // finding 1's territory); an answer that does not parse as an invariant double on either side is
-// skipped (cannot compute a delta — never a false positive). The numeric parse is LOCAL and
+// skipped (cannot compute a deviation — never a false positive). The numeric parse is LOCAL and
 // invariant (mirroring the evaluator's invariant-numeric convention; DvConformanceEvaluator is
 // NOT imported — its Date branch stays untouched).
 //
-// Emits ONLY when both sides parse and |cur - prev| >= threshold. Id: cross-year.answer-deviation
-// (ValidationCheck.Deviation). Each instantiated role must produce ids unique across the catalogue.
+// Zero-base gate: a previous-year answer of 0 is skipped — a relative change has no percentage base.
+//
+// Emits ONLY when both sides parse, prev != 0, and |cur - prev| / |prev| >= threshold (the threshold
+// is a FRACTION; >= is inclusive). Id: cross-year.answer-deviation (ValidationCheck.Deviation). Each
+// instantiated role must produce ids unique across the catalogue.
 
 public sealed class CrossYearDeviationCell<T> : IExtensionCheck<T> where T : class, IAlignmentIdentity
 {
@@ -64,7 +67,7 @@ public sealed class CrossYearDeviationCell<T> : IExtensionCheck<T> where T : cla
         _descriptors = new[]
         {
             new FindingDescriptor(_deviationId, deviationDefault, ValidationCheck.Deviation,
-                "The answer changed from the confidently-matched previous year by at least the configured deviation threshold."),
+                "The answer changed from the confidently-matched previous year by at least the configured relative (percentage) deviation threshold."),
         };
     }
 
@@ -102,21 +105,29 @@ public sealed class CrossYearDeviationCell<T> : IExtensionCheck<T> where T : cla
             if (string.IsNullOrWhiteSpace(curS) || string.IsNullOrWhiteSpace(prevS))
                 continue;
 
-            // Parse-gate: cannot compute a delta unless both parse as invariant doubles.
+            // Parse-gate: cannot compute a deviation unless both parse as invariant doubles.
             if (!TryParseInvariant(curS, out var curVal) || !TryParseInvariant(prevS, out var prevVal))
                 continue;
 
-            var delta = Math.Abs(curVal - prevVal);
-            if (delta >= _threshold)
+            // No percentage base when the previous-year answer is zero: skip. A relative change is
+            // undefined against a zero base — this covers prev=0/cur=0 (no change) AND prev=0/cur!=0
+            // (no base to measure against), both per the settled spec.
+            if (prevVal == 0)
+                continue;
+
+            // RELATIVE deviation: |cur - prev| / |prev|. The threshold is a FRACTION (0.25 = 25%);
+            // the comparison is inclusive (>=), so exactly-threshold flags. The |prev| denominator
+            // handles a negative previous value.
+            var relChange = Math.Abs(curVal - prevVal) / Math.Abs(prevVal);
+            if (relChange >= _threshold)
             {
                 int row = cur.RowNumber;
                 findings.Add(emitter.Emit(_deviationId,
                     $"{_column}{row}", cur.QuestionNumber, cur.QuestionText,
                     requestedData: null, providedBy: _providedBy(cur),
-                    $"Answer at {_column}{row} deviates from the previous year by " +
-                    $"{delta.ToString(CultureInfo.InvariantCulture)} (threshold " +
-                    $"{_threshold.ToString(CultureInfo.InvariantCulture)}): " +
-                    $"{prevS!.Trim()} -> {curS!.Trim()}."));
+                    $"Answer at {_column}{row} changed from {prevS!.Trim()} to {curS!.Trim()} " +
+                    $"({relChange.ToString("P0", CultureInfo.InvariantCulture)}), exceeding the " +
+                    $"{_threshold.ToString("P0", CultureInfo.InvariantCulture)} year-over-year deviation threshold."));
             }
         }
         return findings;

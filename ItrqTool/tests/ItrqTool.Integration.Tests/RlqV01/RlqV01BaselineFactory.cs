@@ -70,7 +70,7 @@ public static class RlqV01BaselineFactory
           "XrefIdColumn": "Q",
           "SheetName": "IT Risk Level Questions",
           "SectionRows": ["5:6-10", "12:13-13"],
-          "DeviationThreshold": 2,
+          "DeviationThreshold": 0.25,
           "SeverityOverrides": {}
         }
         """;
