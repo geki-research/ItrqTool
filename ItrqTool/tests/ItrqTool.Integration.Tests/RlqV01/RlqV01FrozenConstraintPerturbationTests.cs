@@ -209,7 +209,7 @@ public sealed class RlqV01FrozenConstraintPerturbationTests
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
 
-        WriteBaselineQuestions(ws);
+        RlqV01BaselineFactory.WriteCurrentBody(ws);
 
         // H DV: use the perturbed value for the target row, baseline ≥ 0 for all others.
         foreach (var row in new[] { 6, 7, 8, 13 })
@@ -232,7 +232,7 @@ public sealed class RlqV01FrozenConstraintPerturbationTests
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
 
-        WriteBaselineQuestions(ws);
+        RlqV01BaselineFactory.WriteCurrentBody(ws);
 
         // H DV: baseline ≥ 0 everywhere (unchanged).
         foreach (var row in new[] { 6, 7, 8, 13 })
@@ -248,35 +248,4 @@ public sealed class RlqV01FrozenConstraintPerturbationTests
         wb.SaveAs(path);
     }
 
-    // Writes the fixed baseline question structure (section headers, 4 questions, Q3 merges)
-    // matching RlqV01BaselineFactory — answers/sections/XrefIds identical so alignment works
-    // and RequiredInputCellAnyValue does not fire on any question.
-    private static void WriteBaselineQuestions(IXLWorksheet ws)
-    {
-        ws.Cell(5,  "D").Value = "Section One";
-        ws.Cell(12, "D").Value = "Section Two";
-
-        // Single-row questions: C/D/H/L/O/Q — all non-blank so input-presence checks pass.
-        foreach (var (row, xref) in new[] { (6, "x1"), (7, "x2"), (13, "x4") })
-        {
-            ws.Cell(row, "C").Value = xref;
-            ws.Cell(row, "D").Value = $"Question {xref} text";
-            ws.Cell(row, "H").Value = $"ans_{xref}";
-            ws.Cell(row, "L").Value = "No";
-            ws.Cell(row, "O").Value = "TestOU";
-            ws.Cell(row, "Q").Value = xref;
-        }
-
-        // Q3 multi-row anchor (row 8); rows 9/10 carry the same XrefId.
-        ws.Cell(8, "C").Value = "x3";
-        ws.Cell(8, "D").Value = "Question x3 text";
-        ws.Cell(8, "H").Value = "ans_x3";
-        ws.Cell(8, "L").Value = "No";
-        ws.Cell(8, "O").Value = "TestOU";
-        foreach (var row in new[] { 8, 9, 10 })
-            ws.Cell(row, "Q").Value = "x3";
-
-        foreach (var col in new[] { "C", "D", "H", "L", "O" })
-            ws.Range($"{col}8:{col}10").Merge();
-    }
 }

@@ -79,31 +79,44 @@ public static class RlqV01BaselineFactory
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        WriteCurrentBody(ws);
+        ApplyAnswerDv(ws);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
 
+    /// <summary>
+    /// Writes the current-response body onto <paramref name="ws"/>: section headers, all four
+    /// questions' once-per-question columns (C/D/E/F/G/H/L/O), the Q3 per-row I/J/K explanation
+    /// rows, the Q3 merges, and the Q column on every row. H answer values are whole-number integers
+    /// (x1=1, x2=2, x3=3, x4=4) conforming to the WholeNumber ≥ 0 answer DV. No data validation
+    /// is applied; the caller is responsible for DV.
+    /// </summary>
+    internal static void WriteCurrentBody(IXLWorksheet ws)
+    {
         WriteSectionHeaders(ws);
 
-        // Single-row questions
+        // Single-row questions — H answers: 1, 2, 4 (whole-number, DV-conforming).
         foreach (var (row, xref) in SingleRowQuestions)
         {
-            WriteOncePerQuestion(ws, row, number: xref, text: $"Question {xref} text", suffix: xref);
+            int answer = row switch { 6 => 1, 7 => 2, 13 => 4, _ => 0 };
+            WriteOncePerQuestion(ws, row, number: xref, text: $"Question {xref} text",
+                suffix: xref, answer: answer);
             ws.Cell(row, XrefIdCol).Value = xref;
             ws.Cell(row, CurExpCol).Value = $"Current explanation for {xref}.";
         }
 
-        // Q3 multi-row: merged once-per-question on anchor row, explanation per row
-        WriteOncePerQuestion(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text", suffix: Q3XrefId);
+        // Q3 multi-row: merged once-per-question on anchor row (H answer: 3), explanation per row.
+        WriteOncePerQuestion(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text",
+            suffix: Q3XrefId, answer: 3);
         foreach (var row in Q3Rows)
         {
             ws.Cell(row, XrefIdCol).Value = Q3XrefId;
-            ws.Cell(row, ReqExpCol).Value = $"req3_{row}";
+            ws.Cell(row, ReqExpCol).Value  = $"req3_{row}";
             ws.Cell(row, PrevExpCol).Value = $"prev3_{row}";
-            ws.Cell(row, CurExpCol).Value = $"cur3_{row}";
+            ws.Cell(row, CurExpCol).Value  = $"cur3_{row}";
         }
         ApplyQ3Merges(ws);
-
-        ApplyAnswerDv(ws);
-        ApplyMaterialChangeDv(ws);
-        wb.SaveAs(outputPath);
     }
 
     /// <summary>Writes the empty-template workbook (same structure; answer and explanation cells blank).</summary>
@@ -139,22 +152,25 @@ public static class RlqV01BaselineFactory
 
         WriteSectionHeaders(ws);
 
+        // Single-row questions — H answers: 10, 20, 40 (whole-number, offset from current for cross-year distinction).
         foreach (var (row, xref) in SingleRowQuestions)
         {
+            int answer = row switch { 6 => 10, 7 => 20, 13 => 40, _ => 0 };
             WriteOncePerQuestion(ws, row, number: xref, text: $"Question {xref} text",
-                suffix: xref, answerPrefix: "prev_ans_");
+                suffix: xref, answer: answer);
             ws.Cell(row, XrefIdCol).Value = xref;
             ws.Cell(row, CurExpCol).Value = $"Previous year explanation for {xref}.";
         }
 
+        // Q3 multi-row — H answer: 30.
         WriteOncePerQuestion(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text",
-            suffix: Q3XrefId, answerPrefix: "prev_ans_");
+            suffix: Q3XrefId, answer: 30);
         foreach (var row in Q3Rows)
         {
-            ws.Cell(row, XrefIdCol).Value = Q3XrefId;
-            ws.Cell(row, ReqExpCol).Value = $"prev_req3_{row}";
+            ws.Cell(row, XrefIdCol).Value  = Q3XrefId;
+            ws.Cell(row, ReqExpCol).Value  = $"prev_req3_{row}";
             ws.Cell(row, PrevExpCol).Value = $"prev_prev3_{row}";
-            ws.Cell(row, CurExpCol).Value = $"prev_cur3_{row}";
+            ws.Cell(row, CurExpCol).Value  = $"prev_cur3_{row}";
         }
         ApplyQ3Merges(ws);
 
@@ -171,14 +187,14 @@ public static class RlqV01BaselineFactory
 
     private static void WriteOncePerQuestion(
         IXLWorksheet ws, int row, string number, string text, string suffix,
-        string answerPrefix = "ans_")
+        int answer)
     {
         ws.Cell(row, QNumberCol).Value  = number;
         ws.Cell(row, TextCol).Value     = text;
         ws.Cell(row, GuidanceCol).Value = $"Guidance {suffix}.";
         ws.Cell(row, ReqTypeCol).Value  = $"Document{suffix}";
         ws.Cell(row, PrevAnsCol).Value  = $"prev_{suffix}";
-        ws.Cell(row, AnsCol).Value      = $"{answerPrefix}{suffix}";
+        ws.Cell(row, AnsCol).Value      = answer;
         ws.Cell(row, MatChgCol).Value   = "No";
         ws.Cell(row, PrvdByCol).Value   = "TestOU";
     }
