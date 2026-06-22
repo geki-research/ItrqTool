@@ -102,18 +102,56 @@ public sealed class DvRangeRefResolverTests
         result.Should().ContainSingle().Which.Resolved.Should().Equal("Yes", "No");
     }
 
-    // ── 5. NamedRange — UNCHANGED (stays null → NotCheckable) ────────────────────────────────
+    // ── 5. NamedRange — RESOLVES via ResolveDefinedNameValues (5b) ──────────────────────────────
 
     [Fact]
-    public void Resolve_NamedRange_LeavesQuestionUnchanged()
+    public void Resolve_NamedRange_StampsResolvedValues()
+    {
+        // ClassifySource("MyDropdownList") → NamedRange; resolver returns ["Yes","No"].
+        var reader = Substitute.For<IExcelStructureReader>();
+        reader.ResolveDefinedNameValues(FilePath, DvCellSheet, "MyDropdownList")
+              .Returns(new[] { "Yes", "No" });
+        var q = new Q(DvType: "List", DvFormula: "MyDropdownList");
+
+        var result = Resolve(reader, [q]);
+
+        result.Should().ContainSingle().Which.Resolved.Should().Equal("Yes", "No");
+        reader.DidNotReceiveWithAnyArgs().ReadCells(default!, default!, default!);
+    }
+
+    // ── 5a. NamedRange with leading '=' — '=' is stripped before the reader call ────────────────
+
+    [Fact]
+    public void Resolve_NamedRangeWithEqPrefix_StripsEqBeforeReaderCall()
+    {
+        // "=MyDropdownList" is what ClosedXML stores for the .List("=MyDropdownList") form.
+        // ClassifySource strips the '=' before classifying → NamedRange.
+        // The resolver must receive the BARE name "MyDropdownList", not "=MyDropdownList".
+        var reader = Substitute.For<IExcelStructureReader>();
+        reader.ResolveDefinedNameValues(FilePath, DvCellSheet, "MyDropdownList")
+              .Returns(new[] { "Yes", "No" });
+        var q = new Q(DvType: "List", DvFormula: "=MyDropdownList");
+
+        var result = Resolve(reader, [q]);
+
+        result.Should().ContainSingle().Which.Resolved.Should().Equal("Yes", "No");
+        reader.Received(1).ResolveDefinedNameValues(
+            Arg.Any<string>(), Arg.Any<string>(), "MyDropdownList");
+    }
+
+    // ── 5b. NamedRange absent — resolver returns null → question stays null (NotCheckable) ──────
+
+    [Fact]
+    public void Resolve_NamedRange_ResolverReturnsNull_QuestionUnchanged()
     {
         var reader = Substitute.For<IExcelStructureReader>();
-        var q = new Q(DvType: "List", DvFormula: "MyDropdownList"); // ClassifySource → NamedRange
+        reader.ResolveDefinedNameValues(FilePath, DvCellSheet, "MyDropdownList")
+              .Returns((IReadOnlyList<string>?)null);
+        var q = new Q(DvType: "List", DvFormula: "MyDropdownList");
 
         var result = Resolve(reader, [q]);
 
         result.Should().ContainSingle().Which.Resolved.Should().BeNull();
-        reader.DidNotReceiveWithAnyArgs().ReadCells(default!, default!, default!);
     }
 
     // ── 6. Non-List DV type — UNCHANGED ──────────────────────────────────────────────────────
@@ -218,12 +256,13 @@ public sealed class DvRangeRefResolverTests
     // ── ParseRangeRefFormula: direct parser tests ─────────────────────────────────────────────
 
     [Theory]
-    [InlineData("Lists!$A$1:$A$2",   "Questions", "Lists",   "A1:A2")]
-    [InlineData("Sheet1!A1:A3",       "Questions", "Sheet1",  "A1:A3")]
-    [InlineData("A1:A2",              "Questions", "Questions","A1:A2")]
-    [InlineData("$A$1:$A$2",          "Questions", "Questions","A1:A2")]
-    [InlineData("'My List'!$A$1:$A$2","Questions", "My List", "A1:A2")]
-    [InlineData("=Lists!$A$1:$A$2",   "Questions", "Lists",   "A1:A2")]
+    [InlineData("Lists!$A$1:$A$2",      "Questions", "Lists",    "A1:A2")]
+    [InlineData("Sheet1!A1:A3",          "Questions", "Sheet1",   "A1:A3")]
+    [InlineData("A1:A2",                 "Questions", "Questions","A1:A2")]
+    [InlineData("$A$1:$A$2",             "Questions", "Questions","A1:A2")]
+    [InlineData("'My List'!$A$1:$A$2",   "Questions", "My List",  "A1:A2")]
+    [InlineData("=Lists!$A$1:$A$2",      "Questions", "Lists",    "A1:A2")]
+    [InlineData("'O''Brien'!$A$1:$A$2",  "Questions", "O'Brien",  "A1:A2")]  // BL-023: '' → '
     public void ParseRangeRefFormula_ReturnsExpectedSheetAndRange(
         string formula, string fallback, string expectedSheet, string expectedRange)
     {

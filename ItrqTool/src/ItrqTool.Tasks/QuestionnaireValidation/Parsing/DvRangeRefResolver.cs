@@ -13,12 +13,17 @@ namespace ItrqTool.Tasks.QuestionnaireValidation.Parsing;
 /// Designed for a post-<see cref="DvPatcher"/> pass inside a per-workbook read/parse/patch
 /// method. At call time the question records already carry their patched DV fields
 /// (<c>DvType</c>, <c>DvFormula</c>, …); this class reads the DV formula off the record
-/// directly and calls <see cref="IExcelStructureReader.ReadCells"/> only for the backing cells.
-/// <para>
-/// <b>NamedRange is left to 5b.</b> <see cref="DvListParser.ClassifySource"/> is used as the
-/// gate; NamedRange formulas pass through unchanged, leaving <c>*DvListValues</c> null →
-/// <c>DvConformanceResult.NotCheckable</c> — never a false positive.
-/// </para>
+/// directly and dispatches on source kind:
+/// <list type="bullet">
+///   <item><b>RangeRef</b> — calls <see cref="IExcelStructureReader.ReadCells"/> on the
+///     backing A1 range.</item>
+///   <item><b>NamedRange</b> — calls
+///     <see cref="IExcelStructureReader.ResolveDefinedNameValues"/> with the bare name
+///     (leading <c>=</c> stripped); returns <c>null</c> if absent or all-blank →
+///     <c>NotCheckable</c>.</item>
+///   <item><b>Inline</b> — already resolved in the profile's <c>ApplyDv</c> lambda
+///     (5a-iii); the <c>currentListValuesSelector</c> non-null guard skips it here.</item>
+/// </list>
 /// </remarks>
 public static class DvRangeRefResolver
 {
@@ -49,38 +54,47 @@ public static class DvRangeRefResolver
                 var dvType    = dvTypeSelector(q);
                 var dvFormula = dvFormulaSelector(q);
 
-                // Gate: List DV, not already resolved by inline path, and source is a RangeRef.
+                // Gate: List DV, not already resolved by the inline path.
                 if (!string.Equals(dvType, "List", StringComparison.OrdinalIgnoreCase))
                     return q;
                 if (currentListValuesSelector(q) is not null)
                     return q;
                 if (string.IsNullOrEmpty(dvFormula))
                     return q;
-                if (DvListParser.ClassifySource(dvFormula) != DvListSourceKind.RangeRef)
-                    return q;
+                var kind = DvListParser.ClassifySource(dvFormula);
+                if (kind == DvListSourceKind.RangeRef)
+                {
+                    var (resolvedSheet, a1Range) = ParseRangeRefFormula(dvFormula, dvCellSheetName);
 
-                var (resolvedSheet, a1Range) = ParseRangeRefFormula(dvFormula, dvCellSheetName);
+                    var cells = reader.ReadCells(filePath, resolvedSheet, [a1Range]);
+                    var rangeValues = cells.Values
+                        .Select(c => c.TextValue)
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                        .Select(t => t!.Trim())
+                        .ToList();
 
-                var cells = reader.ReadCells(filePath, resolvedSheet, [a1Range]);
-                var values = cells.Values
-                    .Select(c => c.TextValue)
-                    .Where(t => !string.IsNullOrWhiteSpace(t))
-                    .Select(t => t!.Trim())
-                    .ToList();
+                    // All-empty backing range: leave null → NotCheckable (never false-positive).
+                    if (rangeValues.Count == 0) return q;
 
-                // All-empty backing range: leave null → NotCheckable (never false-positive).
-                if (values.Count == 0) return q;
+                    return stampListValues(q, rangeValues);
+                }
+                else if (kind == DvListSourceKind.NamedRange)
+                {
+                    var name = dvFormula.Trim();
+                    if (name.StartsWith('=')) name = name[1..].Trim();
 
-                return stampListValues(q, values);
+                    var nameValues = reader.ResolveDefinedNameValues(filePath, dvCellSheetName, name);
+                    if (nameValues is null || nameValues.Count == 0) return q;   // absent/empty → NotCheckable
+                    return stampListValues(q, nameValues);
+                }
+                return q;
             })
             .ToList();
     }
 
     // Parses a (=-stripped, trimmed) DV range-ref formula into (sheetName, a1Range).
-    // Handles: "Lists!$A$1:$A$2", "Sheet1!A1:A3", "'My Sheet'!$A$1:$A$2", "A1:A3" (same-sheet).
-    // $-stripping on both sheetPart and rangePart is always applied.
-    // BL-023: doubled '' escape inside quoted sheet names is not handled; only the outer
-    // '…' quotes are stripped. A sheet name containing a literal apostrophe is not supported.
+    // Handles: "Lists!$A$1:$A$2", "Sheet1!A1:A3", "'My Sheet'!$A$1:$A$2", "'O''Brien'!$A$1:$A$2",
+    // "A1:A3" (same-sheet). $-stripping on both sheetPart and rangePart is always applied.
     public static (string Sheet, string Range) ParseRangeRefFormula(
         string dvFormula, string fallbackSheet)
     {
@@ -93,10 +107,11 @@ public static class DvRangeRefResolver
             var sheetPart = s[..bangIdx];
             var rangePart = s[(bangIdx + 1)..];
 
-            // Unquote: strip surrounding single-quotes (e.g. 'My Sheet' → My Sheet).
-            // TODO(BL-023): doubled '' escape inside quoted sheet names not handled.
+            // Unquote: strip surrounding single-quotes (e.g. 'My Sheet' → My Sheet),
+            // then collapse escaped '' → ' (e.g. 'O''Brien' → O'Brien).
             if (sheetPart.StartsWith('\'') && sheetPart.EndsWith('\'') && sheetPart.Length >= 2)
                 sheetPart = sheetPart[1..^1];
+            sheetPart = sheetPart.Replace("''", "'");
 
             sheetPart = sheetPart.Replace("$", "");
             rangePart = rangePart.Replace("$", "");

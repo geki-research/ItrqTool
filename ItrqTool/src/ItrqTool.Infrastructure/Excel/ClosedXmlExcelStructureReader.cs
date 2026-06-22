@@ -57,6 +57,30 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
         return result;
     }
 
+    public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name)
+    {
+        using var workbook = new XLWorkbook(filePath);
+
+        IXLNamedRange? nr = null;
+        // Worksheet-scoped name on the DV cell's own sheet shadows a workbook-scoped name.
+        if (workbook.TryGetWorksheet(sheetName, out var ws)
+            && ws.NamedRanges.TryGetValue(name, out var wsNr))
+            nr = wsNr;
+        else if (workbook.NamedRanges.TryGetValue(name, out var wbNr))
+            nr = wbNr;
+
+        if (nr is null) return null;                  // absent → NotCheckable
+
+        var values = nr.Ranges
+            .SelectMany(r => r.Cells())
+            .Select(c => c.GetString())
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
+            .ToList();
+
+        return values.Count == 0 ? null : values;     // all-blank → NotCheckable
+    }
+
     private ExcelCellStructure BuildCellStructure(IXLWorksheet worksheet, IXLCell cell)
     {
         var textValue = cell.GetString();

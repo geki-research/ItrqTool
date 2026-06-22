@@ -39,6 +39,9 @@ public sealed class ValidationPipelineTests
         public IReadOnlyDictionary<string, ExcelCellStructure> ReadCells(
             string filePath, string sheetName, IReadOnlyList<string> a1Ranges)
             => _cells.TryGetValue(filePath, out var c) ? c : new Dictionary<string, ExcelCellStructure>(StringComparer.Ordinal);
+
+        public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name)
+            => null;
     }
 
     private sealed class ThrowingReader : IExcelStructureReader
@@ -48,6 +51,9 @@ public sealed class ValidationPipelineTests
 
         public IReadOnlyDictionary<string, ExcelCellStructure> ReadCells(
             string filePath, string sheetName, IReadOnlyList<string> a1Ranges)
+            => throw new InvalidOperationException("Simulated reader failure.");
+
+        public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name)
             => throw new InvalidOperationException("Simulated reader failure.");
     }
 

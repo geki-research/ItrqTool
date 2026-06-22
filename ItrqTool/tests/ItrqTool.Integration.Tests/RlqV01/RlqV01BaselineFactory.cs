@@ -339,4 +339,105 @@ public static class RlqV01BaselineFactory
         ApplyMaterialChangeDvRangeRef(ws, listsWs);
         wb.SaveAs(outputPath);
     }
+
+    // ── Named-range fixture variant (5b) ──────────────────────────────────────────────────────
+    // Mirrors the range-ref variant but applies the material-change (L) DV as a List sourced
+    // from a workbook-scoped defined name ("MaterialChangeList") rather than a direct range ref.
+    // The "Lists" sheet (A1="Yes", A2="No") and the name are added to each workbook; the DV
+    // formula is "=MaterialChangeList". The range-ref and inline fixtures are UNTOUCHED.
+
+    private const string NamedRangeName = "MaterialChangeList";
+
+    /// <summary>
+    /// Applies material-change (L) DV as a named-range List on each question anchor row.
+    /// The workbook must already have <paramref name="listsWs"/> and the name
+    /// <c>MaterialChangeList</c> defined before this is called.
+    /// </summary>
+    private static void ApplyMaterialChangeDvNamedRange(IXLWorksheet ws)
+    {
+        foreach (var (row, _) in SingleRowQuestions)
+            ws.Cell(row, MatChgCol).CreateDataValidation().List($"={NamedRangeName}");
+        ws.Cell(Q3AnchorRow, MatChgCol).CreateDataValidation().List($"={NamedRangeName}");
+    }
+
+    /// <summary>
+    /// Writes the current-response workbook with named-range L DV (5b fixture).
+    /// Reuses <see cref="WriteCurrentBody"/> for the body; answer DV stays WholeNumber.
+    /// </summary>
+    public static void WriteCurrentNamedRange(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        WriteCurrentBody(ws);
+        ApplyAnswerDv(ws);
+        ApplyMaterialChangeDvNamedRange(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    /// <summary>
+    /// Writes the empty-template workbook with named-range L DV (5b fixture).
+    /// </summary>
+    public static void WriteTemplateNamedRange(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+
+        WriteSectionHeaders(ws);
+
+        foreach (var (row, xref) in SingleRowQuestions)
+        {
+            WriteOncePerQuestionTemplate(ws, row, number: xref, text: $"Question {xref} text");
+            ws.Cell(row, XrefIdCol).Value = xref;
+        }
+
+        WriteOncePerQuestionTemplate(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text");
+        foreach (var row in Q3Rows)
+            ws.Cell(row, XrefIdCol).Value = Q3XrefId;
+        ApplyQ3Merges(ws);
+
+        ApplyAnswerDv(ws);
+        ApplyMaterialChangeDvNamedRange(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    /// <summary>
+    /// Writes the previous-response workbook with named-range L DV (5b fixture).
+    /// </summary>
+    public static void WritePreviousNamedRange(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+
+        WriteSectionHeaders(ws);
+
+        foreach (var (row, xref) in SingleRowQuestions)
+        {
+            int answer = row switch { 6 => 10, 7 => 20, 13 => 40, _ => 0 };
+            WriteOncePerQuestion(ws, row, number: xref, text: $"Question {xref} text",
+                suffix: xref, answer: answer);
+            ws.Cell(row, XrefIdCol).Value = xref;
+            ws.Cell(row, CurExpCol).Value = $"Previous year explanation for {xref}.";
+        }
+
+        WriteOncePerQuestion(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text",
+            suffix: Q3XrefId, answer: 30);
+        foreach (var row in Q3Rows)
+        {
+            ws.Cell(row, XrefIdCol).Value  = Q3XrefId;
+            ws.Cell(row, ReqExpCol).Value  = $"prev_req3_{row}";
+            ws.Cell(row, PrevExpCol).Value = $"prev_prev3_{row}";
+            ws.Cell(row, CurExpCol).Value  = $"prev_cur3_{row}";
+        }
+        ApplyQ3Merges(ws);
+
+        ApplyAnswerDv(ws);
+        ApplyMaterialChangeDvNamedRange(ws);
+        wb.SaveAs(outputPath);
+    }
 }

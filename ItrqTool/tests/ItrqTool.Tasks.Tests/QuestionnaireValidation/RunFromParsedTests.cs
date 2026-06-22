@@ -41,6 +41,9 @@ public sealed class RunFromParsedTests
         public IReadOnlyDictionary<string, ExcelCellStructure> ReadCells(
             string filePath, string sheetName, IReadOnlyList<string> a1Ranges)
             => _cells.TryGetValue(filePath, out var c) ? c : new Dictionary<string, ExcelCellStructure>(StringComparer.Ordinal);
+
+        public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name)
+            => null;
     }
 
     // ── Local IAlignmentIdentity record ──────────────────────────────────────────

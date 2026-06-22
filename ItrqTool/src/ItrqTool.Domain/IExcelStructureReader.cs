@@ -20,6 +20,15 @@ public interface IExcelStructureReader
     /// </summary>
     IReadOnlyDictionary<string, ExcelCellStructure> ReadCells(
         string filePath, string sheetName, IReadOnlyList<string> a1Ranges);
+
+    /// <summary>
+    /// Resolves a defined-name (named-range) List DV source to its backing-cell text values.
+    /// Looks up <paramref name="name"/> in worksheet(<paramref name="sheetName"/>) scope first
+    /// (a worksheet-scoped name shadows a workbook-scoped one), then workbook scope. Returns the
+    /// non-blank, trimmed cell texts; null if the name is absent in both scopes or resolves to an
+    /// all-blank range (→ DV-conformance treats the List as NotCheckable, never a false positive).
+    /// </summary>
+    IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name);
 }
 
 public record ExcelRowStructure(
