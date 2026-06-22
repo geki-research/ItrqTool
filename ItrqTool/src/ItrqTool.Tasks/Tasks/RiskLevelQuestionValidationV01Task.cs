@@ -174,6 +174,21 @@ public sealed class RiskLevelQuestionValidationV01Task : IWorkflowTask
         var parsed = RlqV01QuestionParser.Parse(rows, profile.Layout, config, messages);
         foreach (var (column, applyDv) in profile.DvRoles)
             parsed = DvPatcher.Patch(_structureReader, path, profile.SheetName, column, parsed, applyDv);
+
+        // 5a-iv: resolve range-ref List DVs (inline already resolved in the profile ApplyDv; named-range deferred to 5b).
+        parsed = DvRangeRefResolver.Resolve(
+            _structureReader, path, profile.SheetName, parsed,
+            dvTypeSelector:            q => q.AnswerDvType,
+            dvFormulaSelector:         q => q.AnswerDvFormula,
+            currentListValuesSelector: q => q.AnswerDvListValues,
+            stampListValues:           (q, vals) => q with { AnswerDvListValues = vals });
+        parsed = DvRangeRefResolver.Resolve(
+            _structureReader, path, profile.SheetName, parsed,
+            q => q.MaterialChangeDvType,
+            q => q.MaterialChangeDvFormula,
+            q => q.MaterialChangeDvListValues,
+            (q, vals) => q with { MaterialChangeDvListValues = vals });
+
         return parsed;
     }
 

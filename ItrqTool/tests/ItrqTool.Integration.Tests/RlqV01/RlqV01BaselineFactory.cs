@@ -231,4 +231,112 @@ public static class RlqV01BaselineFactory
             ws.Cell(row, MatChgCol).CreateDataValidation().List("\"Yes,No\"");
         ws.Cell(Q3AnchorRow, MatChgCol).CreateDataValidation().List("\"Yes,No\"");
     }
+
+    // ── Range-ref fixture variant (5a-iv) ─────────────────────────────────────────────────────
+    // These three methods mirror WriteCurrent/WriteTemplate/WritePrevious but apply the
+    // material-change (L) DV as a range-ref List sourced from a "Lists" backing sheet instead
+    // of the inline "Yes,No" string. The "Lists" sheet (A1="Yes", A2="No") is added to each
+    // workbook; the DV formula becomes Lists!$A$1:$A$2 — the same shape the step-0 probe
+    // observed. The answer DV (H) stays WholeNumber (unchanged). The 5a-iii inline fixtures
+    // (WriteCurrent/WriteTemplate/WritePrevious) are UNTOUCHED.
+
+    private const string ListsSheetName = "Lists";
+
+    /// <summary>Adds a "Lists" sheet with A1="Yes", A2="No" and returns it.</summary>
+    private static IXLWorksheet AddListsSheet(XLWorkbook wb)
+    {
+        var ls = wb.Worksheets.Add(ListsSheetName);
+        ls.Cell("A1").Value = "Yes";
+        ls.Cell("A2").Value = "No";
+        return ls;
+    }
+
+    /// <summary>
+    /// Applies material-change (L) DV as a range-ref List sourced from <paramref name="listsWs"/>
+    /// A1:A2, on each question anchor row.
+    /// </summary>
+    private static void ApplyMaterialChangeDvRangeRef(IXLWorksheet ws, IXLWorksheet listsWs)
+    {
+        foreach (var (row, _) in SingleRowQuestions)
+            ws.Cell(row, MatChgCol).CreateDataValidation().List(listsWs.Range("A1:A2"));
+        ws.Cell(Q3AnchorRow, MatChgCol).CreateDataValidation().List(listsWs.Range("A1:A2"));
+    }
+
+    /// <summary>
+    /// Writes the current-response workbook with range-ref L DV (5a-iv fixture).
+    /// Reuses <see cref="WriteCurrentBody"/> for the body; answer DV stays WholeNumber.
+    /// </summary>
+    public static void WriteCurrentRangeRef(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        WriteCurrentBody(ws);
+        ApplyAnswerDv(ws);
+        ApplyMaterialChangeDvRangeRef(ws, listsWs);
+        wb.SaveAs(outputPath);
+    }
+
+    /// <summary>
+    /// Writes the empty-template workbook with range-ref L DV (5a-iv fixture).
+    /// </summary>
+    public static void WriteTemplateRangeRef(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+
+        WriteSectionHeaders(ws);
+
+        foreach (var (row, xref) in SingleRowQuestions)
+        {
+            WriteOncePerQuestionTemplate(ws, row, number: xref, text: $"Question {xref} text");
+            ws.Cell(row, XrefIdCol).Value = xref;
+        }
+
+        WriteOncePerQuestionTemplate(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text");
+        foreach (var row in Q3Rows)
+            ws.Cell(row, XrefIdCol).Value = Q3XrefId;
+        ApplyQ3Merges(ws);
+
+        ApplyAnswerDv(ws);
+        ApplyMaterialChangeDvRangeRef(ws, listsWs);
+        wb.SaveAs(outputPath);
+    }
+
+    /// <summary>
+    /// Writes the previous-response workbook with range-ref L DV (5a-iv fixture).
+    /// </summary>
+    public static void WritePreviousRangeRef(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+
+        WriteSectionHeaders(ws);
+
+        foreach (var (row, xref) in SingleRowQuestions)
+        {
+            int answer = row switch { 6 => 10, 7 => 20, 13 => 40, _ => 0 };
+            WriteOncePerQuestion(ws, row, number: xref, text: $"Question {xref} text",
+                suffix: xref, answer: answer);
+            ws.Cell(row, XrefIdCol).Value = xref;
+            ws.Cell(row, CurExpCol).Value = $"Previous year explanation for {xref}.";
+        }
+
+        WriteOncePerQuestion(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text",
+            suffix: Q3XrefId, answer: 30);
+        foreach (var row in Q3Rows)
+        {
+            ws.Cell(row, XrefIdCol).Value  = Q3XrefId;
+            ws.Cell(row, ReqExpCol).Value  = $"prev_req3_{row}";
+            ws.Cell(row, PrevExpCol).Value = $"prev_prev3_{row}";
+            ws.Cell(row, CurExpCol).Value  = $"prev_cur3_{row}";
+        }
+        ApplyQ3Merges(ws);
+
+        ApplyAnswerDv(ws);
+        ApplyMaterialChangeDvRangeRef(ws, listsWs);
+        wb.SaveAs(outputPath);
+    }
 }
