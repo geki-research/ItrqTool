@@ -127,8 +127,12 @@ public static class RlqV01QuestionParser
             AnswerDvFormula:  null,
             AnswerDvOperator: null,
             AnswerDvFormula2: null,
-            MaterialChange:   GetCellText(first, config.MaterialChangeColumn),
-            ProvidedBy:       GetCellText(first, config.ProvidedByColumn),
+            MaterialChange:           GetCellText(first, config.MaterialChangeColumn),
+            MaterialChangeDvType:     null,
+            MaterialChangeDvFormula:  null,
+            MaterialChangeDvOperator: null,
+            MaterialChangeDvFormula2: null,
+            ProvidedBy:               GetCellText(first, config.ProvidedByColumn),
             ExplanationRows:  explanations);
     }
 

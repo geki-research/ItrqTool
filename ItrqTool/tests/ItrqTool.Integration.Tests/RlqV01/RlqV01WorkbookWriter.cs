@@ -89,9 +89,13 @@ public static class RlqV01WorkbookWriter
         ws.Cell(13, "Q").Value = "x4";
 
         // Answer DV (column H, whole-number ≥ 0) on each question's answer cell / merged anchor.
-        // Forward-compat for the DvPatch role; not asserted this chunk.
         foreach (var anchorRow in new[] { 6, 7, 8, 13 })
             ws.Cell(anchorRow, "H").CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+
+        // Material-change DV (column L, List Yes,No) on each question's anchor row — parity with
+        // RlqV01BaselineFactory so the writer stays consistent with the full-pipeline fixtures.
+        foreach (var anchorRow in new[] { 6, 7, 8, 13 })
+            ws.Cell(anchorRow, "L").CreateDataValidation().List("\"Yes,No\"");
 
         wb.SaveAs(outputPath);
     }

@@ -102,6 +102,7 @@ public static class RlqV01BaselineFactory
         ApplyQ3Merges(ws);
 
         ApplyAnswerDv(ws);
+        ApplyMaterialChangeDv(ws);
         wb.SaveAs(outputPath);
     }
 
@@ -126,6 +127,7 @@ public static class RlqV01BaselineFactory
         ApplyQ3Merges(ws);
 
         ApplyAnswerDv(ws);
+        ApplyMaterialChangeDv(ws);
         wb.SaveAs(outputPath);
     }
 
@@ -157,6 +159,7 @@ public static class RlqV01BaselineFactory
         ApplyQ3Merges(ws);
 
         ApplyAnswerDv(ws);
+        ApplyMaterialChangeDv(ws);
         wb.SaveAs(outputPath);
     }
 
@@ -202,5 +205,14 @@ public static class RlqV01BaselineFactory
         foreach (var (row, _) in SingleRowQuestions)
             ws.Cell(row, AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
         ws.Cell(Q3AnchorRow, AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+    }
+
+    private static void ApplyMaterialChangeDv(IXLWorksheet ws)
+    {
+        // Material-change DV (L) — List Yes,No — on each question's anchor row.
+        // Applied to all three workbooks so the frozen-constraint check stays silent on clean baseline.
+        foreach (var (row, _) in SingleRowQuestions)
+            ws.Cell(row, MatChgCol).CreateDataValidation().List("\"Yes,No\"");
+        ws.Cell(Q3AnchorRow, MatChgCol).CreateDataValidation().List("\"Yes,No\"");
     }
 }

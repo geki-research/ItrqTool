@@ -56,6 +56,14 @@ public static class RlqV01Profile
                      AnswerDvOperator = cell.DataValidationOperator,
                      AnswerDvFormula2 = cell.DataValidationFormula2,
                  }),
+                (Column: config.MaterialChangeColumn,
+                 ApplyDv: (RlqV01Question q, ExcelCellStructure cell) => q with
+                 {
+                     MaterialChangeDvType     = cell.DataValidationType,
+                     MaterialChangeDvFormula  = cell.DataValidationFormula,
+                     MaterialChangeDvOperator = cell.DataValidationOperator,
+                     MaterialChangeDvFormula2 = cell.DataValidationFormula2,
+                 }),
             ],
             BaselineDescriptors: [],
             RunBaseline: (alignment, emitter) => [],
@@ -74,6 +82,22 @@ public static class RlqV01Profile
                 new WithinYearStructureCheck<RlqV01Question>(
                     providedBySelector: q => q.ProvidedBy,
                     column:             config.XrefIdColumn),
+                new FrozenConstraintCell<RlqV01Question>(
+                    dvTypeSelector:     q => q.AnswerDvType,
+                    dvOperatorSelector: q => q.AnswerDvOperator,
+                    dvFormulaSelector:  q => q.AnswerDvFormula,
+                    dvFormula2Selector: q => q.AnswerDvFormula2,
+                    providedBySelector: q => q.ProvidedBy,
+                    role:   "answer-dv",
+                    column: config.AnswerColumn),
+                new FrozenConstraintCell<RlqV01Question>(
+                    dvTypeSelector:     q => q.MaterialChangeDvType,
+                    dvOperatorSelector: q => q.MaterialChangeDvOperator,
+                    dvFormulaSelector:  q => q.MaterialChangeDvFormula,
+                    dvFormula2Selector: q => q.MaterialChangeDvFormula2,
+                    providedBySelector: q => q.ProvidedBy,
+                    role:   "material-change-dv",
+                    column: config.MaterialChangeColumn),
             ],
             HaltOnMalformedKeys: true,
             IdentityGateCheck: gateCheck);

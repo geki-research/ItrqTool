@@ -34,6 +34,10 @@ public sealed record RlqV01Question(
     string? AnswerDvOperator,
     string? AnswerDvFormula2,
     string? MaterialChange,   // column L (DV yes/no cell; value read as text here)
+    string? MaterialChangeDvType,     // null at parse; patched later
+    string? MaterialChangeDvFormula,
+    string? MaterialChangeDvOperator,
+    string? MaterialChangeDvFormula2,
     string? ProvidedBy,       // column O
     IReadOnlyList<RlqExplanationRow> ExplanationRows
 ) : IAlignmentIdentity;
