@@ -225,7 +225,7 @@ the file. Index of type family → location:
 | Workflow graph: `WorkflowDefinition`, `TaskNode`, `TaskOutputRef` | `WorkflowDefinition.cs`, `TaskNode.cs`, `TaskOutputRef.cs` |
 | Workflow loading: `IWorkflowLoader`, `WorkflowLoadResult`, `WorkflowLoadFailure` | `IWorkflowLoader.cs`, `WorkflowLoadResult.cs`, `WorkflowLoadFailure.cs` |
 | Excel I/O: `IExcelReader`, `ExcelSheet`, `ExcelCellValue`, `IExcelWriter`, `ExcelWorkbookData`, `ExcelSheetData` | `IExcelReader.cs`, `ExcelSheet.cs`, `ExcelCellValue.cs`, `IExcelWriter.cs` |
-| Excel structure metadata: `IExcelStructureReader`, `ExcelRowStructure`, `ExcelCellStructure` (DV type/formula/operator/formula2, CF operator/type/value/value2) | `IExcelStructureReader.cs` |
+| Excel structure metadata: `IExcelStructureReader`, `ExcelRowStructure`, `ExcelCellStructure` (DV type/formula/operator/formula2, CF operator/type/value/value2); `ResolveDefinedNameValues` resolves a named-range List DV source to its backing-cell values | `IExcelStructureReader.cs` |
 | CLQ/RLQ reporting: `HtmlDiffReportData`, `HtmlDiffQuestion`, `HtmlDiffChangedQuestion`, `HtmlDiffUnchangedQuestion`, `IHtmlReportWriter` | `Reporting/HtmlDiffReportData.cs`, `Reporting/IHtmlReportWriter.cs` |
 | General Data reporting: `HtmlDiffGeneralDataReportData` + `HtmlDiffGeneralData*` members, `IHtmlGeneralDataDiffReportWriter` | `Reporting/HtmlDiffGeneralDataReportData.cs`, `Reporting/IHtmlGeneralDataDiffReportWriter.cs` |
 | Cell-range reporting: `HtmlDiffCellRangeReportData`, `HtmlDiffCellRangeChangedCell`, `HtmlDiffCellRangeUnchangedCell`, `IHtmlCellRangeDiffReportWriter` | `Reporting/HtmlDiffCellRangeReportData.cs`, `Reporting/IHtmlCellRangeDiffReportWriter.cs` |
@@ -599,8 +599,8 @@ Per-sheet diff-task test specifics are documented in the relevant sheet skill
 (`.claude/skills/{clq-diff,rlq-diff,gd-diff}/`).
 
 **Current test counts (baseline — the always-on verification anchor):**
-Architecture 14, Domain 13, Application 12, Tasks 824, Infrastructure 120, Integration 75
-— **1058 total**.
+Architecture 14, Domain 13, Application 12, Tasks 827, Infrastructure 123, Integration 77
+— **1066 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows
