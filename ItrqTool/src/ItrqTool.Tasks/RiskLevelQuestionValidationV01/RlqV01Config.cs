@@ -30,6 +30,11 @@ public sealed class RlqV01Config
     public string SheetName { get; init; } = "";
     public IReadOnlyList<string> SectionRows { get; init; } = [];
 
+    // Cross-year numeric deviation threshold (finding 6a). A confidently-matched answer that moved
+    // from the previous year by >= this many units (WholeNumber/Decimal answers only) is flagged.
+    // Required, no code default: an absent/negative value is a config error (see Validate()).
+    public double DeviationThreshold { get; init; }
+
     public IReadOnlyDictionary<string, FindingEvaluation> SeverityOverrides { get; init; }
         = new Dictionary<string, FindingEvaluation>();
 
@@ -68,6 +73,9 @@ public sealed class RlqV01Config
 
         if (SectionRows.Count == 0)
             errors.Add("SectionRows must not be empty.");
+
+        if (DeviationThreshold < 0)
+            errors.Add("DeviationThreshold must be >= 0.");
 
         return errors;
     }

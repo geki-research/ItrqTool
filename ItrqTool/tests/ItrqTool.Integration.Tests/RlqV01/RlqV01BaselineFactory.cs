@@ -70,6 +70,7 @@ public static class RlqV01BaselineFactory
           "XrefIdColumn": "Q",
           "SheetName": "IT Risk Level Questions",
           "SectionRows": ["5:6-10", "12:13-13"],
+          "DeviationThreshold": 2,
           "SeverityOverrides": {}
         }
         """;
@@ -152,19 +153,22 @@ public static class RlqV01BaselineFactory
 
         WriteSectionHeaders(ws);
 
-        // Single-row questions — H answers: 10, 20, 40 (whole-number, offset from current for cross-year distinction).
+        // Single-row questions — H answers MATCH current (x1=1, x2=2, x4=4), so a confidently-matched
+        // (Agree) clean baseline has ZERO cross-year deviation (finding 6a). Prior to 6a these were
+        // offset (10/20/40); the offset is removed because the deviation check would otherwise flag
+        // every Agree row. Cross-year text/key matching is unaffected (XrefIds + text unchanged).
         foreach (var (row, xref) in SingleRowQuestions)
         {
-            int answer = row switch { 6 => 10, 7 => 20, 13 => 40, _ => 0 };
+            int answer = row switch { 6 => 1, 7 => 2, 13 => 4, _ => 0 };
             WriteOncePerQuestion(ws, row, number: xref, text: $"Question {xref} text",
                 suffix: xref, answer: answer);
             ws.Cell(row, XrefIdCol).Value = xref;
             ws.Cell(row, CurExpCol).Value = $"Previous year explanation for {xref}.";
         }
 
-        // Q3 multi-row — H answer: 30.
+        // Q3 multi-row — H answer MATCHES current (3): zero cross-year deviation on the clean baseline.
         WriteOncePerQuestion(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text",
-            suffix: Q3XrefId, answer: 30);
+            suffix: Q3XrefId, answer: 3);
         foreach (var row in Q3Rows)
         {
             ws.Cell(row, XrefIdCol).Value  = Q3XrefId;

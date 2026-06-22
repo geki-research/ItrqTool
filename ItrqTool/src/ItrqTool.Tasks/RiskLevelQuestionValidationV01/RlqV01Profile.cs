@@ -129,6 +129,18 @@ public static class RlqV01Profile
                     providedBySelector: q => q.ProvidedBy,
                     role:   "material-change",
                     column: config.MaterialChangeColumn),
+                // Cross-year numeric deviation (finding 6a): a confidently-matched (Agree) answer
+                // that moved from the previous year by >= DeviationThreshold, for WholeNumber/Decimal
+                // answer DVs only. Reads the answer (H) value and its frozen DV type (template, current
+                // fallback). Emits cross-year.answer-deviation (Warning).
+                new CrossYearDeviationCell<RlqV01Question>(
+                    answerSelector:         q => q.Answer,
+                    templateDvTypeSelector: q => q.AnswerDvType,
+                    currentDvTypeSelector:  q => q.AnswerDvType,
+                    providedBySelector:     q => q.ProvidedBy,
+                    role:      "answer",
+                    column:    config.AnswerColumn,
+                    threshold: config.DeviationThreshold),
             ],
             HaltOnMalformedKeys: true,
             IdentityGateCheck: gateCheck);
