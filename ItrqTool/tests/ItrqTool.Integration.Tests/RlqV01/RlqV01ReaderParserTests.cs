@@ -59,13 +59,13 @@ public sealed class RlqV01ReaderParserTests
             q1.QuestionText.Should().Be("Q1 text");
             q1.SectionName.Should().Be("Section One");
             q1.ExplanationRows.Should().ContainSingle();
-            q1.ExplanationRows[0].Should().Be(new RlqExplanationRow(null, null, null));
+            q1.ExplanationRows[0].Should().Be(new RlqExplanationRow(null, null, null, 6));
 
             // ── Q2: single row, 1 explanation → one populated triplet ──
             q2.RowNumber.Should().Be(7);
             q2.XrefId.Should().Be("x2");
             q2.ExplanationRows.Should().ContainSingle();
-            q2.ExplanationRows[0].Should().Be(new RlqExplanationRow("r2", "p2", "c2"));
+            q2.ExplanationRows[0].Should().Be(new RlqExplanationRow("r2", "p2", "c2", 7));
 
             // ── Q3: THE multi-row collapse — ONE record, fields from row 8, 3 triplets in row order ──
             q3.RowNumber.Should().Be(8, "once-per-question fields read from the merged group's top row");
@@ -82,9 +82,9 @@ public sealed class RlqV01ReaderParserTests
             q3.SectionName.Should().Be("Section One");
             q3.ExplanationRows.Should().HaveCount(3, "rows 8, 9, 10 each contribute one triplet");
             q3.ExplanationRows.Should().Equal(
-                new RlqExplanationRow("r3a", "p3a", "c3a"),
-                new RlqExplanationRow("r3b", "p3b", "c3b"),
-                new RlqExplanationRow("r3c", "p3c", "c3c"));
+                new RlqExplanationRow("r3a", "p3a", "c3a", 8),
+                new RlqExplanationRow("r3b", "p3b", "c3b", 9),
+                new RlqExplanationRow("r3c", "p3c", "c3c", 10));
 
             // ── Q4: second section ──
             q4.RowNumber.Should().Be(13);

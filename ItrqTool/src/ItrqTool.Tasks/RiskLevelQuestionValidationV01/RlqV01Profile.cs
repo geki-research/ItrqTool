@@ -141,6 +141,10 @@ public static class RlqV01Profile
                     role:      "answer",
                     column:    config.AnswerColumn,
                     threshold: config.DeviationThreshold),
+                // Per-row explanation completeness (finding 6b): for each explanation row where a
+                // request (I) is present but the current explanation (K) is blank, emit one finding
+                // at K{row}. Input-only (current workbook); one finding per offending row.
+                new ExplanationCompletenessCell(config.CurrentExplanationColumn),
             ],
             HaltOnMalformedKeys: true,
             IdentityGateCheck: gateCheck);

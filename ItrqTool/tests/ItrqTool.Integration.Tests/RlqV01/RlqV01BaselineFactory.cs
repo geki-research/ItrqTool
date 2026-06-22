@@ -310,6 +310,8 @@ public static class RlqV01BaselineFactory
 
     /// <summary>
     /// Writes the previous-response workbook with range-ref L DV (5a-iv fixture).
+    /// Previous H MATCHES current (x1=1, x2=2, x4=4, x3=3): the cross-year clean baseline has zero
+    /// answer deviation (finding 6a), matching the inline <see cref="WritePrevious"/> realignment.
     /// </summary>
     public static void WritePreviousRangeRef(string outputPath)
     {
@@ -321,7 +323,7 @@ public static class RlqV01BaselineFactory
 
         foreach (var (row, xref) in SingleRowQuestions)
         {
-            int answer = row switch { 6 => 10, 7 => 20, 13 => 40, _ => 0 };
+            int answer = row switch { 6 => 1, 7 => 2, 13 => 4, _ => 0 };
             WriteOncePerQuestion(ws, row, number: xref, text: $"Question {xref} text",
                 suffix: xref, answer: answer);
             ws.Cell(row, XrefIdCol).Value = xref;
@@ -329,7 +331,7 @@ public static class RlqV01BaselineFactory
         }
 
         WriteOncePerQuestion(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text",
-            suffix: Q3XrefId, answer: 30);
+            suffix: Q3XrefId, answer: 3);
         foreach (var row in Q3Rows)
         {
             ws.Cell(row, XrefIdCol).Value  = Q3XrefId;
@@ -410,6 +412,8 @@ public static class RlqV01BaselineFactory
 
     /// <summary>
     /// Writes the previous-response workbook with named-range L DV (5b fixture).
+    /// Previous H MATCHES current (x1=1, x2=2, x4=4, x3=3): the cross-year clean baseline has zero
+    /// answer deviation (finding 6a), matching the inline <see cref="WritePrevious"/> realignment.
     /// </summary>
     public static void WritePreviousNamedRange(string outputPath)
     {
@@ -422,7 +426,7 @@ public static class RlqV01BaselineFactory
 
         foreach (var (row, xref) in SingleRowQuestions)
         {
-            int answer = row switch { 6 => 10, 7 => 20, 13 => 40, _ => 0 };
+            int answer = row switch { 6 => 1, 7 => 2, 13 => 4, _ => 0 };
             WriteOncePerQuestion(ws, row, number: xref, text: $"Question {xref} text",
                 suffix: xref, answer: answer);
             ws.Cell(row, XrefIdCol).Value = xref;
@@ -430,7 +434,7 @@ public static class RlqV01BaselineFactory
         }
 
         WriteOncePerQuestion(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text",
-            suffix: Q3XrefId, answer: 30);
+            suffix: Q3XrefId, answer: 3);
         foreach (var row in Q3Rows)
         {
             ws.Cell(row, XrefIdCol).Value  = Q3XrefId;

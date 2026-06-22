@@ -70,7 +70,7 @@ public sealed class RlqV01QuestionParserTests
         // Every group row contributes one triplet; a 0-explanation question still occupies
         // one row, whose triplet is all-blank.
         q.ExplanationRows.Should().ContainSingle()
-            .Which.Should().Be(new RlqExplanationRow(null, null, null));
+            .Which.Should().Be(new RlqExplanationRow(null, null, null, 3));
 
         messages.Should().BeEmpty();
     }
@@ -91,7 +91,7 @@ public sealed class RlqV01QuestionParserTests
         var q = result.Should().ContainSingle().Subject;
         q.RowNumber.Should().Be(3);
         q.ExplanationRows.Should().ContainSingle()
-            .Which.Should().Be(new RlqExplanationRow("Please explain", "last year", "this year"));
+            .Which.Should().Be(new RlqExplanationRow("Please explain", "last year", "this year", 3));
         messages.Should().BeEmpty();
     }
 
@@ -125,9 +125,9 @@ public sealed class RlqV01QuestionParserTests
         q.ProvidedBy.Should().Be("Unit A");
 
         q.ExplanationRows.Should().Equal(
-            new RlqExplanationRow("req1", "p1", "c1"),
-            new RlqExplanationRow("req2", "p2", "c2"),
-            new RlqExplanationRow("req3", "p3", "c3"));
+            new RlqExplanationRow("req1", "p1", "c1", 3),
+            new RlqExplanationRow("req2", "p2", "c2", 4),
+            new RlqExplanationRow("req3", "p3", "c3", 5));
 
         messages.Should().BeEmpty();
     }

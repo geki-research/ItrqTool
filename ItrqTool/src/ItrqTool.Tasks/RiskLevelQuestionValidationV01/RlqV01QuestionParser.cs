@@ -109,7 +109,8 @@ public static class RlqV01QuestionParser
             .Select(r => new RlqExplanationRow(
                 Requested: GetCellText(r, config.RequestedExplanationColumn),
                 Previous:  GetCellText(r, config.PreviousExplanationColumn),
-                Current:   GetCellText(r, config.CurrentExplanationColumn)))
+                Current:   GetCellText(r, config.CurrentExplanationColumn),
+                RowNumber: r.RowNumber))
             .ToList();
 
         return new RlqV01Question(
