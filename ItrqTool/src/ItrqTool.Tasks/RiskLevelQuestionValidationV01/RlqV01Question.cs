@@ -39,5 +39,12 @@ public sealed record RlqV01Question(
     string? MaterialChangeDvOperator,
     string? MaterialChangeDvFormula2,
     string? ProvidedBy,       // column O
-    IReadOnlyList<RlqExplanationRow> ExplanationRows
+    IReadOnlyList<RlqExplanationRow> ExplanationRows,
+    // Resolved DV List allowed-values for finding 5 (DV-conformance). Null at parse time;
+    // populated in the patch phase (5a-ii/5b) for List-typed answer / material-change cells whose
+    // source has been resolved (inline now; range-ref / named-range later). Null ⇒ unresolved ⇒
+    // the conformance evaluator treats the List as NotCheckable rather than false-positiving.
+    // Trailing-optional with defaults so no existing construction site changes.
+    IReadOnlyList<string>? AnswerDvListValues = null,
+    IReadOnlyList<string>? MaterialChangeDvListValues = null
 ) : IAlignmentIdentity;

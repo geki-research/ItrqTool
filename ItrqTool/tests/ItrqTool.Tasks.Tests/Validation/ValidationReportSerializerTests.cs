@@ -107,6 +107,7 @@ public sealed class ValidationReportSerializerTests
     [InlineData(ValidationCheck.MissingResponse,  "\"MissingResponse\"")]
     [InlineData(ValidationCheck.Deviation,        "\"Deviation\"")]
     [InlineData(ValidationCheck.SanityCheck,      "\"SanityCheck\"")]
+    [InlineData(ValidationCheck.InputConformance, "\"InputConformance\"")]
     public void ValidationCheck_SerializesAsExactMemberName(
         ValidationCheck check, string expectedToken)
     {
