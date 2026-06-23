@@ -39,7 +39,7 @@
       },
       "outputs": { "report": "rlq-v01-validation-report.json" },
       "parameters": {
-        "configurationFullFilename": "configs/rlq-v01-validation-trial-config.json"
+        "configurationFullFilename": "configs/rlq-v01-validation-config.json"
       }
     },
     {
