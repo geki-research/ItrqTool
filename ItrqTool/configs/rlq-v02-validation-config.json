@@ -1,0 +1,20 @@
+{
+  "QuestionNumberColumn": "C",
+  "TextColumn": "D",
+  "GuidanceColumn": "E",
+  "RequestedTypeColumn": "F",
+  "PreviousAnswerColumn": "G",
+  "AnswerColumn": "H",
+  "RequestedExplanationColumn": "I",
+  "PreviousExplanationColumn": "J",
+  "CurrentExplanationColumn": "K",
+  "MaterialChangeColumn": "L",
+  "HowExplanationColumn": "M",
+  "ProvidedByColumn": "P",
+  "XrefIdColumn": "R",
+  "SheetName": "IT Risk Level Questions",
+  "SectionRows": ["3:4-21", "22:23-42", "43:44-58", "59:60-71"],
+  "DeviationThreshold": 0.25,
+  "MaterialChangeExplanationTriggers": ["Yes"],
+  "SeverityOverrides": {}
+}

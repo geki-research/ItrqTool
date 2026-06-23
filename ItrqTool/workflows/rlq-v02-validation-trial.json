@@ -1,0 +1,57 @@
+{
+  "id": "rlq-v02-validation-trial",
+  "name": "RLQ v02 — Validation Trial",
+  "tasks": [
+    {
+      "id": "load-current-response",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "rlq_current_response.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/rlq-v02/rlq_current_response.xlsx"
+      }
+    },
+    {
+      "id": "load-empty-template",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "rlq_empty_template.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/rlq-v02/rlq_empty_template.xlsx"
+      }
+    },
+    {
+      "id": "load-previous-response",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "rlq_previous_response.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/rlq-v02/rlq_previous_response.xlsx"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "RiskLevelQuestionValidation_v02",
+      "inputs": {
+        "currentResponse": "load-current-response.output",
+        "emptyTemplate": "load-empty-template.output",
+        "previousResponse": "load-previous-response.output"
+      },
+      "outputs": { "report": "rlq-v02-validation-report.json" },
+      "parameters": {
+        "configurationFullFilename": "configs/rlq-v02-validation-config.json"
+      }
+    },
+    {
+      "id": "assemble",
+      "type": "FeedbackChecklistAssembler",
+      "inputs": {
+        "findings01": "validate.report"
+      },
+      "outputs": { "checklist": "rlq-v02-feedback-checklist.xlsx" },
+      "parameters": {
+        "configurationFullFilename": "configs/feedback-checklist-assembler-config.json"
+      }
+    }
+  ]
+}
