@@ -7,7 +7,7 @@ namespace ItrqTool.Tasks.Tests.QuestionnaireValidation.Checks;
 
 // Breadth proof for the pure typed-dispatch evaluator: one Conformant + one NotConformant per DV
 // type (incl. type-violation → NotConformant for non-parseable values), Between/NotBetween using
-// Formula2, List membership (resolved) + unresolved → NotCheckable, Custom → NotCheckable,
+// Formula2, List membership (resolved) + unresolved → UnresolvableList, Custom → NotCheckable,
 // AnyValue/null → Conformant, missing bound/operator → NotCheckable, unknown type → NotCheckable.
 public sealed class DvConformanceEvaluatorTests
 {
@@ -93,8 +93,8 @@ public sealed class DvConformanceEvaluatorTests
         => Eval("Maybe", "List", list: new[] { "Yes", "No" }).Should().Be(DvConformanceResult.NotConformant);
 
     [Fact]
-    public void List_UnresolvedNull_NotCheckable()
-        => Eval("Yes", "List", list: null).Should().Be(DvConformanceResult.NotCheckable);
+    public void List_UnresolvedNull_UnresolvableList()
+        => Eval("Yes", "List", list: null).Should().Be(DvConformanceResult.UnresolvableList);
 
     // ── Custom → NotCheckable (no formula engine) ──
     [Fact]

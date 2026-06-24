@@ -19,8 +19,8 @@ using ItrqTool.Tasks.QuestionnaireValidation.Findings;
 // Present-gate: a blank current value is skipped (that is finding 1's territory —
 // RequiredInputCell*); conformance never double-reports an empty cell.
 //
-// Emits ONLY on DvConformanceResult.NotConformant. Conformant and NotCheckable (no constraint,
-// unresolved List source, Custom formula, missing bound, unknown type) emit nothing — the
+// Emits on DvConformanceResult.NotConformant and UnresolvableList (BL-025). Conformant and
+// NotCheckable (no constraint, Custom formula, missing bound, unknown type) emit nothing — the
 // evaluator never false-positives a value it cannot judge.
 //
 // Id is role-templated: input-cell.{role}.not-conformant (ValidationCheck.InputConformance).
@@ -37,6 +37,7 @@ public sealed class DvConformanceCell<T> : IExtensionCheck<T> where T : class, I
     private readonly Func<T, string?> _providedBy;
     private readonly string _column;
     private readonly string _notConformantId;
+    private readonly string _unresolvableId;
     private readonly IReadOnlyList<FindingDescriptor> _descriptors;
 
     public DvConformanceCell(
@@ -49,7 +50,8 @@ public sealed class DvConformanceCell<T> : IExtensionCheck<T> where T : class, I
         Func<T, string?> providedBySelector,
         string role,
         string column,
-        FindingEvaluation notConformantDefault = FindingEvaluation.Error)
+        FindingEvaluation notConformantDefault = FindingEvaluation.Error,
+        FindingEvaluation unresolvableDefault = FindingEvaluation.Error)
     {
         _value = valueSelector ?? throw new ArgumentNullException(nameof(valueSelector));
         _dvType = dvTypeSelector ?? throw new ArgumentNullException(nameof(dvTypeSelector));
@@ -62,10 +64,13 @@ public sealed class DvConformanceCell<T> : IExtensionCheck<T> where T : class, I
         if (string.IsNullOrWhiteSpace(column)) throw new ArgumentException("column must be non-empty.", nameof(column));
         _column = column;
         _notConformantId = $"input-cell.{role}.not-conformant";
+        _unresolvableId = $"input-cell.{role}.dv-vocabulary-unresolvable";
         _descriptors = new[]
         {
             new FindingDescriptor(_notConformantId, notConformantDefault, ValidationCheck.InputConformance,
                 "The provided value does not conform to the data-validation rule defined on the empty template."),
+            new FindingDescriptor(_unresolvableId, unresolvableDefault, ValidationCheck.InputConformance,
+                "The data-validation controlled vocabulary defined on the empty template could not be resolved; conformance was not checked."),
         };
     }
 
@@ -104,6 +109,14 @@ public sealed class DvConformanceCell<T> : IExtensionCheck<T> where T : class, I
                     $"{_column}{row}", cur.QuestionNumber, cur.QuestionText,
                     requestedData: null, providedBy: _providedBy(cur),
                     $"Value '{value}' at {_column}{row} does not conform to the data-validation rule defined on the empty template."));
+            }
+            else if (result == DvConformanceResult.UnresolvableList)
+            {
+                int row = cur.RowNumber;
+                findings.Add(emitter.Emit(_unresolvableId,
+                    $"{_column}{row}", cur.QuestionNumber, cur.QuestionText,
+                    requestedData: null, providedBy: _providedBy(cur),
+                    $"The data-validation controlled vocabulary for {_column}{row} could not be resolved from the empty template; conformance was not checked."));
             }
         }
         return findings;

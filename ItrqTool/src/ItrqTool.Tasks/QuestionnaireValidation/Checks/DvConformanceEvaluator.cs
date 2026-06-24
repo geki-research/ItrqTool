@@ -4,10 +4,11 @@ namespace ItrqTool.Tasks.QuestionnaireValidation.Checks;
 
 public enum DvConformanceResult
 {
-    Conformant,     // the value satisfies the DV rule
-    NotConformant,  // the value violates the DV rule (a real finding)
-    NotCheckable    // the rule cannot be evaluated here (no constraint, unresolved List,
-                    // Custom formula, missing bound, or an unknown type) — never a finding
+    Conformant,       // the value satisfies the DV rule
+    NotConformant,    // the value violates the DV rule (a real finding)
+    UnresolvableList, // List type, vocabulary did not resolve (null) — a real gap to surface (BL-025)
+    NotCheckable      // the rule cannot be evaluated here (no constraint, Custom formula,
+                      // missing bound, or an unknown type) — never a finding
 }
 
 /// <summary>
@@ -41,7 +42,7 @@ public static class DvConformanceEvaluator
     /// <param name="resolvedListValues">
     /// For a List source: the already-resolved allowed values (inline parsed, or range/named
     /// resolved in the patch phase). Non-null ⇒ membership is checked. Null ⇒ unresolved ⇒
-    /// <see cref="DvConformanceResult.NotCheckable"/> (never a false positive).
+    /// <see cref="DvConformanceResult.UnresolvableList"/> (a real gap to surface — BL-025).
     /// </param>
     public static DvConformanceResult Evaluate(
         string value,
@@ -58,7 +59,7 @@ public static class DvConformanceEvaluator
 
         if (TypeIs(dvType, "List"))
         {
-            if (resolvedListValues is null) return DvConformanceResult.NotCheckable;
+            if (resolvedListValues is null) return DvConformanceResult.UnresolvableList;   // was NotCheckable (BL-025)
             return resolvedListValues.Any(v =>
                        string.Equals(v.Trim(), value.Trim(), StringComparison.Ordinal))
                 ? DvConformanceResult.Conformant

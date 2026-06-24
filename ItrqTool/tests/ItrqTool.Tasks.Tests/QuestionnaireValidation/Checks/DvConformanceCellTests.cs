@@ -8,9 +8,9 @@ using Xunit;
 namespace ItrqTool.Tasks.Tests.QuestionnaireValidation.Checks;
 
 // Coverage for the DvConformanceCell<T> wrapper: role-templated descriptor, the JoinedByXrefId
-// gate (template required), present-gate (blank skipped — finding 1's territory), emit-only-on-
-// NotConformant, anchor address + InputConformance check, AddedInResponse/malformed skips, the
-// unresolved-List NotCheckable skip, and severity-override flow. Mirrors FrozenConstraintCellTests'
+// gate (template required), present-gate (blank skipped — finding 1's territory), emit-on-
+// NotConformant and UnresolvableList (BL-025), anchor address + InputConformance check,
+// AddedInResponse/malformed skips, and severity-override flow. Mirrors FrozenConstraintCellTests'
 // self-contained local-record + tiny-AlignmentResult-builder style (no Clq-harness dependency).
 public sealed class DvConformanceCellTests
 {
@@ -69,8 +69,7 @@ public sealed class DvConformanceCellTests
     [Fact]
     public void Descriptor_IsRoleTemplatedNotConformant()
     {
-        var d = Primitive().Descriptors.Should().ContainSingle().Subject;
-        d.Id.Should().Be("input-cell.answer.not-conformant");
+        var d = Primitive().Descriptors.Single(x => x.Id == "input-cell.answer.not-conformant");
         d.Check.Should().Be(ValidationCheck.InputConformance);
         d.DefaultEvaluation.Should().Be(FindingEvaluation.Error);
         d.Description.Should().NotBeNullOrWhiteSpace();
@@ -129,12 +128,15 @@ public sealed class DvConformanceCellTests
     }
 
     [Fact]
-    public void ListUnresolved_NotCheckable_NoFinding()
+    public void ListUnresolved_EmitsVocabularyUnresolvable()
     {
         var tmpl = Tmpl(7, "List", null, "\"Yes,No\"", list: null); // source not yet resolved
         var cur = Cur(7, "Maybe");
         var p = Primitive();
-        p.Run(Result(Aq(cur, tmpl: tmpl)), Emitter(p)).Should().BeEmpty();
+        var f = p.Run(Result(Aq(cur, tmpl: tmpl)), Emitter(p)).Should().ContainSingle().Subject;
+        f.Check.Should().Be(ValidationCheck.InputConformance);
+        f.CellAddresses.Should().Be("H7");
+        f.CheckResult.Should().Contain("could not be resolved");
     }
 
     [Fact]

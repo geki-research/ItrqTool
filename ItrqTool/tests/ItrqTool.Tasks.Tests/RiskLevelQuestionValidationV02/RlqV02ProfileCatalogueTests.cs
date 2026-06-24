@@ -80,9 +80,9 @@ public sealed class RlqV02ProfileCatalogueTests
             "config.material-change-explanation.dv-list-unresolvable",
         };
 
-        // Count guards — v01 = 12; v02 = v01 + 3 new = 15.
-        v01Ids.Should().HaveCount(12, "v01 catalogue must be exactly 12 ids");
-        v02Ids.Should().HaveCount(15, "v02 catalogue must be exactly 15 ids (v01 + 3 new)");
+        // Count guards — v01 = 14; v02 = v01 + 3 new = 17.
+        v01Ids.Should().HaveCount(14, "v01 catalogue must be exactly 14 ids");
+        v02Ids.Should().HaveCount(17, "v02 catalogue must be exactly 17 ids (v01 + 3 new)");
 
         // v02 ⊇ v01: no v01 id dropped or renamed.
         v01Ids.Except(v02Ids).Should().BeEmpty("v02 must contain every v01 id");
