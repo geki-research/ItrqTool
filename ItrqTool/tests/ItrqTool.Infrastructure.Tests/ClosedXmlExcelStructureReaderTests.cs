@@ -386,6 +386,108 @@ public sealed class ClosedXmlExcelStructureReaderTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
+    // ── NativeValue ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ReadRows_NumberCell_NativeValueIsDouble()
+    {
+        // Documents the WholeNumber-vs-Decimal-indistinguishable fact: an integer value reads back as double.
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "native-int.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.Worksheets.Add("Sheet1");
+                ws.Cell(1, 3).Value = 3;
+                wb.SaveAs(filePath);
+            }
+
+            var rows = Reader().ReadRows(filePath, "Sheet1");
+
+            var cell = rows.Single(r => r.RowNumber == 1).CellsByColumn["C"];
+            cell.NativeValue.Should().Be(3.0);
+            cell.NativeValue.Should().BeOfType<double>();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void ReadRows_DecimalCell_NativeValueIsDouble()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "native-decimal.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.Worksheets.Add("Sheet1");
+                ws.Cell(1, 3).Value = 3.5;
+                wb.SaveAs(filePath);
+            }
+
+            var rows = Reader().ReadRows(filePath, "Sheet1");
+
+            var cell = rows.Single(r => r.RowNumber == 1).CellsByColumn["C"];
+            cell.NativeValue.Should().Be(3.5);
+            cell.NativeValue.Should().BeOfType<double>();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void ReadRows_TextCell_NativeValueIsString()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "native-text.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.Worksheets.Add("Sheet1");
+                ws.Cell(1, 3).Value = "hello";
+                wb.SaveAs(filePath);
+            }
+
+            var rows = Reader().ReadRows(filePath, "Sheet1");
+
+            var cell = rows.Single(r => r.RowNumber == 1).CellsByColumn["C"];
+            cell.NativeValue.Should().Be("hello");
+            cell.NativeValue.Should().BeOfType<string>();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void ReadRows_BlankDvOnlyCell_NativeValueIsNull()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "native-blank-dv.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.Worksheets.Add("Sheet1");
+                ws.Cell(1, 3).Value = "anchor";
+                var dvCell = ws.Cell(1, 4);  // blank cell, no value
+                var dv = dvCell.CreateDataValidation();
+                dv.List("\"Yes,No,N/A\"");
+                wb.SaveAs(filePath);
+            }
+
+            var cells = Reader().ReadCells(filePath, "Sheet1", ["D1"]);
+
+            var cell = cells["D1"];
+            cell.NativeValue.Should().BeNull();
+            cell.DataValidationType.Should().NotBeNull();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
     [Fact]
     public void ReadRows_ColorScaleCf_DoesNotThrowAndYieldsNullCfValues()
     {

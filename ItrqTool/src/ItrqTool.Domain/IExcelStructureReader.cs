@@ -60,5 +60,8 @@ public record ExcelCellStructure(
     // First CF comparison value; null when no CF or no value.
     string? ConditionalFormattingValue = null,
     // Second CF comparison value (Between/NotBetween); null otherwise.
-    string? ConditionalFormattingValue2 = null
+    string? ConditionalFormattingValue2 = null,
+    // Cell's locale-safe native CLR value (double for numeric, string for text, DateTime, bool, null for blank/error).
+    // Payload for typed inject writes.
+    object? NativeValue = null
 );

@@ -145,8 +145,19 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
                 "Could not read conditional format for cell {Address}", cell.Address);
         }
 
+        object? nativeValue = cell.DataType switch
+        {
+            XLDataType.Number   => (object)cell.Value.GetNumber(),
+            XLDataType.Text     => cell.Value.GetText(),
+            XLDataType.DateTime => cell.Value.GetDateTime(),
+            XLDataType.Boolean  => cell.Value.GetBoolean(),
+            XLDataType.TimeSpan => cell.Value.GetTimeSpan(),
+            _                   => null   // Blank and Error → null
+        };
+
         return new ExcelCellStructure(
             textValue, dvType, dvFormula, cfOperator,
-            dvOperator, dvFormula2, cfType, cfValue, cfValue2);
+            dvOperator, dvFormula2, cfType, cfValue, cfValue2,
+            nativeValue);
     }
 }
