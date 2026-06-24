@@ -121,6 +121,31 @@ inline.
 
 ---
 
+## Version contract permanence (VCP)
+
+Each shipped questionnaire version (vNN — e.g. CLQ-v01/v02, RLQ-v01/v02, GD-v01/v02, RLE-v01/v02, …)
+is a special-purpose implementation of ONE concrete worksheet structure. The external auditor is
+unconstrained and may change anything between audits; real workbooks built to each shipped structure
+exist, so the tool must ALWAYS be able to process every shipped version.
+
+1. A shipped version's observable CONTRACT is frozen permanently — for BOTH capabilities:
+   - **Validation**: a vNN-structured worksheet yields exactly that version's findings.
+   - **Inject** (previous → current cross-version): a given version-pair (e.g. CLQ v02→v01;
+     RLQ/GD v01→v02) yields exactly that pair's read/write/carry-forward outputs.
+2. An auditor STRUCTURAL change spawns a NEW version (e.g. v02 → v03) — it NEVER mutates a shipped
+   version in place. This is why a cross-year-relevant change duplicate-and-defers to a new versioned
+   stack rather than retrofitting an existing one.
+3. The IMPLEMENTATION is not frozen — only the contract is. Code that delivers a version's contract
+   may be reused, genericized, or refactored for a good reason, but ONLY in a way that preserves every
+   affected shipped version's observable behaviour. Each version's exact-set tests are the permanent
+   guardrail: a behaviour-preserving refactor keeps them green with the per-project test count
+   unchanged. A change that alters what a shipped version does to its worksheet is forbidden.
+
+"Frozen" elsewhere in this document therefore means *stable — do not migrate or churn gratuitously*,
+NOT *untouchable*. The one thing frozen forever is each shipped version's behavioural contract.
+
+---
+
 ## Solution structure
 
 ```
@@ -688,6 +713,11 @@ The diff-report writers (`IHtmlReportWriter`, `IHtmlGeneralDataDiffReportWriter`
 3. Architecture tests and unit tests will identify all call sites that need updating.
 
 ### Implementing an auditor-mandated column change
+
+> **Read under "Version contract permanence" (VCP):** this procedure stands up the change on a NEW or
+> under-development version's stack — it never mutates a *shipped* version's contract. When the auditor
+> changes a shipped version's structure, that is a new version (vN → vN+1), and the steps below apply to
+> that new version's config / record / profile, not to a frozen shipped one.
 
 When the auditor adds, removes, or moves a **within-year input column** in a questionnaire template,
 for a validator built on the core (`clq-validation-v02` and later):
