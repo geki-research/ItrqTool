@@ -11,4 +11,4 @@ public interface IExcelTemplateWriter
         string outputPath);
 }
 
-public record CellWriteEntry(int Row, string Column, string Value);
+public record CellWriteEntry(int Row, string Column, string Value, object? TypedValue = null);

@@ -148,4 +148,118 @@ public sealed class ClosedXmlTemplateWriterTests
         after.Should().Equal(before);
         File.Exists(output).Should().BeTrue();
     }
+
+    // ── 6. typed-value write: native numeric/date/bool branches ───────────────
+
+    // 6a. int TypedValue → stored as Number
+    [Fact]
+    public void Populate_IntTypedValue_WritesAsNumber()
+    {
+        var dir = TestWorkDir();
+        var template = BuildInheritingTemplate(dir);
+        var output = Path.Combine(dir, "out.xlsx");
+
+        MakeWriter().Populate(template, SheetName,
+            new List<CellWriteEntry> { new(3, "C", "7", TypedValue: 7) }, output);
+
+        using var wb = new XLWorkbook(output);
+        var cell = wb.Worksheet(SheetName).Cell("C3");
+        cell.DataType.Should().Be(XLDataType.Number);
+        cell.GetValue<int>().Should().Be(7);
+    }
+
+    // 6b. double TypedValue into a decimal-format cell → stored as Number, format preserved
+    [Fact]
+    public void Populate_DoubleTypedValue_InDecimalFormatCell_WritesAsNumberPreservesFormat()
+    {
+        var dir = TestWorkDir();
+        var template = BuildInheritingTemplate(dir);  // column C has "0.00" format
+        var output = Path.Combine(dir, "out.xlsx");
+
+        MakeWriter().Populate(template, SheetName,
+            new List<CellWriteEntry> { new(3, "C", "1.5", TypedValue: 1.5d) }, output);
+
+        using var wb = new XLWorkbook(output);
+        var cell = wb.Worksheet(SheetName).Cell("C3");
+        cell.DataType.Should().Be(XLDataType.Number);
+        cell.GetValue<double>().Should().BeApproximately(1.5, 1e-9);
+        cell.Style.NumberFormat.Format.Should().Be("0.00");
+    }
+
+    // 6c. cross-type: int TypedValue into a decimal-format cell → stored as Number (not text)
+    [Fact]
+    public void Populate_IntTypedValue_InDecimalFormatCell_WritesAsNumber_NotText()
+    {
+        var dir = TestWorkDir();
+        var template = BuildInheritingTemplate(dir);  // column C has "0.00" format
+        var output = Path.Combine(dir, "out.xlsx");
+
+        MakeWriter().Populate(template, SheetName,
+            new List<CellWriteEntry> { new(3, "C", "3", TypedValue: 3) }, output);
+
+        using var wb = new XLWorkbook(output);
+        var cell = wb.Worksheet(SheetName).Cell("C3");
+        cell.DataType.Should().Be(XLDataType.Number);
+        cell.GetValue<int>().Should().Be(3);
+    }
+
+    // 6d. merged anchor: numeric TypedValue written to anchor cell of merged range round-trips as Number
+    [Fact]
+    public void Populate_NumericTypedValue_ToMergedAnchor_WritesAsNumber()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        var templatePath = Path.Combine(dir, "merged_template.xlsx");
+
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.Worksheets.Add(SheetName);
+            ws.Range("B2:B4").Merge();
+            wb.SaveAs(templatePath);
+        }
+
+        var output = Path.Combine(dir, "out.xlsx");
+        MakeWriter().Populate(templatePath, SheetName,
+            new List<CellWriteEntry> { new(2, "B", "5", TypedValue: 5) }, output);
+
+        using var wbOut = new XLWorkbook(output);
+        var cell = wbOut.Worksheet(SheetName).Cell("B2");
+        cell.DataType.Should().Be(XLDataType.Number);
+        cell.GetValue<int>().Should().Be(5);
+    }
+
+    // 6e. text regression: 3-arg entry (TypedValue null) still writes as Text
+    [Fact]
+    public void Populate_NullTypedValue_NumericLookingString_StillWritesAsText()
+    {
+        var dir = TestWorkDir();
+        var template = BuildInheritingTemplate(dir);
+        var output = Path.Combine(dir, "out.xlsx");
+
+        MakeWriter().Populate(template, SheetName,
+            new List<CellWriteEntry> { new(3, "C", "42") }, output);
+
+        using var wb = new XLWorkbook(output);
+        var cell = wb.Worksheet(SheetName).Cell("C3");
+        cell.DataType.Should().Be(XLDataType.Text);
+        cell.GetString().Should().Be("42");
+    }
+
+    // 6f. decimal TypedValue → stored as Number
+    [Fact]
+    public void Populate_DecimalTypedValue_WritesAsNumber()
+    {
+        var dir = TestWorkDir();
+        var template = BuildInheritingTemplate(dir);
+        var output = Path.Combine(dir, "out.xlsx");
+
+        MakeWriter().Populate(template, SheetName,
+            new List<CellWriteEntry> { new(3, "C", "2.5", TypedValue: 2.5m) }, output);
+
+        using var wb = new XLWorkbook(output);
+        var cell = wb.Worksheet(SheetName).Cell("C3");
+        cell.DataType.Should().Be(XLDataType.Number);
+        cell.GetValue<decimal>().Should().Be(2.5m);
+    }
+
 }

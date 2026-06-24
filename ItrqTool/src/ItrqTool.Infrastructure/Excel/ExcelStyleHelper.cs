@@ -44,9 +44,14 @@ internal static class ExcelStyleHelper
 
         switch (value)
         {
-            case int    n: cell.Value = n;            break;
-            case string s: cell.Value = s;            break;
-            default:       cell.Value = value.ToString(); break;
+            case int      n:  cell.Value = n;  break;
+            case long     l:  cell.Value = l;  break;
+            case double   d:  cell.Value = d;  break;
+            case decimal  m:  cell.Value = m;  break;
+            case DateTime dt: cell.Value = dt; break;
+            case bool     b:  cell.Value = b;  break;
+            case string   s:  cell.Value = s;  break;
+            default:          cell.Value = value.ToString(); break;
         }
 
         cell.Style.Alignment.Horizontal  = hAlign;

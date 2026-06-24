@@ -22,7 +22,7 @@ public sealed class ClosedXmlTemplateWriter : IExcelTemplateWriter
         {
             var col  = entry.Column.ToUpperInvariant();
             var cell = worksheet.Cell($"{col}{entry.Row}");
-            ExcelStyleHelper.WriteWithStylePreservation(worksheet, cell, col, entry.Value);
+            ExcelStyleHelper.WriteWithStylePreservation(worksheet, cell, col, entry.TypedValue ?? entry.Value);
         }
 
         workbook.SaveAs(outputPath);
