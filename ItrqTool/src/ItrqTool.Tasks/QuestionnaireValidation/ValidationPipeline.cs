@@ -107,6 +107,31 @@ public static class ValidationPipeline
         // 4. Align.
         var alignment = AlignmentEngine.Align(currentResponse, emptyTemplate, previousResponse);
 
+        return RunFromAlignedGated(alignment, profile, severityOverrides, messages, ct);
+    }
+
+    /// <summary>
+    /// IO-free, pre-aligned check half of the pipeline: a fully-constructed
+    /// <see cref="AlignmentResult{T}"/> flows in, the catalogue/gate/baseline/extension
+    /// chain runs, and the <see cref="ValidationRunResult"/> flows out. Carries no
+    /// question lists and no file paths — purely the post-Align steps in their original
+    /// order. Behaviour is identical to the tail of <see cref="RunFromParsedGated{T}"/>.
+    /// </summary>
+    public static ValidationRunResult RunFromAlignedGated<T>(
+        AlignmentResult<T> alignment,
+        ValidationPipelineProfile<T> profile,
+        IReadOnlyDictionary<string, FindingEvaluation> severityOverrides,
+        ICollection<TaskMessage> messages,
+        CancellationToken ct)
+        where T : class, IAlignmentIdentity
+    {
+        ArgumentNullException.ThrowIfNull(alignment);
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(severityOverrides);
+        ArgumentNullException.ThrowIfNull(messages);
+
+        ct.ThrowIfCancellationRequested();
+
         // 5. Catalogue (baseline + extension + gate-check descriptors) → validate overrides → emitter.
         // The gate check's descriptors MUST join the catalogue: RLQ moves MalformedKeyCheck out of
         // Extensions into the gate slot, so without this concat its id would be unregistered and the
