@@ -289,7 +289,7 @@ Questionnaire **validation** tasks check a current-year response against the emp
 (within-year: structure, frozen values, frozen constraints, input validity) and the previous-year
 response (cross-year: question identity), emitting a `ValidationReport` consumed by
 `FeedbackChecklistAssembler`. They are documented in skills, loaded on demand:
-`.claude/skills/{clq-validation,clq-validation-v02}/SKILL.md`.
+`.claude/skills/{clq-validation,clq-validation-v02,rlq-validation}/SKILL.md`.
 
 All validation stacks run on the version-neutral `ItrqTool.Tasks.QuestionnaireValidation` core: a per-version
 record (`: IAlignmentIdentity`), a config (`: IClqBaselineConfig`), a `…Profile.Build` that composes
@@ -756,8 +756,8 @@ This codebase uses Claude Code's layered documentation model:
   judges the task relevant, or when a prompt names the skill explicitly to
   force-load it. Sheet-specific specs and infrequent task guides (publishing) live
   here. Current skills: `diff-task-conventions`, `clq-diff`, `rlq-diff`, `gd-diff`,
-  `cell-range-diff`, `clq-validation`, `clq-validation-v02`, `auditor-change-runbook`,
-  `presentation-conventions`, `deployment`.
+  `cell-range-diff`, `clq-validation`, `clq-validation-v02`, `rlq-validation`,
+  `auditor-change-runbook`, `presentation-conventions`, `deployment`.
 
 **Hard constraints never move to a skill.** Every non-negotiable rule, the
 conservative-input posture, and the detect-everything principle stay in CLAUDE.md

@@ -5,7 +5,7 @@ An overview of the on-demand skills defined under `.claude/skills/`. Each skill'
 names the skill explicitly. Sheet-specific specs and infrequent task guides live here, keeping
 `CLAUDE.md` to always-on governance.
 
-Generated: 2026-06-15; relocated to `docs/` and updated 2026-06-17 (added `clq-validation-v02`, `auditor-change-runbook`); updated 2026-06-18 (added `presentation-conventions`, extracted from CLAUDE.md to keep it under the 40k always-on limit).
+Generated: 2026-06-15; relocated to `docs/` and updated 2026-06-17 (added `clq-validation-v02`, `auditor-change-runbook`); updated 2026-06-18 (added `presentation-conventions`, extracted from CLAUDE.md to keep it under the 40k always-on limit); updated 2026-06-25 (added `rlq-validation`).
 
 | Skill | Folder | One-line purpose |
 |---|---|---|
@@ -17,6 +17,7 @@ Generated: 2026-06-15; relocated to `docs/` and updated 2026-06-17 (added `clq-v
 | deployment | `deployment/` | Publishing flow and deployed-install runtime paths |
 | clq-validation | `clq-validation/` | CLQ_v01 validation task (within-year and cross-year checks, 18 findings) |
 | clq-validation-v02 | `clq-validation-v02/` | CLQ_v02 validation task on the generic core (18 baseline + 3 stability findings) |
+| rlq-validation | `rlq-validation/` | RLQ validation tasks (v01/v02) — multi-row bespoke parser via RunFromParsedGated; 14/17 findings |
 | auditor-change-runbook | `auditor-change-runbook/` | Runbook for an auditor-mandated questionnaire change (add/remove/move a within-year input column) on a core validator |
 | presentation-conventions | `presentation-conventions/` | WPF/MVVM Presentation-layer reference (view models, UI-model records, shell/navigation, composition root) |
 
@@ -213,6 +214,38 @@ baseline-zero), `ClqV02WorkbookWriter` (K/N/O + a Yes/No K-DV), `ClqV02BaselineT
 `ClqV02StabilityPerturbationTests` (3-finding exact-set), `ClqV02EndToEndWorkflowTests` (full workflow →
 checklist). New *fitting* validators follow the same per-version profile-on-core pattern; cross-year-relevant
 changes fall back to duplicate-and-defer.
+
+---
+
+## rlq-validation
+
+**Scope:** RLQ validation tasks — `RiskLevelQuestionValidationV01Task` (TaskType
+`"RiskLevelQuestionValidation_v01"`) and `RiskLevelQuestionValidationV02Task` (TaskType
+`"RiskLevelQuestionValidation_v02"`), namespace `ItrqTool.Tasks`. Both run on the version-neutral
+`QuestionnaireValidation` core but with an RLQ-specific multi-row parser.
+
+**Summary:** Validate a current-year Risk-Level-Question response against the empty template (within-year)
+and the previous-year response (cross-year), emitting a `ValidationReport` consumed by
+`FeedbackChecklistAssembler`. RLQ questions span **one or more contiguous rows**, so RLQ does NOT use the
+shared single-row `QuestionParser`: each version has a **bespoke `RlqV0xQuestionParser`** (grouping key =
+XrefId, repeated per row; once-per-question merged cells read from the top row; the I/J/K explanation triplet
+per-row) and the task runs **`ValidationPipeline.RunFromParsedGated`** (NOT `Run`/`RunFromParsed`) with the
+identity-integrity gate (`HaltOnMalformedKeys`, `MalformedKeyCheck` on the XrefId column — a blank/duplicate
+key yields only the gate's Fatal `structure.xrefid-empty-or-duplicated` + `Halted=true`). **Sections only,
+no chapters.** **Column maps:** v01 C/D/E/F/G/H/I/J/K/L + ProvidedBy **O** / XrefId **Q**; v02 same C–L +
+HowExplanation **M** + ProvidedBy **P** / XrefId **R**. **DvRoles:** answer → **H**, material-change → **L**
+(inline DVs resolved in the profile, range-ref/named-range via a `DvRangeRefResolver` post-pass).
+`DeviationThreshold` is **relative (a fraction**, e.g. 0.25 = 25 %). **Finding catalogue: 14 (v01) / 17
+(v02)** — pinned by `RlqV02ProfileCatalogueTests`. v02 adds three ids: **Rule 1**
+`ConditionalRequirement` on column **M** (required when **L** material-change ∈
+`MaterialChangeExplanationTriggers`) → `…conditionally-required-missing` (Error); **Rule 2**
+`ConfiguredTriggerInDvList` on **L** → `config.material-change-explanation.trigger-not-in-dv-list` /
+`…dv-list-unresolvable` (both ConfigConsistency, **Fatal**). Note `input-cell.{role}.dv-vocabulary-unresolvable`
+is an *existing baseline* id (DvConformanceCell, Error), not a new-v02 surface. Five-node trial workflows
+(`workflows/rlq-v0x-validation-trial.json`: StaticFileSource×3 → validate → `FeedbackChecklistAssembler`) and
+exact-set perturbation + end-to-end integration trials under `tests/ItrqTool.Integration.Tests/RlqV01|RlqV02/`.
+Includes a pointer to the **VCP-frozen** `RiskLevelQuestionInject_v01_to_v02` injector (reference-only, no
+carry-forward; H→G typed, K→J, O→P; M not injected).
 
 ---
 
