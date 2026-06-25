@@ -294,14 +294,16 @@ response (cross-year: question identity), emitting a `ValidationReport` consumed
 All validation stacks run on the version-neutral `ItrqTool.Tasks.QuestionnaireValidation` core: a per-version
 record (`: IAlignmentIdentity`), a config (`: IClqBaselineConfig`), a `…Profile.Build` that composes
 `ClqBaselineChecks` (the 18 CLQ findings) plus declarative extension primitives, and a thin task that calls
-either `ValidationPipeline.Run` (single-row validators, e.g. CLQ) or `ValidationPipeline.RunFromParsed`
-(multi-row validators such as RLQ-v01 that supply their own bespoke parser and call `RunFromParsed` after their
-own read/parse/patch).
+either `ValidationPipeline.Run` (single-row validators, e.g. CLQ) or `ValidationPipeline.RunFromParsedGated`
+(multi-row validators such as RLQ-v01/v02 that supply their own bespoke parser and call `RunFromParsedGated` —
+the identity-gate overload, `HaltOnMalformedKeys:true` — after their own read/parse/patch).
 - **`clq-validation` (v01)** — `ClqV01Profile`; column map D/E/F/H/I/J/**M**/**N**, no K stability column.
 - **`clq-validation-v02`** — `ClqV02Profile`; inserts answer-stability at **K** (provided-by → N, xref-id → O).
-- **RLQ-v01** (`RiskLevelQuestionValidation_v01`) — `RlqV01Profile`; bespoke multi-row parser
-  (`RlqV01QuestionParser`, equal-XrefId grouping, merged once-per-question cells); task calls `RunFromParsed`.
-  Findings land in chunk 2; a dedicated `rlq-validation` skill is to be created at track end.
+- **RLQ-v01/v02** (`RiskLevelQuestionValidation_v01` / `_v02`) — `RlqV01Profile` / `RlqV02Profile`; bespoke
+  multi-row parser (`RlqV0xQuestionParser`, equal-XrefId grouping, merged once-per-question cells); task calls
+  **`RunFromParsedGated`** (identity gate, `HaltOnMalformedKeys:true`). See the `rlq-validation` skill.
+- **RLQ inject (`RiskLevelQuestionInject_v01_to_v02`)** — reference-only v01→v02 injector (no carry-forward);
+  its v01→v02 read/write pair is a VCP-frozen contract. See the `rlq-validation` skill.
 
 The cheap, supported change is **adding, removing, or altering a within-year input column** on the
 core — see "Implementing an auditor-mandated column change" below. A change affecting **cross-year
@@ -720,7 +722,8 @@ The diff-report writers (`IHtmlReportWriter`, `IHtmlGeneralDataDiffReportWriter`
 > that new version's config / record / profile, not to a frozen shipped one.
 
 When the auditor adds, removes, or moves a **within-year input column** in a questionnaire template,
-for a validator built on the core (`clq-validation-v02` and later):
+for a validator built on the core (`clq-validation-v02`, RLQ-v01/v02, and later), **on a new or under-development
+version stack** (never a shipped version in place):
 1. Update the config JSON (column letters) and the config record plus its `Validate()` rules.
 2. If the column carries its own data, add a field to the per-version question record and read it in
    the profile's `RecordFactory`; declare a DV-role for it when it has data-validation.
@@ -789,3 +792,10 @@ Per-developer artifacts not in version control:
     state. Accumulates as new tool permissions are granted; review it
     directly on the developer's machine when auditing what Claude Code
     can do. Not tracked in git.
+
+### Report & diagnostics paths (nested repo)
+The git root is the OUTER dir; the project is the INNER `<root>/ItrqTool` (holds the slnx, src/, tests/,
+configs/, workflows/, .claude/). Anchor every write pwd-independently: `PROJ="$(git rev-parse --show-toplevel)/ItrqTool"`,
+then write reports to `"$PROJ/reports/…"` and diagnostics to `"$PROJ/diagnostics/…"`. After writing, run
+`git status` and confirm the file shows under inner `ItrqTool/reports|diagnostics/…` (never a bare
+`reports|diagnostics/…` in the outer root). Both folders are gitignored — never commit their contents.

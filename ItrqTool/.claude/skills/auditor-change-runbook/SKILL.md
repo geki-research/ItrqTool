@@ -31,7 +31,14 @@ that version's columns and gating. A within-year cell rides on the existing alig
 cross-year identity/matching change ripples through alignment AND the baseline gating, and risks the
 frozen contract of the shipped version. Branch the version; do not retrofit the shared core.
 
+> A within-year change on a **multi-row** sheet (e.g. RLQ) is still in-scope: the validator keeps its
+> bespoke multi-row parser and runs `ValidationPipeline.RunFromParsedGated` (identity gate,
+> HaltOnMalformedKeys:true) after its own read/parse/patch — it does NOT use the single-row `QuestionParser`/`RunFromParsed`.
+
 ## §2 — ADD a within-year input column  *(DEMONSTRATED — v02 "add column K")*
+
+> Per VCP: apply these steps to a **new or under-development** version's stack (vN+1). An auditor
+> structural change spawns a new version; never mutate a *shipped* version's config/record/profile in place.
 
 1. **Config asset** (`configs/clq-vXX-validation-config.json`): add the column letter; if the column has
    a fixed allowed-set, add it (e.g. `AllowedStabilityAnswers`). Mind address shifts — inserting a column
@@ -83,6 +90,11 @@ reconciled there too.
 - **Semantics / allowed-set change**: treat as a §3 remove of the old rule plus a §2 add of the new one
   (new allowed-set, possibly new findings).
 
+### §4b — Multi-row (bespoke-parser) validators
+When the sheet packs a question across contiguous XrefId-grouped rows, steps §2–§4 still apply, but the
+profile's `RecordFactory` is a documenting throw (parsing is done by the bespoke `…QuestionParser`), and the
+task calls `RunFromParsedGated` (not `Run` / `RunFromParsed`). See the `rlq-validation` skill.
+
 ## §5 — Guardrails
 
 - Express checks through the primitives; reach for a bespoke check only when no primitive fits (and then
@@ -92,6 +104,8 @@ reconciled there too.
 - `clq-validation` (v01) runs on the core and can be extended via this runbook; cross-year changes require duplicate-and-defer.
 - Never retrofit the shared core for a cross-year change (see §1) — branch the version.
 - Always prove findings as an exact set; keep the baseline factory at zero findings.
+- VCP: these edits target a new/under-development version stack; a shipped version's contract is frozen
+  (its exact-set tests stay green, unchanged). Branch the version for any auditor structural change.
 
 ## §6 — See also
 

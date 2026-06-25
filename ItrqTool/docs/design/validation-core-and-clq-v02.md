@@ -135,6 +135,9 @@ CLQ specialization (RLQ/GD would bring their own).
    - `FrozenConstraintCell<T>(…dv selectors…, providedBySelector, role, column, ruleChangedDefault=Error)` →
      `constraint.<role>.validation-rule-changed` (current vs template DV; needs the DvPatcher read for that role).
    - `FrozenValueCell<T>` / `ConditionalRequirement<T>` — DEFERRED (not needed by v02; YAGNI).
+     > **[Forward-note 2026-06-25]** `ConditionalRequirement<T>` was subsequently BUILT (BL-020) and WIRED as
+     > RLQ-v02 Rule 1 (`input-cell.material-change-explanation.conditionally-required-missing`); see CLAUDE.md
+     > "Validation tasks" and the `rlq-validation` skill. `FrozenValueCell<T>` remains deferred (still YAGNI).
 
 **Config-values principle (load-bearing):** a profile composes *which* primitive applies to *which* role (via
 type-checked selectors) — it carries **no data values**. All primitive *values* (allowed-sets, thresholds,
