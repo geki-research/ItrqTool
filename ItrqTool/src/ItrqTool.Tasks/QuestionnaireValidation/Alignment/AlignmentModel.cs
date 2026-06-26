@@ -18,7 +18,7 @@ namespace ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 
 public enum ValidationWorkbook { CurrentResponse, EmptyTemplate, PreviousResponse }
 
-public enum MalformedKeyReason { Blank, Duplicate }
+public enum MalformedKeyReason { Blank, Duplicate, Unparseable }
 
 public enum WithinYearJoin
 {

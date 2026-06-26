@@ -46,9 +46,13 @@ public sealed class MalformedKeyCheck<T> : IExtensionCheck<T>
         var findings = new List<ValidationFinding>();
         foreach (var mk in alignment.MalformedKeys)   // NO workbook filter — mirror CLQ Phase 1
         {
-            var reason = mk.Reason == MalformedKeyReason.Blank
-                ? "blank"
-                : $"duplicated ('{mk.XrefId}')";
+            var reason = mk.Reason switch
+            {
+                MalformedKeyReason.Blank       => "blank",
+                MalformedKeyReason.Duplicate   => $"duplicated ('{mk.XrefId}')",
+                MalformedKeyReason.Unparseable => $"unparseable ('{mk.XrefId}')",
+                _ => throw new ArgumentOutOfRangeException(nameof(mk.Reason), mk.Reason, null)
+            };
             findings.Add(emitter.Emit(MalformedKeyId,
                 $"{_column}{mk.RowNumber}",
                 questionNumber: null, questionText: null, requestedData: null, providedBy: null,
