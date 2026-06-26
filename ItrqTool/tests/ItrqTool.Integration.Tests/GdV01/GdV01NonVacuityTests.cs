@@ -57,7 +57,7 @@ public sealed class GdV01NonVacuityTests
             q1.Answers.Should().ContainSingle("Q1 is a bare-qid with one implicit answer");
             q1.Answers[0].AnswerId.Should().BeNull("bare-qid collapses to one answer with null AnswerId");
             q1.Answers[0].AnchorRow.Should().Be(4);
-            q1.Answers[0].Answer.Should().Be("Yes");
+            q1.Answers[0].Answer.Should().Be("1");
             q1.Answers[0].Explanations.Should().ContainSingle(
                 "Q1 has one explanation row (I/K on row 4)");
             q1.Answers[0].Explanations[0].Requested.Should().Be("req1");
@@ -74,7 +74,7 @@ public sealed class GdV01NonVacuityTests
             var a01 = q2.Answers[0];
             a01.AnswerId.Should().Be("A-01");
             a01.AnchorRow.Should().Be(11);
-            a01.Answer.Should().Be("Yes");
+            a01.Answer.Should().Be("2");
             a01.Explanations.Should().ContainSingle("A-01 has one explanation row (row 11)");
             a01.Explanations[0].Requested.Should().Be("req2a");
             a01.Explanations[0].Current.Should().Be("cur2a");
@@ -82,7 +82,7 @@ public sealed class GdV01NonVacuityTests
             var a02 = q2.Answers[1];
             a02.AnswerId.Should().Be("A-02");
             a02.AnchorRow.Should().Be(12);
-            a02.Answer.Should().Be("No");
+            a02.Answer.Should().Be("3");
             a02.Explanations.Should().ContainSingle("A-02 has one explanation row (row 12, I blank)");
             a02.Explanations[0].Requested.Should().BeNull("I is blank on row 12");
 

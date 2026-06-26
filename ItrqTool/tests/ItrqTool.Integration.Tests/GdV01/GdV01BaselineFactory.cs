@@ -9,9 +9,9 @@ namespace ItrqTool.Integration.Tests.GdV01;
 /// GD "General Data" sheet. Layout reuses the fixed 2-section, 2-question geometry defined by
 /// <see cref="GdV01WorkbookWriter"/> (frozen).
 /// <para>
-/// Zero-findings guarantee on the clean trio: all H/L values are DV-conforming, all QIDs
-/// align across workbooks at the same row numbers with the same text, and the List H DV means
-/// the deviation check does not fire.
+/// Zero-findings guarantee on the clean trio: H answers are whole numbers (1/2/3) conforming
+/// to the WholeNumber ≥ 0 DV, equal across current and previous (cross-year deviation = 0 ≤
+/// threshold 0.25), L values conform to List "Yes,No", and all QIDs align across workbooks.
 /// </para>
 /// </summary>
 public static class GdV01BaselineFactory
@@ -81,14 +81,15 @@ public static class GdV01BaselineFactory
     /// <summary>
     /// Writes the current-response body onto <paramref name="ws"/>: section headers, all
     /// questions' columns, explanation rows, and Q column on every answer row. H values are
-    /// List-conforming strings ("Yes"/"No"). No DV is applied; the caller is responsible for DV.
+    /// whole numbers (1/2/3) conforming to the WholeNumber ≥ 0 DV. No DV is applied; the
+    /// caller is responsible for DV.
     /// </summary>
     internal static void WriteCurrentBody(IXLWorksheet ws)
     {
         WriteSectionHeaders(ws);
-        WriteQ1(ws, answer: "Yes", curExp: "cur1");
-        WriteQ2A01(ws, answer: "Yes", materialChange: "Yes", curExp: "cur2a");
-        WriteQ2A02(ws, answer: "No",  materialChange: "No");
+        WriteQ1(ws, answer: 1, curExp: "cur1");
+        WriteQ2A01(ws, answer: 2, materialChange: "Yes", curExp: "cur2a");
+        WriteQ2A02(ws, answer: 3, materialChange: "No");
     }
 
     /// <summary>Writes the empty-template workbook (same structure; H and K blank; DV applied).</summary>
@@ -107,18 +108,18 @@ public static class GdV01BaselineFactory
 
     /// <summary>
     /// Writes the previous-response workbook (same XrefIds and text; H matches current so
-    /// cross-year delta = 0 on the clean baseline).
+    /// cross-year deviation = 0 on the clean baseline).
     /// </summary>
     public static void WritePrevious(string outputPath)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
         WriteSectionHeaders(ws);
-        // H values MATCH current (Yes/Yes/No) so cross-year deviation check is N/A (List DV).
+        // H values MATCH current (1/2/3) so cross-year deviation = 0 ≤ threshold 0.25.
         // Text values MATCH current so GdAnswerTextDivergedCell is silent.
-        WriteQ1(ws, answer: "Yes", curExp: "prev_cur1");
-        WriteQ2A01(ws, answer: "Yes", materialChange: "Yes", curExp: "prev_cur2a");
-        WriteQ2A02(ws, answer: "No",  materialChange: "No");
+        WriteQ1(ws, answer: 1, curExp: "prev_cur1");
+        WriteQ2A01(ws, answer: 2, materialChange: "Yes", curExp: "prev_cur2a");
+        WriteQ2A02(ws, answer: 3, materialChange: "No");
         ApplyAnswerDv(ws);
         ApplyMaterialChangeDv(ws);
         wb.SaveAs(outputPath);
@@ -131,13 +132,13 @@ public static class GdV01BaselineFactory
     }
 
     // Q1: bare-qid, 1 explanation, L blank (G-CO — L excluded).
-    private static void WriteQ1(IXLWorksheet ws, string answer, string curExp)
+    private static void WriteQ1(IXLWorksheet ws, int answer, string curExp)
     {
         ws.Cell(Q1Row, QNumberCol).Value  = "1";
         ws.Cell(Q1Row, TextCol).Value     = "Q1 text";
         ws.Cell(Q1Row, GuidanceCol).Value = "Guidance 1.";
         ws.Cell(Q1Row, ReqTypeCol).Value  = "Type1";
-        ws.Cell(Q1Row, PrevAnsCol).Value  = $"prev_{answer.ToLowerInvariant()}";
+        ws.Cell(Q1Row, PrevAnsCol).Value  = $"prev_{answer}";
         ws.Cell(Q1Row, AnsCol).Value      = answer;
         ws.Cell(Q1Row, ReqExpCol).Value   = "req1";
         ws.Cell(Q1Row, CurExpCol).Value   = curExp;
@@ -159,13 +160,13 @@ public static class GdV01BaselineFactory
     }
 
     // Q2:A-01: first answer to qid Q2 (anchor row 11).
-    private static void WriteQ2A01(IXLWorksheet ws, string answer, string materialChange, string curExp)
+    private static void WriteQ2A01(IXLWorksheet ws, int answer, string materialChange, string curExp)
     {
         ws.Cell(Q2A01Row, QNumberCol).Value  = "2";
         ws.Cell(Q2A01Row, TextCol).Value     = "Q2 text";
         ws.Cell(Q2A01Row, GuidanceCol).Value = "Guidance 2a.";
         ws.Cell(Q2A01Row, ReqTypeCol).Value  = "Type2a";
-        ws.Cell(Q2A01Row, PrevAnsCol).Value  = $"prev_{answer.ToLowerInvariant()}";
+        ws.Cell(Q2A01Row, PrevAnsCol).Value  = $"prev_{answer}";
         ws.Cell(Q2A01Row, AnsCol).Value      = answer;
         ws.Cell(Q2A01Row, ReqExpCol).Value   = "req2a";
         ws.Cell(Q2A01Row, CurExpCol).Value   = curExp;
@@ -187,9 +188,9 @@ public static class GdV01BaselineFactory
     }
 
     // Q2:A-02: second answer to qid Q2 (anchor row 12); C/D blank (display block from row 11).
-    private static void WriteQ2A02(IXLWorksheet ws, string answer, string materialChange)
+    private static void WriteQ2A02(IXLWorksheet ws, int answer, string materialChange)
     {
-        ws.Cell(Q2A02Row, PrevAnsCol).Value = $"prev_{answer.ToLowerInvariant()}";
+        ws.Cell(Q2A02Row, PrevAnsCol).Value = $"prev_{answer}";
         ws.Cell(Q2A02Row, AnsCol).Value     = answer;
         ws.Cell(Q2A02Row, MatChgCol).Value  = materialChange;
         ws.Cell(Q2A02Row, PrvdByCol).Value  = "TestOU";
@@ -206,9 +207,9 @@ public static class GdV01BaselineFactory
 
     private static void ApplyAnswerDv(IXLWorksheet ws)
     {
-        // Answer DV (H, List "Yes,No") on each answer's anchor row.
+        // Answer DV (H, WholeNumber ≥ 0) on each answer's anchor row.
         foreach (var row in new[] { Q1Row, Q2A01Row, Q2A02Row })
-            ws.Cell(row, AnsCol).CreateDataValidation().List("\"Yes,No\"");
+            ws.Cell(row, AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
     }
 
     private static void ApplyMaterialChangeDv(IXLWorksheet ws)

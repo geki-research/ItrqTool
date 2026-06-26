@@ -50,8 +50,9 @@ public static class GdV01WorkbookWriter
     };
 
     /// <summary>
-    /// Writes a clean GD workbook to <paramref name="outputPath"/>. Answer values conform to
-    /// the List "Yes,No" DV applied to H and L.
+    /// Writes a clean GD workbook to <paramref name="outputPath"/>. Answer values are whole
+    /// numbers (1/2/3) conforming to the WholeNumber ≥ 0 DV applied to H. L uses inline
+    /// List "Yes,No" DV on G-ST anchor rows.
     /// </summary>
     public static void Write(string outputPath)
     {
@@ -62,7 +63,7 @@ public static class GdV01WorkbookWriter
         ws.Cell(SectionGCoRow, "D").Value = "G-CO";
 
         // ── Q1 (row 4): bare-qid, 1 explanation row, L blank (G-CO excluded) ─
-        WriteOncePerQuestion(ws, Q1Row, number: "1", text: "Q1 text", suffix: "1", answer: "Yes");
+        WriteOncePerQuestion(ws, Q1Row, number: "1", text: "Q1 text", suffix: "1", answer: 1);
         ws.Cell(Q1Row, "Q").Value = "Q1";
         WriteExplanation(ws, Q1Row, requested: "req1", previous: null, current: "cur1");
         // L intentionally blank — Q1 is in G-CO (L-excluded section).
@@ -71,22 +72,22 @@ public static class GdV01WorkbookWriter
         ws.Cell(SectionGStRow, "D").Value = "G-ST";
 
         // ── Q2:A-01 (row 11): first answer to qid Q2 ─────────────────────────
-        WriteOncePerQuestion(ws, Q2A01Row, number: "2", text: "Q2 text", suffix: "2a", answer: "Yes");
+        WriteOncePerQuestion(ws, Q2A01Row, number: "2", text: "Q2 text", suffix: "2a", answer: 2);
         ws.Cell(Q2A01Row, "Q").Value = "Q2:A-01";
         ws.Cell(Q2A01Row, "L").Value = "Yes";
         WriteExplanation(ws, Q2A01Row, requested: "req2a", previous: null, current: "cur2a");
 
         // ── Q2:A-02 (row 12): second answer; C/D blank (display block from row 11) ──
-        ws.Cell(Q2A02Row, "G").Value = "prev_no";
-        ws.Cell(Q2A02Row, "H").Value = "No";
+        ws.Cell(Q2A02Row, "G").Value = "prev_3";
+        ws.Cell(Q2A02Row, "H").Value = 3;
         ws.Cell(Q2A02Row, "L").Value = "No";
         ws.Cell(Q2A02Row, "O").Value = "TestOU";
         ws.Cell(Q2A02Row, "Q").Value = "Q2:A-02";
         // I/J/K blank — no explanation requested for A-02.
 
-        // ── Answer DV (H, List "Yes,No") on each answer's anchor row ─────────
+        // ── Answer DV (H, WholeNumber ≥ 0) on each answer's anchor row ────────
         foreach (var row in new[] { Q1Row, Q2A01Row, Q2A02Row })
-            ws.Cell(row, "H").CreateDataValidation().List("\"Yes,No\"");
+            ws.Cell(row, "H").CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
 
         // ── Material-change DV (L, List "Yes,No") on G-ST anchor rows ─────────
         foreach (var row in new[] { Q2A01Row, Q2A02Row })
@@ -97,13 +98,13 @@ public static class GdV01WorkbookWriter
 
     // Fills C/D/E/F/G/H/O on a question's anchor row (once-per-question or once-per-first-answer).
     private static void WriteOncePerQuestion(
-        IXLWorksheet ws, int row, string number, string text, string suffix, string answer)
+        IXLWorksheet ws, int row, string number, string text, string suffix, int answer)
     {
         ws.Cell(row, "C").Value = number;
         ws.Cell(row, "D").Value = text;
         ws.Cell(row, "E").Value = $"Guidance {suffix}.";
         ws.Cell(row, "F").Value = $"Type{suffix}";
-        ws.Cell(row, "G").Value = $"prev_{answer.ToLowerInvariant()}";
+        ws.Cell(row, "G").Value = $"prev_{answer}";
         ws.Cell(row, "H").Value = answer;
         ws.Cell(row, "O").Value = "TestOU";
     }
