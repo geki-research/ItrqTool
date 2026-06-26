@@ -1,5 +1,6 @@
 using ItrqTool.Domain;
-using ItrqTool.Tasks.Shared;   // DvListParser
+using ItrqTool.Tasks.QuestionnaireValidation.Parsing;   // DvRangeRefResolver
+using ItrqTool.Tasks.Shared;                             // DvListParser
 
 namespace ItrqTool.Tasks.GeneralDataValidationV01;
 
@@ -112,14 +113,45 @@ public static class GdDvPatcher
 
     // ── C2 FILL (step 4) ──
     // Per (answer, role) range-ref / named-range List resolution for List cells whose inline path
-    // returned null. DvRangeRefResolver.Resolve<T> assumes one list per record; GD has two roles ×
-    // N answers, so C2 invokes resolution per (answer, role) — adapt, not call-as-is (recon ⚠4).
-    // C1: identity pass (inline-only workbooks are already fully patched by StampInline).
+    // returned null. DvRangeRefResolver.Resolve<GdAnswer> is called twice (once per role) on the
+    // FLATTENED answer list, then resolved answers are re-stitched into questions by AnchorRow
+    // (unique per answer). The resolver's early-exit guard (non-null currentListValuesSelector
+    // result → skip) preserves inline-stamped values from steps 1–3.
     private static IReadOnlyList<GdV01Question> ResolveRangeAndNamedLists(
         IExcelStructureReader reader,
         string filePath,
         string sheetName,
         GdV01Config config,
         IReadOnlyList<GdV01Question> questions)
-        => questions;
+    {
+        var allAnswers = questions.SelectMany(q => q.Answers).ToList();
+        if (allAnswers.Count == 0) return questions;
+
+        // Resolve H (answer) role.
+        var resolved = DvRangeRefResolver.Resolve(
+            reader, filePath, sheetName, allAnswers,
+            dvTypeSelector:            a => a.AnswerDvType,
+            dvFormulaSelector:         a => a.AnswerDvFormula,
+            currentListValuesSelector: a => a.AnswerDvListValues,
+            stampListValues:           (a, vals) => a with { AnswerDvListValues = vals });
+
+        // Resolve L (material-change) role.
+        resolved = DvRangeRefResolver.Resolve(
+            reader, filePath, sheetName, resolved,
+            a => a.MaterialChangeDvType,
+            a => a.MaterialChangeDvFormula,
+            a => a.MaterialChangeDvListValues,
+            (a, vals) => a with { MaterialChangeDvListValues = vals });
+
+        // Re-stitch resolved answers back into questions by AnchorRow (unique per answer).
+        var byAnchorRow = resolved.ToDictionary(a => a.AnchorRow);
+        return questions
+            .Select(q => q with
+            {
+                Answers = q.Answers
+                    .Select(a => byAnchorRow.TryGetValue(a.AnchorRow, out var r) ? r : a)
+                    .ToList()
+            })
+            .ToList();
+    }
 }

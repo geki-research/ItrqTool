@@ -41,6 +41,23 @@ public sealed class GdV01Config
     public IReadOnlyDictionary<string, FindingEvaluation> SeverityOverrides { get; init; }
         = new Dictionary<string, FindingEvaluation>();
 
+    // The set of SectionNames in which column L (material-change) is a REQUIRED input. Answers in
+    // sections NOT listed here are skipped by the L required-input check. Default empty = no L sections.
+    // Populated from config JSON in C2b (GD-D). Absence is advisory, not a blocking error (BL-037).
+    public IReadOnlyList<string> MaterialChangeSections { get; init; } = [];
+
+    /// <summary>Advisory warnings for non-blocking configuration gaps.</summary>
+    public IReadOnlyList<string> Warnings()
+    {
+        var warnings = new List<string>();
+        if (MaterialChangeSections.Count == 0)
+            warnings.Add(
+                "MaterialChangeSections should list the section names in which the material-change column " +
+                "(L) is a required input. It is currently empty — the per-answer L required-input check " +
+                "will not fire for any section (BL-037).");
+        return warnings;
+    }
+
     public IReadOnlyList<string> Validate()
     {
         var errors = new List<string>();
