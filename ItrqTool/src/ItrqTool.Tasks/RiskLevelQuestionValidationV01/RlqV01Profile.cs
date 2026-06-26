@@ -144,7 +144,9 @@ public static class RlqV01Profile
                 // Per-row explanation completeness (finding 6b): for each explanation row where a
                 // request (I) is present but the current explanation (K) is blank, emit one finding
                 // at K{row}. Input-only (current workbook); one finding per offending row.
-                new ExplanationCompletenessCell(config.CurrentExplanationColumn),
+                new ExplanationCompletenessCell<RlqV01Question>(
+                    q => q.ExplanationRows.Select(r => new ExplanationRowView(r.Requested, r.Current, r.RowNumber, q.ProvidedBy)),
+                    config.CurrentExplanationColumn),
             ],
             HaltOnMalformedKeys: true,
             IdentityGateCheck: gateCheck);

@@ -17,7 +17,8 @@ public sealed class ExplanationCompletenessCellTests
 {
     private const string Column = "K";
 
-    private static ExplanationCompletenessCell Primitive() => new(Column);
+    private static ExplanationCompletenessCell<RlqV01Question> Primitive() =>
+        new(q => q.ExplanationRows.Select(r => new ExplanationRowView(r.Requested, r.Current, r.RowNumber, q.ProvidedBy)), Column);
 
     private static RlqExplanationRow Expl(int rowNumber, string? requested, string? current) =>
         new(Requested: requested, Previous: null, Current: current, RowNumber: rowNumber);
@@ -60,7 +61,7 @@ public sealed class ExplanationCompletenessCellTests
         new(rows.ToList(), Array.Empty<RlqV01Question>(), Array.Empty<MalformedKey>());
 
     private static FindingEmitter Emitter(
-        ExplanationCompletenessCell primitive,
+        ExplanationCompletenessCell<RlqV01Question> primitive,
         IReadOnlyDictionary<string, FindingEvaluation>? overrides = null) =>
         new(overrides ?? new Dictionary<string, FindingEvaluation>(StringComparer.Ordinal),
             new FindingCatalogue(primitive.Descriptors));

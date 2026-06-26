@@ -3,41 +3,41 @@ namespace ItrqTool.Tasks.QuestionnaireValidation.Checks;
 using ItrqTool.Domain.Validation;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 using ItrqTool.Tasks.QuestionnaireValidation.Findings;
-using ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 
-// ── ExplanationCompletenessCell — RLQ per-row explanation-completeness check (finding 6b) ──
+// ── ExplanationCompletenessCell<T> — per-row explanation-completeness check (finding 6b) ──
 //
-// RLQ-specific (it needs RlqV01Question.ExplanationRows, an RLQ payload not on
-// IAlignmentIdentity) and the first PER-ROW emitter: an RLQ question spans one or more sheet
-// rows, each carrying its own explanation triplet (I/J/K). A request without a current answer
-// is incomplete on a PER-ROW basis, so this check loops ExplanationRows and emits one finding
-// per offending row at K{row} — not one per question.
+// Generic over any IAlignmentIdentity question type. A neutral selector projects the
+// question's per-row explanation data into ExplanationRowViews so the check is decoupled
+// from any specific question record (RLQ v01, v02, GD, …).
 //
-// Per-row rule: if the request (I = Requested) is non-blank AND the current explanation
-// (K = Current) is blank → emit one finding at the current-explanation column on that row's
-// ACTUAL worksheet row (RlqExplanationRow.RowNumber). The previous explanation (J) is not
-// involved. A complete row (K present), a row with no request (I blank), and an all-blank
-// triplet all pass silently.
+// Per-row rule: if the request (Requested) is non-blank AND the current explanation
+// (Current) is blank → emit one finding at the current-explanation column on that row's
+// ACTUAL worksheet row (ExplanationRowView.RowNumber). A complete row (Current present),
+// a row with no request (Requested blank), and an all-blank triplet all pass silently.
 //
 // Input-only: like RequiredInputCellAnyValue this is an input-validity check needing no
-// template or cross-year baseline, so it mirrors that gate exactly — it runs on every aligned
-// row except NotEvaluatedMalformedKey rows (covered by the structure sweep).
+// template or cross-year baseline, so it mirrors that gate exactly — it runs on every
+// aligned row except NotEvaluatedMalformedKey rows (covered by the structure sweep).
 //
 // Id: input-cell.explanation.incomplete (ValidationCheck.MissingResponse), default Error —
 // parity with CLQ's explanation-missing (Strengths/Weaknesses) findings. The single role-fixed
 // id must be unique across the assembled catalogue (the catalogue throws on duplicate ids).
 
-public sealed class ExplanationCompletenessCell : IExtensionCheck<RlqV01Question>
+public sealed class ExplanationCompletenessCell<T> : IExtensionCheck<T> where T : class, IAlignmentIdentity
 {
+    private readonly Func<T, IEnumerable<ExplanationRowView>> _explanationRowsSelector;
     private readonly string _column;
     private readonly string _incompleteId;
     private readonly IReadOnlyList<FindingDescriptor> _descriptors;
 
     public ExplanationCompletenessCell(
+        Func<T, IEnumerable<ExplanationRowView>> explanationRowsSelector,
         string column,
         FindingEvaluation incompleteDefault = FindingEvaluation.Error)
     {
+        ArgumentNullException.ThrowIfNull(explanationRowsSelector);
         if (string.IsNullOrWhiteSpace(column)) throw new ArgumentException("column must be non-empty.", nameof(column));
+        _explanationRowsSelector = explanationRowsSelector;
         _column = column;
         _incompleteId = "input-cell.explanation.incomplete";
         _descriptors = new[]
@@ -49,7 +49,7 @@ public sealed class ExplanationCompletenessCell : IExtensionCheck<RlqV01Question
 
     public IReadOnlyList<FindingDescriptor> Descriptors => _descriptors;
 
-    public IReadOnlyList<ValidationFinding> Run(AlignmentResult<RlqV01Question> alignment, FindingEmitter emitter)
+    public IReadOnlyList<ValidationFinding> Run(AlignmentResult<T> alignment, FindingEmitter emitter)
     {
         ArgumentNullException.ThrowIfNull(alignment);
         ArgumentNullException.ThrowIfNull(emitter);
@@ -63,17 +63,17 @@ public sealed class ExplanationCompletenessCell : IExtensionCheck<RlqV01Question
                 continue;
 
             var cur = aq.Current;
-            foreach (var row in cur.ExplanationRows)
+            foreach (var v in _explanationRowsSelector(cur))
             {
-                // A request (I) present but the current explanation (K) blank → one finding at K{row}.
-                if (!string.IsNullOrWhiteSpace(row.Requested)
-                    && string.IsNullOrWhiteSpace(row.Current))
+                // A request (Requested) present but the current explanation (Current) blank → one finding at {column}{row}.
+                if (!string.IsNullOrWhiteSpace(v.Requested)
+                    && string.IsNullOrWhiteSpace(v.Current))
                 {
                     findings.Add(emitter.Emit(_incompleteId,
-                        $"{_column}{row.RowNumber}", cur.QuestionNumber, cur.QuestionText,
-                        requestedData: row.Requested, providedBy: cur.ProvidedBy,
+                        $"{_column}{v.RowNumber}", cur.QuestionNumber, cur.QuestionText,
+                        requestedData: v.Requested, providedBy: v.ProvidedBy,
                         $"An explanation was requested but the current explanation at " +
-                        $"{_column}{row.RowNumber} is missing."));
+                        $"{_column}{v.RowNumber} is missing."));
                 }
             }
         }

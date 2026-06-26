@@ -123,7 +123,9 @@ public static class RlqV02Profile
                     role:      "answer",
                     column:    config.AnswerColumn,
                     threshold: config.DeviationThreshold),
-                new ExplanationCompletenessCellV02(config.CurrentExplanationColumn),
+                new ExplanationCompletenessCell<RlqV02Question>(
+                    q => q.ExplanationRows.Select(r => new ExplanationRowView(r.Requested, r.Current, r.RowNumber, q.ProvidedBy)),
+                    config.CurrentExplanationColumn),
                 // Rule 1 — M is conditionally required when L is in the configured trigger set.
                 new ConditionalRequirement<RlqV02Question>(
                     targetValueSelector:  q => q.HowExplanation,
