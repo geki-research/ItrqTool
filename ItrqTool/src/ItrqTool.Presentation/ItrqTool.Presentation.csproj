@@ -46,5 +46,8 @@
     <None Include="..\..\configs\**\*.json" CopyToOutputDirectory="PreserveNewest">
       <Link>configs\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </None>
+    <None Include="..\..\schemas\**\*.json" CopyToOutputDirectory="PreserveNewest">
+      <Link>schemas\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </None>
   </ItemGroup>
 </Project>
