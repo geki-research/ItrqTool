@@ -218,4 +218,128 @@ public static class GdV01BaselineFactory
         foreach (var row in new[] { Q2A01Row, Q2A02Row })
             ws.Cell(row, MatChgCol).CreateDataValidation().List("\"Yes,No\"");
     }
+
+    // ── Range-ref and named-range DV variant writers ──────────────────────────────────────────
+    // These produce variant trios where the H (answer) or L (material-change) DV on one or more
+    // G-ST answer rows uses a List sourced from a "Lists" backing sheet (range-ref) or a
+    // workbook-scoped named range, instead of the baseline WholeNumber / inline-List DV.
+    //
+    // The "previous" workbook is always the standard baseline (WritePrevious) — GdAnswerDeviationCell
+    // gates on AnswerDvType being WholeNumber/Decimal and skips List-typed cells, so previous H DV
+    // does not need to change for these tests.
+    //
+    // Each variant changes the DV in BOTH current AND template (identical formula → FrozenConstraint
+    // silent). The "Lists" sheet is added to each workbook so the range-ref formula resolves locally.
+
+    private const string ListsSheetName = "Lists";
+    private const string HAnswerNamedRange = "GdAnswerOptions";
+
+    private static IXLWorksheet AddListsSheet(XLWorkbook wb)
+    {
+        var ls = wb.Worksheets.Add(ListsSheetName);
+        ls.Cell("A1").Value = "Yes";
+        ls.Cell("A2").Value = "No";
+        return ls;
+    }
+
+    // ── H-column range-ref variant ────────────────────────────────────────────────────────────
+    // H11 DV = List sourced from Lists!A1:A2 (Yes/No). H4 and H12 keep WholeNumber ≥ 0.
+    // Current H11 = "Yes" (conformant with the range-ref List vocabulary).
+
+    public static void WriteCurrentHRangeRef(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        WriteCurrentBody(ws);
+        ws.Cell(Q2A01Row, AnsCol).Value = "Yes";   // conformant with List {Yes, No}
+        ws.Cell(Q1Row,    AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+        ws.Cell(Q2A01Row, AnsCol).CreateDataValidation().List(listsWs.Range("A1:A2"));
+        ws.Cell(Q2A02Row, AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    public static void WriteTemplateHRangeRef(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        WriteSectionHeaders(ws);
+        WriteQ1Template(ws);
+        WriteQ2A01Template(ws);
+        WriteQ2A02Template(ws);
+        ws.Cell(Q1Row,    AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+        ws.Cell(Q2A01Row, AnsCol).CreateDataValidation().List(listsWs.Range("A1:A2"));
+        ws.Cell(Q2A02Row, AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    // ── L-column range-ref variant ────────────────────────────────────────────────────────────
+    // L11 and L12 DV = List sourced from Lists!A1:A2 (Yes/No). H DV unchanged (WholeNumber).
+    // Current L values stay "Yes"/"No" (conformant).
+
+    public static void WriteCurrentLRangeRef(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        WriteCurrentBody(ws);
+        ApplyAnswerDv(ws);
+        foreach (var row in new[] { Q2A01Row, Q2A02Row })
+            ws.Cell(row, MatChgCol).CreateDataValidation().List(listsWs.Range("A1:A2"));
+        wb.SaveAs(outputPath);
+    }
+
+    public static void WriteTemplateLRangeRef(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        WriteSectionHeaders(ws);
+        WriteQ1Template(ws);
+        WriteQ2A01Template(ws);
+        WriteQ2A02Template(ws);
+        ApplyAnswerDv(ws);
+        foreach (var row in new[] { Q2A01Row, Q2A02Row })
+            ws.Cell(row, MatChgCol).CreateDataValidation().List(listsWs.Range("A1:A2"));
+        wb.SaveAs(outputPath);
+    }
+
+    // ── H-column named-range variant ──────────────────────────────────────────────────────────
+    // H11 DV = List sourced from workbook-scoped named range "GdAnswerOptions" → Lists!A1:A2.
+    // H4 and H12 keep WholeNumber ≥ 0. Current H11 = "Yes" (conformant).
+
+    public static void WriteCurrentHNamedRange(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        wb.NamedRanges.Add(HAnswerNamedRange, listsWs.Range("A1:A2"));
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        WriteCurrentBody(ws);
+        ws.Cell(Q2A01Row, AnsCol).Value = "Yes";   // conformant
+        ws.Cell(Q1Row,    AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+        ws.Cell(Q2A01Row, AnsCol).CreateDataValidation().List($"={HAnswerNamedRange}");
+        ws.Cell(Q2A02Row, AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    public static void WriteTemplateHNamedRange(string outputPath)
+    {
+        using var wb = new XLWorkbook();
+        var listsWs = AddListsSheet(wb);
+        wb.NamedRanges.Add(HAnswerNamedRange, listsWs.Range("A1:A2"));
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        WriteSectionHeaders(ws);
+        WriteQ1Template(ws);
+        WriteQ2A01Template(ws);
+        WriteQ2A02Template(ws);
+        ws.Cell(Q1Row,    AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+        ws.Cell(Q2A01Row, AnsCol).CreateDataValidation().List($"={HAnswerNamedRange}");
+        ws.Cell(Q2A02Row, AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
 }
