@@ -1,0 +1,18 @@
+{
+  "schemaFormatVersion": 1,
+  "questionnaire": "clq",
+  "questionnaireVersion": "v01",
+  "sheetName": "IT Risk Control Self-Assessment",
+  "headerRow": 2,
+  "columns": [
+    { "column": "D", "canonicalHeader": "Questions to the IT Risk Control Framework\r\nUnless specified otherwise, the question shall be answered in relation to the reference year (1 January 2025 to 31 December 2025)" },
+    { "column": "E", "canonicalHeader": "Erste Group Guideline for Answer Selection" },
+    { "column": "F", "canonicalHeader": "Last Year's Answer" },
+    { "column": "G", "canonicalHeader": "Last Year's \nExplanation" },
+    { "column": "H", "canonicalHeader": "↓ Answer ↓" },
+    { "column": "I", "row": 3, "canonicalHeader": "↓ Strenghts ↓" },
+    { "column": "J", "row": 3, "canonicalHeader": "↓ Weaknesses / Potential Improvements ↓" },
+    { "column": "M", "canonicalHeader": "↓ Answer \r\n(to be) provided by ↓" },
+    { "column": "N", "canonicalHeader": "" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schemaFormatVersion": 1,
+  "questionnaire": "gd",
+  "questionnaireVersion": "v01",
+  "sheetName": "General Data",
+  "headerRow": 2,
+  "columns": [
+    { "column": "C", "canonicalHeader": "" },
+    { "column": "D", "canonicalHeader": "General Data & Details of the entity in scope\r\nUnless specified otherwise, the question shall be answered in relation to the \r\nreference year (1 January 2025 to 31  December 2025)" },
+    { "column": "E", "canonicalHeader": "ECB or Erste Group Guideline for Answer Selection" },
+    { "column": "F", "canonicalHeader": "Requested Type of Information" },
+    { "column": "G", "canonicalHeader": "Last Year's Answer" },
+    { "column": "H", "canonicalHeader": "↓ Answers ↓" },
+    { "column": "I", "canonicalHeader": "Requested Explanations" },
+    { "column": "J", "canonicalHeader": "Last Year's Explanation" },
+    { "column": "K", "canonicalHeader": "↓ Explanations or Comments ↓" },
+    { "column": "L", "canonicalHeader": "↓ Has there been a material change of the definition of this item in comparison to last year's reporting? ↓" },
+    { "column": "O", "canonicalHeader": "↓ Answer \n(to be) provided by ↓" },
+    { "column": "Q", "canonicalHeader": "Erste Group Internal ID" }
+  ]
+}
