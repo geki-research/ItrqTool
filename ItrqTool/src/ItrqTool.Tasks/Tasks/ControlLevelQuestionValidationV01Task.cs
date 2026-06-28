@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Domain.Validation;
@@ -6,6 +7,7 @@ using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 using ItrqTool.Tasks.QuestionnaireValidation;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks;
 
@@ -25,13 +27,16 @@ namespace ItrqTool.Tasks;
 public sealed class ControlLevelQuestionValidationV01Task : IWorkflowTask
 {
     private readonly IExcelStructureReader _structureReader;
+    private readonly IWorksheetStructureMediator _mediator;
     private readonly ILogger<ControlLevelQuestionValidationV01Task> _logger;
 
     public ControlLevelQuestionValidationV01Task(
         IExcelStructureReader structureReader,
+        IWorksheetStructureMediator mediator,
         ILogger<ControlLevelQuestionValidationV01Task> logger)
     {
         _structureReader = structureReader;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -93,10 +98,22 @@ public sealed class ControlLevelQuestionValidationV01Task : IWorkflowTask
 
             var profile = ClqV01Profile.Build(config);
 
+            var gate = StructureGate.VerifyAll(_mediator, new[] {
+                (currentPath,  new WorksheetSchemaRef("clq", "v01")),
+                (templatePath, new WorksheetSchemaRef("clq", "v01")),
+                (previousPath, new WorksheetSchemaRef("clq", "v01")),
+            });
+            if (gate.AssetFailed)
+            {
+                messages.Add(new(MessageSeverity.Error,
+                    $"Worksheet-structure schema asset error: {gate.AssetErrorReason}", DateTimeOffset.Now));
+                return new TaskResult(Succeeded: false, messages, sw.Elapsed);
+            }
+
             IReadOnlyList<ValidationFinding> findings;
             try
             {
-                findings = ValidationPipeline.Run<ClqV01Question>(
+                var pipelineFindings = ValidationPipeline.Run<ClqV01Question>(
                     _structureReader,
                     currentPath,
                     templatePath,
@@ -105,6 +122,9 @@ public sealed class ControlLevelQuestionValidationV01Task : IWorkflowTask
                     config.SeverityOverrides,
                     messages,
                     ct);
+                findings = gate.StructureFindings.Count == 0
+                    ? pipelineFindings
+                    : gate.StructureFindings.Concat(pipelineFindings).ToList();
             }
             catch (ConfigException ex)
             {

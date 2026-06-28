@@ -9,6 +9,7 @@ using ItrqTool.Tasks;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.ClqV01;
 
@@ -57,9 +58,11 @@ public sealed class ClqV01TrialTests
             ClqV01WorkbookWriter.Write(templatePath, config.SheetName, scenario.Trio.Template);
             ClqV01WorkbookWriter.Write(previousPath, config.SheetName, scenario.Trio.Previous);
 
+            var reader = new ClosedXmlExcelStructureReader(
+                NullLogger<ClosedXmlExcelStructureReader>.Instance);
             var task = new ControlLevelQuestionValidationV01Task(
-                new ClosedXmlExcelStructureReader(
-                    NullLogger<ClosedXmlExcelStructureReader>.Instance),
+                reader,
+                StructureGateTestSupport.Mediator(reader),
                 NullLogger<ControlLevelQuestionValidationV01Task>.Instance);
 
             var ctx = new TaskExecutionContext(
@@ -158,9 +161,11 @@ public sealed class ClqV01TrialTests
             ClqV01WorkbookWriter.Write(templatePath, config.SheetName, scenario.Trio.Template);
             ClqV01WorkbookWriter.Write(previousPath, config.SheetName, scenario.Trio.Previous);
 
+            var reader = new ClosedXmlExcelStructureReader(
+                NullLogger<ClosedXmlExcelStructureReader>.Instance);
             var task = new ControlLevelQuestionValidationV01Task(
-                new ClosedXmlExcelStructureReader(
-                    NullLogger<ClosedXmlExcelStructureReader>.Instance),
+                reader,
+                StructureGateTestSupport.Mediator(reader),
                 NullLogger<ControlLevelQuestionValidationV01Task>.Instance);
 
             var ctx = new TaskExecutionContext(

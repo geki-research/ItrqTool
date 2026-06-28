@@ -9,6 +9,7 @@ using ItrqTool.Tasks;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.ClqV02;
 
@@ -56,9 +57,11 @@ public sealed class ClqV02BaselineTests
             ClqV02WorkbookWriter.Write(templatePath, config.SheetName, trio.Template);
             ClqV02WorkbookWriter.Write(previousPath, config.SheetName, trio.Previous);
 
+            var reader = new ClosedXmlExcelStructureReader(
+                NullLogger<ClosedXmlExcelStructureReader>.Instance);
             var task = new ControlLevelQuestionValidationV02Task(
-                new ClosedXmlExcelStructureReader(
-                    NullLogger<ClosedXmlExcelStructureReader>.Instance),
+                reader,
+                StructureGateTestSupport.Mediator(reader),
                 NullLogger<ControlLevelQuestionValidationV02Task>.Instance);
 
             var ctx = new TaskExecutionContext(

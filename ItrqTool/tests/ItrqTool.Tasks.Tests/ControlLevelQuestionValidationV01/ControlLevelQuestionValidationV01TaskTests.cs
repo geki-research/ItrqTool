@@ -7,6 +7,7 @@ using ItrqTool.Domain;
 using ItrqTool.Domain.Validation;
 using ItrqTool.Tasks;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks.Tests.ControlLevelQuestionValidationV01;
 
@@ -46,8 +47,13 @@ public sealed class ControlLevelQuestionValidationV01TaskTests
         })
     ];
 
-    private static ControlLevelQuestionValidationV01Task MakeTask(IExcelStructureReader reader) =>
-        new(reader, NullLogger<ControlLevelQuestionValidationV01Task>.Instance);
+    private static ControlLevelQuestionValidationV01Task MakeTask(IExcelStructureReader reader)
+    {
+        var mediator = Substitute.For<IWorksheetStructureMediator>();
+        mediator.Verify(Arg.Any<string>(), Arg.Any<WorksheetSchemaRef>())
+                .Returns(WorksheetStructureResult.Match());
+        return new(reader, mediator, NullLogger<ControlLevelQuestionValidationV01Task>.Instance);
+    }
 
     // DvPatcher re-reads the answer column over the question-row span; stub it to a
     // non-null (empty) result so the pipeline can run when there are questions.

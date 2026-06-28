@@ -9,6 +9,7 @@ using ItrqTool.Presentation.Logging;
 using ItrqTool.Presentation.ViewModels;
 using ItrqTool.Presentation.Views;
 using ItrqTool.Tasks;
+using ItrqTool.Tasks.WorksheetStructure;
 using Serilog;
 
 namespace ItrqTool.Presentation;
@@ -33,6 +34,14 @@ public static class CompositionRoot
 
         services.AddSingleton<IExcelReader, ClosedXmlExcelReader>();
         services.AddSingleton<IExcelStructureReader, ClosedXmlExcelStructureReader>();
+        services.AddSingleton<WorksheetStructureSchemaLoader>();
+        services.AddSingleton<ISchemaVerificationStrategy, SchemaVerificationStrategyV1>();
+        services.AddSingleton<IWorksheetStructureMediator>(sp =>
+            new WorksheetStructureMediator(
+                sp.GetRequiredService<IExcelStructureReader>(),
+                sp.GetRequiredService<WorksheetStructureSchemaLoader>(),
+                sp.GetServices<ISchemaVerificationStrategy>(),
+                AppContext.BaseDirectory));
         services.AddSingleton<IExcelWriter, ClosedXmlExcelWriter>();
         services.AddSingleton<IHtmlReportWriter, HtmlQuestionDiffReportWriter>();
         services.AddSingleton<IHtmlGeneralDataDiffReportWriter, HtmlGeneralDataDiffReportWriter>();

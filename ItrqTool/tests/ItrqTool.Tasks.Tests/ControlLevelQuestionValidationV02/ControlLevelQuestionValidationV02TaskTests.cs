@@ -7,6 +7,7 @@ using ItrqTool.Domain;
 using ItrqTool.Domain.Validation;
 using ItrqTool.Tasks;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks.Tests.ControlLevelQuestionValidationV02;
 
@@ -72,8 +73,13 @@ public sealed class ControlLevelQuestionValidationV02TaskTests
             ["K4"] = new(null, "List", "\"Yes,No\"",      null),
         };
 
-    private static ControlLevelQuestionValidationV02Task MakeTask(IExcelStructureReader reader) =>
-        new(reader, NullLogger<ControlLevelQuestionValidationV02Task>.Instance);
+    private static ControlLevelQuestionValidationV02Task MakeTask(IExcelStructureReader reader)
+    {
+        var mediator = Substitute.For<IWorksheetStructureMediator>();
+        mediator.Verify(Arg.Any<string>(), Arg.Any<WorksheetSchemaRef>())
+                .Returns(WorksheetStructureResult.Match());
+        return new(reader, mediator, NullLogger<ControlLevelQuestionValidationV02Task>.Instance);
+    }
 
     private static (string current, string template, string previous, string config) WriteInputs(
         string dir, string configJson, bool createCurrent = true)

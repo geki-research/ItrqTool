@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.ClqV01;
 
@@ -11,10 +12,12 @@ public static class ClqV01WorkbookWriter
 {
     public static void Write(
         string outputPath, string sheetName, ClqV01WorkbookDescriptor descriptor,
-        IReadOnlyDictionary<int, string>? answerDvOverrides = null)
+        IReadOnlyDictionary<int, string>? answerDvOverrides = null,
+        bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(sheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "clq", "v01");
 
         foreach (var (row, text) in descriptor.ChapterHeaders)
             ws.Cell(row, "D").Value = text;
