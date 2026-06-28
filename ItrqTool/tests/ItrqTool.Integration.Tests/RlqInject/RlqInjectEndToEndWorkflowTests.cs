@@ -9,6 +9,7 @@ using ItrqTool.Presentation;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV02;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.RlqInject;
 
@@ -221,6 +222,7 @@ public sealed class RlqInjectEndToEndWorkflowTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(sheetName);
+        StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         // Section header (production SectionRows: section 1 header at row 3)
         ws.Cell(3, cfg.TextColumn).Value = "Test Section";
@@ -281,6 +283,7 @@ public sealed class RlqInjectEndToEndWorkflowTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(sheetName);
+        StructureHeaderStamper.Stamp(ws, "rlq", "v02");
 
         ws.Cell(3, cfg.TextColumn).Value = "Test Section";
 

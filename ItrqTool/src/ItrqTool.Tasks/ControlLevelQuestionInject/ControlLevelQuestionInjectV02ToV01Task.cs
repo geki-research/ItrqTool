@@ -6,6 +6,7 @@ using ItrqTool.Tasks.ControlLevelQuestionValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.QuestionnaireValidation.Parsing;
+using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks.ControlLevelQuestionInject;
 
@@ -28,13 +29,16 @@ public sealed class ControlLevelQuestionInjectV02ToV01Task : IWorkflowTask
 {
     private readonly IExcelStructureReader _reader;
     private readonly IExcelTemplateWriter _writer;
+    private readonly IWorksheetStructureMediator _mediator;
 
     public ControlLevelQuestionInjectV02ToV01Task(
         IExcelStructureReader reader,
-        IExcelTemplateWriter writer)
+        IExcelTemplateWriter writer,
+        IWorksheetStructureMediator mediator)
     {
         _reader = reader;
         _writer = writer;
+        _mediator = mediator;
     }
 
     public string TaskType => "ControlLevelQuestionInject_v02_to_v01";
@@ -124,6 +128,24 @@ public sealed class ControlLevelQuestionInjectV02ToV01Task : IWorkflowTask
             // ── Parse both workbooks via the minimal profile-reuse path (no DV, no rules) ──
             var currentProfile = ClqV01Profile.Build(currentConfig);
             var previousProfile = ClqV02Profile.Build(previousConfig);
+
+            var gate = StructureGate.VerifyAll(_mediator, new[]
+            {
+                (previousPath, new WorksheetSchemaRef("clq", "v02")),   // SOURCE
+                (currentPath,  new WorksheetSchemaRef("clq", "v01")),   // TARGET
+            });
+            if (gate.AssetFailed)
+            {
+                messages.Add(new(MessageSeverity.Error,
+                    $"Worksheet-structure schema asset error: {gate.AssetErrorReason}", DateTimeOffset.Now));
+                return new TaskResult(Succeeded: false, messages, sw.Elapsed);
+            }
+            if (gate.StructureFindings.Count > 0)
+            {
+                foreach (var f in gate.StructureFindings)
+                    messages.Add(new(MessageSeverity.Error, f.CheckResult, DateTimeOffset.Now));
+                return new TaskResult(Succeeded: false, messages, sw.Elapsed);
+            }
 
             var parseMessages = new List<TaskMessage>();
 
