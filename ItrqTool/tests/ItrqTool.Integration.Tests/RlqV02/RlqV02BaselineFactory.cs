@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV02;
 
 namespace ItrqTool.Integration.Tests.RlqV02;
@@ -106,10 +107,11 @@ public static class RlqV02BaselineFactory
     };
 
     /// <summary>Writes the current-response workbook (all answer/explanation fields filled).</summary>
-    public static void WriteCurrent(string outputPath)
+    public static void WriteCurrent(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v02");
         WriteCurrentBody(ws);
         ApplyAnswerDv(ws);
         ApplyMaterialChangeDv(ws);
@@ -150,10 +152,11 @@ public static class RlqV02BaselineFactory
     }
 
     /// <summary>Writes the empty-template workbook (same structure; answer and explanation cells blank).</summary>
-    public static void WriteTemplate(string outputPath)
+    public static void WriteTemplate(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v02");
 
         WriteSectionHeaders(ws);
 
@@ -175,10 +178,11 @@ public static class RlqV02BaselineFactory
     }
 
     /// <summary>Writes the previous-response workbook (same XrefIds and question text; prior-year answers).</summary>
-    public static void WritePrevious(string outputPath)
+    public static void WritePrevious(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v02");
 
         WriteSectionHeaders(ws);
 

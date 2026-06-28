@@ -8,6 +8,7 @@ using ItrqTool.Domain.Validation;
 using ItrqTool.Infrastructure;
 using ItrqTool.Tasks;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.RlqV01;
 
@@ -23,9 +24,12 @@ public sealed class RlqV01FrozenConstraintPerturbationTests
     private static string TestWorkDir() =>
         Path.Combine(Path.GetTempPath(), "ItrqTool-rlqv01-frozen-constraint", Guid.NewGuid().ToString("N"));
 
-    private static RiskLevelQuestionValidationV01Task BuildTask() =>
-        new(new ClosedXmlExcelStructureReader(NullLogger<ClosedXmlExcelStructureReader>.Instance),
+    private static RiskLevelQuestionValidationV01Task BuildTask()
+    {
+        var reader = new ClosedXmlExcelStructureReader(NullLogger<ClosedXmlExcelStructureReader>.Instance);
+        return new(reader, StructureGateTestSupport.Mediator(reader),
             NullLogger<RiskLevelQuestionValidationV01Task>.Instance);
+    }
 
     private static TaskExecutionContext BuildContext(
         string currentPath, string templatePath, string previousPath,
@@ -208,6 +212,7 @@ public sealed class RlqV01FrozenConstraintPerturbationTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         RlqV01BaselineFactory.WriteCurrentBody(ws);
 
@@ -231,6 +236,7 @@ public sealed class RlqV01FrozenConstraintPerturbationTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         RlqV01BaselineFactory.WriteCurrentBody(ws);
 

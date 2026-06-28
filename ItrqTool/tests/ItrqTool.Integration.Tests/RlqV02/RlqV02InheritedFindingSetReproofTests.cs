@@ -8,6 +8,7 @@ using ItrqTool.Domain.Validation;
 using ItrqTool.Infrastructure;
 using ItrqTool.Tasks;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.RlqV02;
 
@@ -36,11 +37,12 @@ public sealed class RlqV02InheritedFindingSetReproofTests
     private static string TestWorkDir() =>
         Path.Combine(Path.GetTempPath(), "ItrqTool-rlqv02-inherited", Guid.NewGuid().ToString("N"));
 
-    private static RiskLevelQuestionValidationV02Task BuildTask() =>
-        new(
-            new ClosedXmlExcelStructureReader(
-                NullLogger<ClosedXmlExcelStructureReader>.Instance),
+    private static RiskLevelQuestionValidationV02Task BuildTask()
+    {
+        var reader = new ClosedXmlExcelStructureReader(NullLogger<ClosedXmlExcelStructureReader>.Instance);
+        return new(reader, StructureGateTestSupport.Mediator(reader),
             NullLogger<RiskLevelQuestionValidationV02Task>.Instance);
+    }
 
     private static async Task<ValidationReport> RunAsync(
         string currentPath, string templatePath, string previousPath,
@@ -88,6 +90,7 @@ public sealed class RlqV02InheritedFindingSetReproofTests
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV02BaselineFactory.SheetName);
+        StructureHeaderStamper.Stamp(ws, "rlq", "v02");
         RlqV02BaselineFactory.WriteCurrentBody(ws);
         foreach (var row in new[] { 6, 7, 8, 13 })
         {

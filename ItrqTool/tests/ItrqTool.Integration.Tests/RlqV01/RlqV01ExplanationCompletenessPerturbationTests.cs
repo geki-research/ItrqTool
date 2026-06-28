@@ -8,6 +8,7 @@ using ItrqTool.Domain.Validation;
 using ItrqTool.Infrastructure;
 using ItrqTool.Tasks;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.RlqV01;
 
@@ -26,9 +27,12 @@ public sealed class RlqV01ExplanationCompletenessPerturbationTests
     private static string TestWorkDir() =>
         Path.Combine(Path.GetTempPath(), "ItrqTool-rlqv01-explanation", Guid.NewGuid().ToString("N"));
 
-    private static RiskLevelQuestionValidationV01Task BuildTask() =>
-        new(new ClosedXmlExcelStructureReader(NullLogger<ClosedXmlExcelStructureReader>.Instance),
+    private static RiskLevelQuestionValidationV01Task BuildTask()
+    {
+        var reader = new ClosedXmlExcelStructureReader(NullLogger<ClosedXmlExcelStructureReader>.Instance);
+        return new(reader, StructureGateTestSupport.Mediator(reader),
             NullLogger<RiskLevelQuestionValidationV01Task>.Instance);
+    }
 
     private static TaskExecutionContext BuildContext(
         string currentPath, string templatePath, string previousPath,

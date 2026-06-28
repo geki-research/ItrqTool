@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Domain.Validation;
@@ -7,6 +8,7 @@ using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.QuestionnaireValidation.Parsing;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks;
 
@@ -33,13 +35,16 @@ namespace ItrqTool.Tasks;
 public sealed class RiskLevelQuestionValidationV01Task : IWorkflowTask
 {
     private readonly IExcelStructureReader _structureReader;
+    private readonly IWorksheetStructureMediator _mediator;
     private readonly ILogger<RiskLevelQuestionValidationV01Task> _logger;
 
     public RiskLevelQuestionValidationV01Task(
         IExcelStructureReader structureReader,
+        IWorksheetStructureMediator mediator,
         ILogger<RiskLevelQuestionValidationV01Task> logger)
     {
         _structureReader = structureReader;
+        _mediator = mediator;
         _logger = logger;
     }
 
@@ -103,6 +108,18 @@ public sealed class RiskLevelQuestionValidationV01Task : IWorkflowTask
             // inside Build) → caught by the outer handler → Succeeded:false, mirroring CLQ_v02.
             var profile = RlqV01Profile.Build(config);
 
+            var gate = StructureGate.VerifyAll(_mediator, new[] {
+                (currentPath,  new WorksheetSchemaRef("rlq","v01")),
+                (templatePath, new WorksheetSchemaRef("rlq","v01")),
+                (previousPath, new WorksheetSchemaRef("rlq","v01")),
+            });
+            if (gate.AssetFailed)
+            {
+                messages.Add(new(MessageSeverity.Error,
+                    $"Worksheet-structure schema asset error: {gate.AssetErrorReason}", DateTimeOffset.Now));
+                return new TaskResult(Succeeded: false, messages, sw.Elapsed);
+            }
+
             var current  = ReadParsePatch(currentPath,  profile, config, messages);
             var template = ReadParsePatch(templatePath, profile, config, messages);
             var previous = ReadParsePatch(previousPath, profile, config, messages);
@@ -125,7 +142,9 @@ public sealed class RiskLevelQuestionValidationV01Task : IWorkflowTask
 
             ct.ThrowIfCancellationRequested();
 
-            var findings = runResult.Findings;
+            var findings = gate.StructureFindings.Count == 0
+                ? runResult.Findings
+                : gate.StructureFindings.Concat(runResult.Findings).ToList();
             // bool? Halted: true only on a deliberate gate halt; null otherwise so the serializer
             // (WhenWritingNull) omits the key on a normal run — the report stays byte-identical.
             var report = new ValidationReport(

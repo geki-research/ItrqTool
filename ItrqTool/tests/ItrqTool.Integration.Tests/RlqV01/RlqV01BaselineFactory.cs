@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.RlqV01;
 
@@ -76,10 +77,11 @@ public static class RlqV01BaselineFactory
         """;
 
     /// <summary>Writes the current-response workbook (all answer/explanation fields filled).</summary>
-    public static void WriteCurrent(string outputPath)
+    public static void WriteCurrent(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
         WriteCurrentBody(ws);
         ApplyAnswerDv(ws);
         ApplyMaterialChangeDv(ws);
@@ -121,10 +123,11 @@ public static class RlqV01BaselineFactory
     }
 
     /// <summary>Writes the empty-template workbook (same structure; answer and explanation cells blank).</summary>
-    public static void WriteTemplate(string outputPath)
+    public static void WriteTemplate(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         WriteSectionHeaders(ws);
 
@@ -146,10 +149,11 @@ public static class RlqV01BaselineFactory
     }
 
     /// <summary>Writes the previous-response workbook (same XrefIds and question text; prior-year answers).</summary>
-    public static void WritePrevious(string outputPath)
+    public static void WritePrevious(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         WriteSectionHeaders(ws);
 
@@ -270,11 +274,12 @@ public static class RlqV01BaselineFactory
     /// Writes the current-response workbook with range-ref L DV (5a-iv fixture).
     /// Reuses <see cref="WriteCurrentBody"/> for the body; answer DV stays WholeNumber.
     /// </summary>
-    public static void WriteCurrentRangeRef(string outputPath)
+    public static void WriteCurrentRangeRef(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
         WriteCurrentBody(ws);
         ApplyAnswerDv(ws);
         ApplyMaterialChangeDvRangeRef(ws, listsWs);
@@ -284,11 +289,12 @@ public static class RlqV01BaselineFactory
     /// <summary>
     /// Writes the empty-template workbook with range-ref L DV (5a-iv fixture).
     /// </summary>
-    public static void WriteTemplateRangeRef(string outputPath)
+    public static void WriteTemplateRangeRef(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         WriteSectionHeaders(ws);
 
@@ -313,11 +319,12 @@ public static class RlqV01BaselineFactory
     /// Previous H MATCHES current (x1=1, x2=2, x4=4, x3=3): the cross-year clean baseline has zero
     /// answer deviation (finding 6a), matching the inline <see cref="WritePrevious"/> realignment.
     /// </summary>
-    public static void WritePreviousRangeRef(string outputPath)
+    public static void WritePreviousRangeRef(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         WriteSectionHeaders(ws);
 
@@ -370,12 +377,13 @@ public static class RlqV01BaselineFactory
     /// Writes the current-response workbook with named-range L DV (5b fixture).
     /// Reuses <see cref="WriteCurrentBody"/> for the body; answer DV stays WholeNumber.
     /// </summary>
-    public static void WriteCurrentNamedRange(string outputPath)
+    public static void WriteCurrentNamedRange(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
         WriteCurrentBody(ws);
         ApplyAnswerDv(ws);
         ApplyMaterialChangeDvNamedRange(ws);
@@ -385,12 +393,13 @@ public static class RlqV01BaselineFactory
     /// <summary>
     /// Writes the empty-template workbook with named-range L DV (5b fixture).
     /// </summary>
-    public static void WriteTemplateNamedRange(string outputPath)
+    public static void WriteTemplateNamedRange(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         WriteSectionHeaders(ws);
 
@@ -415,12 +424,13 @@ public static class RlqV01BaselineFactory
     /// Previous H MATCHES current (x1=1, x2=2, x4=4, x3=3): the cross-year clean baseline has zero
     /// answer deviation (finding 6a), matching the inline <see cref="WritePrevious"/> realignment.
     /// </summary>
-    public static void WritePreviousNamedRange(string outputPath)
+    public static void WritePreviousNamedRange(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
         WriteSectionHeaders(ws);
 

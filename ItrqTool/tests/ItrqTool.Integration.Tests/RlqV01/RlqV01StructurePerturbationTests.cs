@@ -8,6 +8,7 @@ using ItrqTool.Domain.Validation;
 using ItrqTool.Infrastructure;
 using ItrqTool.Tasks;
 using ItrqTool.Tasks.Validation;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 
 namespace ItrqTool.Integration.Tests.RlqV01;
 
@@ -70,9 +71,9 @@ public sealed class RlqV01StructurePerturbationTests
                 wb.Save();
             }
 
+            var reader = new ClosedXmlExcelStructureReader(NullLogger<ClosedXmlExcelStructureReader>.Instance);
             var task = new RiskLevelQuestionValidationV01Task(
-                new ClosedXmlExcelStructureReader(
-                    NullLogger<ClosedXmlExcelStructureReader>.Instance),
+                reader, StructureGateTestSupport.Mediator(reader),
                 NullLogger<RiskLevelQuestionValidationV01Task>.Instance);
 
             var ctx = new TaskExecutionContext(
@@ -184,9 +185,9 @@ public sealed class RlqV01StructurePerturbationTests
                 wb.Save();
             }
 
+            var reader = new ClosedXmlExcelStructureReader(NullLogger<ClosedXmlExcelStructureReader>.Instance);
             var task = new RiskLevelQuestionValidationV01Task(
-                new ClosedXmlExcelStructureReader(
-                    NullLogger<ClosedXmlExcelStructureReader>.Instance),
+                reader, StructureGateTestSupport.Mediator(reader),
                 NullLogger<RiskLevelQuestionValidationV01Task>.Instance);
 
             var ctx = new TaskExecutionContext(
