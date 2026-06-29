@@ -1,0 +1,19 @@
+{ "id": "gd-v01-validation-trial", "name": "GD v01 — Validation Trial", "tasks": [
+  { "id":"load-current-response","type":"StaticFileSource","inputs":{},
+    "outputs":{"output":"gd_current_response.xlsx"},
+    "parameters":{"sourcePath":"trial-workbooks/gd-v01/gd_current_response.xlsx"} },
+  { "id":"load-empty-template","type":"StaticFileSource","inputs":{},
+    "outputs":{"output":"gd_empty_template.xlsx"},
+    "parameters":{"sourcePath":"trial-workbooks/gd-v01/gd_empty_template.xlsx"} },
+  { "id":"load-previous-response","type":"StaticFileSource","inputs":{},
+    "outputs":{"output":"gd_previous_response.xlsx"},
+    "parameters":{"sourcePath":"trial-workbooks/gd-v01/gd_previous_response.xlsx"} },
+  { "id":"validate","type":"GeneralDataValidation_v01",
+    "inputs":{"currentResponse":"load-current-response.output","emptyTemplate":"load-empty-template.output",
+              "previousResponse":"load-previous-response.output"},
+    "outputs":{"report":"gd-v01-validation-report.json"},
+    "parameters":{"configurationFullFilename":"configs/gd-v01-validation-trial-config.json"} },
+  { "id":"assemble","type":"FeedbackChecklistAssembler","inputs":{"findings01":"validate.report"},
+    "outputs":{"checklist":"gd-v01-feedback-checklist.xlsx"},
+    "parameters":{"configurationFullFilename":"configs/feedback-checklist-assembler-config.json"} }
+]}
