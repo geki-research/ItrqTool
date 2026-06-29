@@ -25,7 +25,8 @@ public sealed class GdDvPatcherStep4Tests
         RequestedExplanationColumn = "I", PreviousExplanationColumn = "J",
         CurrentExplanationColumn = "K", MaterialChangeColumn = "L",
         ProvidedByColumn = "O", XrefIdColumn = "Q",
-        SheetName = SheetName, SectionRows = ["3:4-9"], DeviationThreshold = 0.25,
+        SheetName = SheetName, Sections = [new GdSectionSpec(3, 4, 9, "G-ST", false)],
+        DeviationThreshold = 0.25,
     };
 
     // ── Answer/question builders ─────────────────────────────────────────────────

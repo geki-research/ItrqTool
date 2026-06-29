@@ -20,7 +20,7 @@ public sealed class GdV01ConfigTests
         string providedBy = "O",
         string xrefId = "Q",
         string sheetName = "General Data",
-        IReadOnlyList<string>? sectionRows = null,
+        IReadOnlyList<GdSectionSpec>? sections = null,
         double deviationThreshold = 0.25)
         => new()
         {
@@ -37,7 +37,7 @@ public sealed class GdV01ConfigTests
             ProvidedByColumn = providedBy,
             XrefIdColumn = xrefId,
             SheetName = sheetName,
-            SectionRows = sectionRows ?? ["3:4-9"],
+            Sections = sections ?? [new GdSectionSpec(3, 4, 9, "G-CO", false)],
             DeviationThreshold = deviationThreshold,
         };
 
@@ -80,11 +80,57 @@ public sealed class GdV01ConfigTests
     }
 
     [Fact]
-    public void Validate_EmptySectionRows_ReturnsError()
+    public void Validate_EmptySections_ReturnsError()
     {
-        var errors = MakeConfig(sectionRows: []).Validate();
+        var errors = MakeConfig(sections: []).Validate();
         errors.Should().ContainSingle()
-            .Which.Should().Be("SectionRows must not be empty.");
+            .Which.Should().Be("Sections must not be empty.");
+    }
+
+    [Fact]
+    public void Validate_FirstDataRowNotAfterHeaderRow_ReturnsError()
+    {
+        // firstDataRow == headerRow violates the (ported LayoutParser) "first > header" invariant.
+        var errors = MakeConfig(sections: [new GdSectionSpec(4, 4, 9, "G-CO", false)]).Validate();
+        errors.Should().ContainSingle()
+            .Which.Should().Contain("firstDataRow (4) must be greater than headerRow (4)");
+    }
+
+    [Fact]
+    public void Validate_LastDataRowBeforeFirstDataRow_ReturnsError()
+    {
+        var errors = MakeConfig(sections: [new GdSectionSpec(3, 8, 4, "G-CO", false)]).Validate();
+        errors.Should().ContainSingle()
+            .Which.Should().Contain("lastDataRow (4) must not be less than firstDataRow (8)");
+    }
+
+    [Fact]
+    public void Validate_BlankExpectedName_ReturnsError()
+    {
+        var errors = MakeConfig(sections: [new GdSectionSpec(3, 4, 9, "   ", false)]).Validate();
+        errors.Should().ContainSingle()
+            .Which.Should().Contain("expectedName must not be empty");
+    }
+
+    [Fact]
+    public void Validate_DuplicateHeaderRows_ReturnsError()
+    {
+        var errors = MakeConfig(sections:
+        [
+            new GdSectionSpec(3, 4, 9, "G-CO", false),
+            new GdSectionSpec(3, 10, 12, "G-ST", true),
+        ]).Validate();
+        errors.Should().Contain("Section header rows must be distinct.");
+    }
+
+    [Fact]
+    public void Validate_MultipleValidSections_ReturnsNoErrors()
+    {
+        MakeConfig(sections:
+        [
+            new GdSectionSpec(3, 4, 9, "G-CO", false),
+            new GdSectionSpec(10, 11, 43, "G-ST", true),
+        ]).Validate().Should().BeEmpty();
     }
 
     [Fact]

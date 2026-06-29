@@ -1,6 +1,6 @@
 using ItrqTool.Tasks.QuestionnaireValidation;
 using ItrqTool.Tasks.QuestionnaireValidation.Checks;
-using ItrqTool.Tasks.QuestionnaireValidation.Config;
+using ItrqTool.Tasks.QuestionnaireValidation.Parsing;
 
 namespace ItrqTool.Tasks.GeneralDataValidationV01;
 
@@ -19,18 +19,33 @@ public static class GdV01Profile
     {
         var gateCheck = new MalformedKeyCheck<GdV01Question>(config.XrefIdColumn);
 
+        // L-gate set: the sections in which column L (material-change) is a required input — derived
+        // from the per-section MaterialChangeRequired flag (replaces the old flat MaterialChangeSections
+        // membership). Keyed on ExpectedName: on the clean path the actual SectionName equals
+        // ExpectedName, so SectionsIn matches; a drifted header is caught fail-loud by the
+        // GdSectionHeaderGate (which halts) before any L check runs.
+        var materialChangeSections = config.Sections
+            .Where(s => s.MaterialChangeRequired)
+            .Select(s => s.ExpectedName)
+            .ToHashSet(StringComparer.Ordinal);
+
         return new ValidationPipelineProfile<GdV01Question>(
             SheetName: config.SheetName,
-            Layout: LayoutParser.Parse(
-                [],                  // GD has no chapters — sections only
-                config.SectionRows,
-                config.TextColumn,   // chapter-name column (unused — no chapters)
-                config.TextColumn,   // section-name column = D
-                config.TextColumn),  // question-text column = D
+            // Built DIRECTLY from config.Sections (no LayoutParser "<h>:<f>-<l>" string round-trip).
+            // GD has no chapters — sections only; every section name is read from column D.
+            Layout: new QuestionnaireLayout(
+                QuestionTextColumn: config.TextColumn,
+                Chapters: [],
+                Sections: config.Sections
+                    .Select(s => new LayoutSection(s.HeaderRow, s.FirstDataRow, s.LastDataRow, config.TextColumn))
+                    .ToList()),
             RecordFactory: _ => throw new InvalidOperationException(
                 "GD uses GdV01QuestionParser; RecordFactory is not used"),
             DvRoles: [],
-            BaselineDescriptors: [],
+            // The section-header gate runs GD-locally pre-align (GdSectionHeaderGate), NOT as a pipeline
+            // baseline/extension. Its descriptor is registered here only so the catalogue knows the id
+            // and SeverityOverrides can target it on the clean path; RunBaseline stays a no-op stub.
+            BaselineDescriptors: [GdSectionHeaderGate.Descriptor],
             RunBaseline: (alignment, emitter) => [],
             Extensions:
             [
@@ -46,8 +61,7 @@ public static class GdV01Profile
                     providedBySelector: a => a.ProvidedBy,
                     role:               "material-change",
                     column:             config.MaterialChangeColumn,
-                    sectionGate:        GdPerAnswerEmit.SectionsIn(
-                                            config.MaterialChangeSections.ToHashSet(StringComparer.Ordinal))),
+                    sectionGate:        GdPerAnswerEmit.SectionsIn(materialChangeSections)),
 
                 // ── DV conformance (current value vs current DV, per answer) ───────────
                 new GdAnswerConformanceCell(

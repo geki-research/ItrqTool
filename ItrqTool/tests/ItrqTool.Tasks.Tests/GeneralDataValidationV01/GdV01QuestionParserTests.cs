@@ -27,7 +27,10 @@ public sealed class GdV01QuestionParserTests
         ProvidedByColumn = "O",
         XrefIdColumn = "Q",
         SheetName = "General Data",
-        SectionRows = ["2:3-60"],
+        // Section geometry for these parser cases comes from the explicit QuestionnaireLayout passed
+        // to Parse (below), NOT from config.Sections. Empty Sections leaves the G1 header cross-check
+        // inert here — it has its own dedicated cases (Parse_SectionHeaderMismatch_*).
+        Sections = [],
         DeviationThreshold = 0.25,
     };
 
@@ -326,5 +329,71 @@ public sealed class GdV01QuestionParserTests
         result.Questions.Where(q => q.RowNumber is 7 or 8)
             .Should().OnlyContain(q => q.SectionName == "Section Two");
         result.Questions.Should().NotContain(q => q.XrefId == "G-ZZ-9");
+    }
+
+    // ── G1 declared-section header cross-check ─────────────────────────────────────
+
+    // A config that DECLARES section row 2 with ExpectedName "Staff" and a matching layout, so the
+    // parser cross-checks the actual D2 header against "Staff".
+    private static GdV01Config ConfigDeclaring(string expectedName) => new()
+    {
+        QuestionNumberColumn = "C", TextColumn = "D", GuidanceColumn = "E",
+        RequestedTypeColumn = "F", PreviousAnswerColumn = "G", AnswerColumn = "H",
+        RequestedExplanationColumn = "I", PreviousExplanationColumn = "J",
+        CurrentExplanationColumn = "K", MaterialChangeColumn = "L",
+        ProvidedByColumn = "O", XrefIdColumn = "Q",
+        SheetName = "General Data",
+        Sections = [new GdSectionSpec(HeaderRow: 2, FirstDataRow: 3, LastDataRow: 60, ExpectedName: expectedName, MaterialChangeRequired: false)],
+        DeviationThreshold = 0.25,
+    };
+
+    [Fact]
+    public void Parse_SectionHeaderMismatch_RecordedWhenHeaderDiffersFromExpected()
+    {
+        // Declared ExpectedName "Staff"; actual D2 header is "Stff" (drifted) → one mismatch.
+        var rows = new List<ExcelRowStructure>
+        {
+            Row(2, ("D", "Stff")),
+            Row(3, ("C", "1"), ("D", "Q one"), ("Q", "G-ST-1")),
+        };
+
+        var result = GdV01QuestionParser.Parse(rows, SingleSection(), ConfigDeclaring("Staff"), new List<TaskMessage>());
+
+        result.SectionHeaderMismatches.Should().ContainSingle()
+            .Which.Should().Be(new GdSectionHeaderMismatch(2, "D", "Staff", "Stff"));
+        // Parsing still proceeds (the gate, not the parser, decides to halt).
+        result.Questions.Should().ContainSingle().Which.XrefId.Should().Be("G-ST-1");
+        result.Malformed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Parse_SectionHeaderMismatch_BlankHeaderRecordedAsNullActual()
+    {
+        // Declared ExpectedName "Staff"; D2 blank → mismatch with null ActualName.
+        var rows = new List<ExcelRowStructure>
+        {
+            Row(2 /* no D cell → blank header */),
+            Row(3, ("C", "1"), ("D", "Q one"), ("Q", "G-ST-1")),
+        };
+
+        var result = GdV01QuestionParser.Parse(rows, SingleSection(), ConfigDeclaring("Staff"), new List<TaskMessage>());
+
+        result.SectionHeaderMismatches.Should().ContainSingle()
+            .Which.Should().Be(new GdSectionHeaderMismatch(2, "D", "Staff", null));
+    }
+
+    [Fact]
+    public void Parse_SectionHeaderMatch_NoMismatch()
+    {
+        // Declared ExpectedName "Staff"; actual D2 header "Staff" → no mismatch.
+        var rows = new List<ExcelRowStructure>
+        {
+            Row(2, ("D", "Staff")),
+            Row(3, ("C", "1"), ("D", "Q one"), ("Q", "G-ST-1")),
+        };
+
+        var result = GdV01QuestionParser.Parse(rows, SingleSection(), ConfigDeclaring("Staff"), new List<TaskMessage>());
+
+        result.SectionHeaderMismatches.Should().BeEmpty();
     }
 }

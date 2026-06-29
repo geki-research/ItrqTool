@@ -20,8 +20,13 @@ public sealed class GdV01ProfileTests
 {
     // ── Config builder ───────────────────────────────────────────────────────────
 
-    private static GdV01Config MakeConfig(IReadOnlyList<string>? materialChangeSections = null) =>
-        new()
+    // materialChangeSections = the section names whose column L is a required input. The two declared
+    // sections (G-CO row 3, G-ST row 10) get MaterialChangeRequired = membership in that set, so the
+    // profile derives the same L-gate set the old flat MaterialChangeSections produced.
+    private static GdV01Config MakeConfig(IReadOnlyList<string>? materialChangeSections = null)
+    {
+        var lset = (materialChangeSections ?? ["G-ST"]).ToHashSet(StringComparer.Ordinal);
+        return new()
         {
             QuestionNumberColumn = "C", TextColumn = "D", GuidanceColumn = "E",
             RequestedTypeColumn = "F", PreviousAnswerColumn = "G", AnswerColumn = "H",
@@ -29,10 +34,14 @@ public sealed class GdV01ProfileTests
             CurrentExplanationColumn = "K", MaterialChangeColumn = "L",
             ProvidedByColumn = "O", XrefIdColumn = "Q",
             SheetName = "General Data",
-            SectionRows = ["3:4-9"],
+            Sections =
+            [
+                new GdSectionSpec(3,  4,  9,  "G-CO", lset.Contains("G-CO")),
+                new GdSectionSpec(10, 11, 43, "G-ST", lset.Contains("G-ST")),
+            ],
             DeviationThreshold = 0.25,
-            MaterialChangeSections = materialChangeSections ?? ["G-ST"],
         };
+    }
 
     // ── Answer / Question builders ────────────────────────────────────────────────
 
@@ -52,9 +61,9 @@ public sealed class GdV01ProfileTests
             SectionName: section, QuestionNumber: "1", Answers: answers);
 
     private static GdV01ParseResult PR(params GdV01Question[] questions) =>
-        new(questions.ToList(), []);
+        new(questions.ToList(), [], []);
 
-    private static GdV01ParseResult Empty() => new([], []);
+    private static GdV01ParseResult Empty() => new([], [], []);
 
     // ── Alignment via GdV01Aligner ────────────────────────────────────────────────
 
@@ -89,7 +98,10 @@ public sealed class GdV01ProfileTests
         profile.Extensions.Should().HaveCount(10);
         profile.HaltOnMalformedKeys.Should().BeTrue();
         profile.IdentityGateCheck.Should().NotBeNull();
-        profile.BaselineDescriptors.Should().BeEmpty();
+        // BaselineDescriptors carries ONLY the section-header gate descriptor (registered so the
+        // catalogue knows the id / SeverityOverrides can target it); RunBaseline is still a no-op stub.
+        profile.BaselineDescriptors.Should().ContainSingle()
+            .Which.Id.Should().Be(GdSectionHeaderGate.MismatchId);
         profile.DvRoles.Should().BeEmpty();
 
         // RunBaseline must be the identity stub (always returns empty).
@@ -210,7 +222,8 @@ public sealed class GdV01ProfileTests
         // A parse result with no questions but one malformed (blank XrefId) entry.
         var malformedParse = new GdV01ParseResult(
             [],
-            [new GdMalformedXref(5, null, GdMalformedXrefReason.Blank)]);
+            [new GdMalformedXref(5, null, GdMalformedXrefReason.Blank)],
+            []);
 
         var alignment = Align(malformedParse, Empty(), Empty());
 

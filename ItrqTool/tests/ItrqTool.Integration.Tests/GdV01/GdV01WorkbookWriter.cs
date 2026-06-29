@@ -44,9 +44,14 @@ public static class GdV01WorkbookWriter
         ProvidedByColumn           = "O",
         XrefIdColumn               = "Q",
         SheetName                  = SheetName,
-        SectionRows                = ["3:4-9", "10:11-43"],
+        // Two declared sections: G-CO (L-excluded) and G-ST (L-required). ExpectedNames equal the
+        // actual D3/D10 headers this writer produces, so the section-header gate stays silent.
+        Sections =
+        [
+            new GdSectionSpec(HeaderRow: 3,  FirstDataRow: 4,  LastDataRow: 9,  ExpectedName: "G-CO", MaterialChangeRequired: false),
+            new GdSectionSpec(HeaderRow: 10, FirstDataRow: 11, LastDataRow: 43, ExpectedName: "G-ST", MaterialChangeRequired: true),
+        ],
         DeviationThreshold         = 0.25,
-        MaterialChangeSections     = ["G-ST"],
     };
 
     /// <summary>

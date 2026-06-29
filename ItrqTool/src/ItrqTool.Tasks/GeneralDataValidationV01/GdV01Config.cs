@@ -3,17 +3,37 @@ using ItrqTool.Domain.Validation;
 
 namespace ItrqTool.Tasks.GeneralDataValidationV01;
 
-// GD_v01 config. Sheet name + the 12 column letters + SectionRows, mirroring the shape /
-// strictness of the RLQ v01 config (init properties defaulting to ""/[], a Validate()
-// returning the list of errors). Differences / notes vs RLQ:
+/// <summary>
+/// One processed GD section, declared explicitly. Replaces the old
+/// <c>"&lt;header&gt;:&lt;first&gt;-&lt;last&gt;"</c> string encoding (range only) PLUS the flat
+/// <c>MaterialChangeSections</c> name set with a single per-section declaration that ALSO carries:
+///   - <see cref="ExpectedName"/> — the column-D section header text the workbook MUST carry at
+///     <see cref="HeaderRow"/>. The parser cross-checks the actual header against this (Ordinal);
+///     a mismatch is surfaced fail-loud as <c>structure.section-header-mismatch</c> (was a silent
+///     no-op of the L check under the old flat name-membership). See <see cref="GdSectionHeaderGate"/>.
+///   - <see cref="MaterialChangeRequired"/> — whether column L (material-change) is a required input
+///     in this section. Replaces the flat MaterialChangeSections membership: the L required-input
+///     check fires only for sections whose flag is true.
+/// </summary>
+public sealed record GdSectionSpec(
+    int HeaderRow,
+    int FirstDataRow,
+    int LastDataRow,
+    string ExpectedName,
+    bool MaterialChangeRequired);
+
+// GD_v01 config. Sheet name + the 12 column letters + Sections, mirroring the shape / strictness of
+// the RLQ v01 config (init properties defaulting to ""/[], a Validate() returning the list of errors).
+// Differences / notes vs RLQ:
 //   - sections-only: NO ChapterRows (GD, like RLQ, has no chapters);
 //   - the column map is the recon-confirmed C/D/E/F/G/H/I/J/K/L + ProvidedBy O + XrefId Q.
-//     Columns M (Answer Due Date internal) and N (Answer Status) ARE present in the GD-v01
-//     template but are auditor/internal columns OUT of v01 validation scope, so they are
-//     deliberately NOT config fields here (recon §2.2 / §3 deviation 3).
-// Like the CLQ/RLQ configs there is NO ParsedSections property: SectionRows is NOT pre-parsed
-// here. It parses at RUN via LayoutParser.Parse, so a malformed range surfaces later as a
-// FormatException at parse time, not at config load.
+//     Columns M (Answer Due Date internal) and N (Answer Status) ARE present in the GD-v01 template
+//     but are auditor/internal columns OUT of v01 validation scope, so they are deliberately NOT
+//     config fields here (recon §2.2 / §3 deviation 3).
+//   - Sections is the STRUCTURED section declaration (see GdSectionSpec): it folds in both the
+//     row geometry (header + data range) AND the per-section material-change requirement AND the
+//     expected header name. Unlike the LayoutParser string form, the row geometry is validated at
+//     config-load time here (the invariants ported from LayoutParser), not deferred to parse.
 public sealed class GdV01Config
 {
     public string QuestionNumberColumn { get; init; } = "";       // C
@@ -30,33 +50,20 @@ public sealed class GdV01Config
     public string XrefIdColumn { get; init; } = "";               // Q
 
     public string SheetName { get; init; } = "";
-    public IReadOnlyList<string> SectionRows { get; init; } = [];
+
+    // The explicit, per-section declaration. Replaces the old SectionRows string list + the flat
+    // MaterialChangeSections name set (G1: explicit per-section, fail-loud L requirement; G2: the
+    // "General comments" section is simply not declared, so the engine never touches its rows).
+    public IReadOnlyList<GdSectionSpec> Sections { get; init; } = [];
 
     // Cross-year RELATIVE deviation threshold, expressed as a FRACTION: 0.25 = 25%. A
     // confidently-matched numeric answer whose value moved from the previous year by >= this
-    // fraction of the previous value is flagged (consumed in a later chunk). Required, no code
-    // default: a negative value is a config error (see Validate()).
+    // fraction of the previous value is flagged. Required, no code default: a negative value is a
+    // config error (see Validate()).
     public double DeviationThreshold { get; init; }
 
     public IReadOnlyDictionary<string, FindingEvaluation> SeverityOverrides { get; init; }
         = new Dictionary<string, FindingEvaluation>();
-
-    // The set of SectionNames in which column L (material-change) is a REQUIRED input. Answers in
-    // sections NOT listed here are skipped by the L required-input check. Default empty = no L sections.
-    // Populated from config JSON in C2b (GD-D). Absence is advisory, not a blocking error (BL-037).
-    public IReadOnlyList<string> MaterialChangeSections { get; init; } = [];
-
-    /// <summary>Advisory warnings for non-blocking configuration gaps.</summary>
-    public IReadOnlyList<string> Warnings()
-    {
-        var warnings = new List<string>();
-        if (MaterialChangeSections.Count == 0)
-            warnings.Add(
-                "MaterialChangeSections should list the section names in which the material-change column " +
-                "(L) is a required input. It is currently empty — the per-answer L required-input check " +
-                "will not fire for any section (BL-037).");
-        return warnings;
-    }
 
     public IReadOnlyList<string> Validate()
     {
@@ -91,13 +98,42 @@ public sealed class GdV01Config
         if (valid.Distinct().Count() != valid.Count)
             errors.Add("Column letters must be distinct.");
 
-        if (SectionRows.Count == 0)
-            errors.Add("SectionRows must not be empty.");
+        ValidateSections(errors);
 
         if (DeviationThreshold < 0)
             errors.Add("DeviationThreshold must be >= 0.");
 
         return errors;
+    }
+
+    // Section invariants ported from LayoutParser (which the profile no longer routes through —
+    // it builds the LayoutSection list directly from Sections), so a malformed range surfaces at
+    // config-load time rather than as a parse-time exception. Plus the two declarations the string
+    // form could not carry: a non-blank ExpectedName, and distinct HeaderRows (the parser keys
+    // sections by header row, so a duplicate would otherwise throw at runtime).
+    private void ValidateSections(List<string> errors)
+    {
+        if (Sections.Count == 0)
+        {
+            errors.Add("Sections must not be empty.");
+            return;
+        }
+
+        foreach (var s in Sections)
+        {
+            if (s.HeaderRow <= 0)
+                errors.Add($"Section header row ({s.HeaderRow}) must be a positive integer.");
+            if (s.FirstDataRow <= s.HeaderRow)
+                errors.Add($"Section (header row {s.HeaderRow}): firstDataRow ({s.FirstDataRow}) must be greater than headerRow ({s.HeaderRow}).");
+            if (s.LastDataRow < s.FirstDataRow)
+                errors.Add($"Section (header row {s.HeaderRow}): lastDataRow ({s.LastDataRow}) must not be less than firstDataRow ({s.FirstDataRow}).");
+            if (string.IsNullOrWhiteSpace(s.ExpectedName))
+                errors.Add($"Section (header row {s.HeaderRow}): expectedName must not be empty.");
+        }
+
+        var headerRows = Sections.Select(s => s.HeaderRow).ToList();
+        if (headerRows.Distinct().Count() != headerRows.Count)
+            errors.Add("Section header rows must be distinct.");
     }
 
     private static readonly Regex ColumnLetterPattern = new(@"^[A-Za-z]+$", RegexOptions.Compiled);

@@ -46,7 +46,8 @@ public sealed class GdV01AlignerTests
         IReadOnlyList<GdV01Question>? questions = null,
         IReadOnlyList<GdMalformedXref>? malformed = null) =>
         new(questions ?? Array.Empty<GdV01Question>(),
-            malformed ?? Array.Empty<GdMalformedXref>());
+            malformed ?? Array.Empty<GdMalformedXref>(),
+            Array.Empty<GdSectionHeaderMismatch>());
 
     private static FindingEmitter Emitter<T>(IExtensionCheck<T> check) where T : class, IAlignmentIdentity =>
         new(new Dictionary<string, FindingEvaluation>(StringComparer.Ordinal),

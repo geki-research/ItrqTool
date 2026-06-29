@@ -46,10 +46,16 @@ public static class GdV01QuestionParser
         ICollection<TaskMessage> messages)
     {
         var sectionByRow = layout.Sections.ToDictionary(s => s.SectionRow);
+        // Declared-section → expected header name, keyed by header row. Drives the G1 fail-loud
+        // header cross-check below. Built from config.Sections (the profile builds layout.Sections
+        // from the same source, so the two are row-aligned in production); when a header row has no
+        // declared spec the cross-check simply does not fire for it.
+        var specByRow = config.Sections.ToDictionary(s => s.HeaderRow);
 
         var qidOrder = new List<string>();
         var byQid = new Dictionary<string, QidAccumulator>(StringComparer.Ordinal);
         var malformed = new List<GdMalformedXref>();
+        var sectionHeaderMismatches = new List<GdSectionHeaderMismatch>();
         var validFullXrefs = new List<(int Row, string Full)>();
 
         LayoutSection? currentSectionDef = null;
@@ -61,8 +67,22 @@ public static class GdV01QuestionParser
         {
             if (sectionByRow.TryGetValue(row.RowNumber, out var secDef))
             {
-                currentSection = GetCellText(row, secDef.NameColumn) ?? "";
+                var actualHeader = GetCellText(row, secDef.NameColumn);
+                currentSection = actualHeader ?? "";
                 currentSectionDef = secDef;
+
+                // G1 fail-loud: a declared section's actual col-D header must match its ExpectedName
+                // (Ordinal). A mismatch invalidates the section-anchored L/qid semantics, so it is
+                // surfaced as a Fatal structural finding (GdSectionHeaderGate) — never silently
+                // tolerated. Declared-anchored (iterates declared specs); never discovers/flags
+                // undeclared rows (so the deliberately-omitted General comments header is never hit).
+                if (specByRow.TryGetValue(row.RowNumber, out var spec)
+                    && !string.Equals(actualHeader ?? "", spec.ExpectedName, StringComparison.Ordinal))
+                {
+                    sectionHeaderMismatches.Add(new GdSectionHeaderMismatch(
+                        row.RowNumber, secDef.NameColumn, spec.ExpectedName, actualHeader));
+                }
+
                 lastC = null;   // a display block never spans a section boundary
                 lastD = null;
                 continue;
@@ -137,7 +157,7 @@ public static class GdV01QuestionParser
             .OrderBy(m => m.RowNumber)
             .ToList();
 
-        return new GdV01ParseResult(questions, orderedMalformed);
+        return new GdV01ParseResult(questions, orderedMalformed, sectionHeaderMismatches);
     }
 
     // Trim; treat null/whitespace-only as blank, an empty/blank segment or depth > 3 as
@@ -240,16 +260,27 @@ public static class GdV01QuestionParser
 }
 
 /// <summary>
-/// GD_v01 parser output: the parsed questions (one per qid, in first-appearance order) plus the
-/// malformed-XrefId collection the parser detected (row-ascending). The cross-year alignment +
-/// identity gate consume the malformed set in a later chunk.
+/// GD_v01 parser output: the parsed questions (one per qid, in first-appearance order), the
+/// malformed-XrefId collection (row-ascending), and the declared-section header mismatches
+/// (row order) the parser detected. <see cref="GdSectionHeaderGate"/> turns the mismatches into
+/// Fatal findings; the cross-year alignment + identity gate consume the malformed set.
 /// </summary>
 public sealed record GdV01ParseResult(
     IReadOnlyList<GdV01Question> Questions,
-    IReadOnlyList<GdMalformedXref> Malformed);
+    IReadOnlyList<GdMalformedXref> Malformed,
+    IReadOnlyList<GdSectionHeaderMismatch> SectionHeaderMismatches);
 
 public enum GdMalformedXrefReason { Blank, Duplicate, Unparseable }
 
 /// <summary>A malformed XrefId the parser detected. <paramref name="XrefId"/> is null for a
 /// blank cell, otherwise the offending (trimmed) value.</summary>
 public sealed record GdMalformedXref(int RowNumber, string? XrefId, GdMalformedXrefReason Reason);
+
+/// <summary>
+/// A declared section whose actual column-D header at <paramref name="HeaderRow"/> did not match
+/// its configured <paramref name="ExpectedName"/> (Ordinal). <paramref name="ActualName"/> is null
+/// for a blank header cell, otherwise the actual (untrimmed) text. <paramref name="NameColumn"/> is
+/// the column the header was read from (the finding cell address is <c>NameColumn + HeaderRow</c>).
+/// </summary>
+public sealed record GdSectionHeaderMismatch(
+    int HeaderRow, string NameColumn, string ExpectedName, string? ActualName);

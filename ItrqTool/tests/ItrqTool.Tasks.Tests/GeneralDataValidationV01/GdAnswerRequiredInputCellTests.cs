@@ -7,7 +7,7 @@ using Xunit;
 
 namespace ItrqTool.Tasks.Tests.GeneralDataValidationV01;
 
-// Tests for GdAnswerRequiredInputCell and the MaterialChangeSections Warnings() rule.
+// Tests for GdAnswerRequiredInputCell (the per-answer presence check + its section gate).
 // Assertions: Check + CellAddress (+ CheckResult substring), never id or total count (lesson 112).
 public sealed class GdAnswerRequiredInputCellTests
 {
@@ -133,45 +133,5 @@ public sealed class GdAnswerRequiredInputCellTests
 
         // Only the in-gate answer fires.
         findings.Should().ContainSingle().Which.CellAddresses.Should().Be("L10");
-    }
-
-    // ── GdV01Config.Warnings (MaterialChangeSections) ───────────────────────────
-
-    [Fact]
-    public void Config_EmptyMaterialChangeSections_ReturnsOneWarning()
-    {
-        var config = new GdV01Config
-        {
-            QuestionNumberColumn = "C", TextColumn = "D", GuidanceColumn = "E",
-            RequestedTypeColumn = "F", PreviousAnswerColumn = "G", AnswerColumn = "H",
-            RequestedExplanationColumn = "I", PreviousExplanationColumn = "J",
-            CurrentExplanationColumn = "K", MaterialChangeColumn = "L",
-            ProvidedByColumn = "O", XrefIdColumn = "Q",
-            SheetName = "General Data", SectionRows = ["3:4-9"],
-            DeviationThreshold = 0.25,
-            // MaterialChangeSections defaults to [] — should produce a warning
-        };
-
-        var warnings = config.Warnings();
-        warnings.Should().ContainSingle()
-            .Which.Should().Contain("MaterialChangeSections");
-    }
-
-    [Fact]
-    public void Config_PopulatedMaterialChangeSections_NoWarnings()
-    {
-        var config = new GdV01Config
-        {
-            QuestionNumberColumn = "C", TextColumn = "D", GuidanceColumn = "E",
-            RequestedTypeColumn = "F", PreviousAnswerColumn = "G", AnswerColumn = "H",
-            RequestedExplanationColumn = "I", PreviousExplanationColumn = "J",
-            CurrentExplanationColumn = "K", MaterialChangeColumn = "L",
-            ProvidedByColumn = "O", XrefIdColumn = "Q",
-            SheetName = "General Data", SectionRows = ["3:4-9"],
-            DeviationThreshold = 0.25,
-            MaterialChangeSections = ["G-ST", "G-FI"],
-        };
-
-        config.Warnings().Should().BeEmpty();
     }
 }

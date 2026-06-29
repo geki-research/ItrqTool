@@ -40,7 +40,7 @@ public static class GdV01BaselineFactory
     /// The synthetic config JSON string matching <see cref="Config()"/>. Write to a configs
     /// directory at test runtime when a task-based test requires a config file on disk.
     /// Property names match <c>GdV01Config</c> init properties (ConfigLoader is case-insensitive).
-    /// SectionRows match <c>GdV01WorkbookWriter.Config().SectionRows</c> exactly.
+    /// Sections match <c>GdV01WorkbookWriter.Config().Sections</c> exactly.
     /// </summary>
     public const string SyntheticConfigJson = """
         {
@@ -57,9 +57,11 @@ public static class GdV01BaselineFactory
           "ProvidedByColumn": "O",
           "XrefIdColumn": "Q",
           "SheetName": "General Data",
-          "SectionRows": ["3:4-9", "10:11-43"],
+          "Sections": [
+            { "HeaderRow": 3,  "FirstDataRow": 4,  "LastDataRow": 9,  "ExpectedName": "G-CO", "MaterialChangeRequired": false },
+            { "HeaderRow": 10, "FirstDataRow": 11, "LastDataRow": 43, "ExpectedName": "G-ST", "MaterialChangeRequired": true }
+          ],
           "DeviationThreshold": 0.25,
-          "MaterialChangeSections": ["G-ST"],
           "SeverityOverrides": {}
         }
         """;
