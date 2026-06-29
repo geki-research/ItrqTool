@@ -1,0 +1,48 @@
+{
+  "id": "gd-inject-trial",
+  "name": "GD Inject Trial (v01 → v02)",
+  "tasks": [
+    {
+      "id": "load-previous-response",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "gd_previous_response.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/gd-inject/gd_previous_response.xlsx"
+      }
+    },
+    {
+      "id": "load-current-template",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "gd_current_template.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/gd-inject/gd_current_template.xlsx"
+      }
+    },
+    {
+      "id": "inject",
+      "type": "GeneralDataInject_v01_to_v02",
+      "inputs": {
+        "previousResponse": "load-previous-response.output",
+        "currentTemplate": "load-current-template.output"
+      },
+      "outputs": { "output": "injected.xlsx" },
+      "parameters": {
+        "configurationFullFilename": "configs/gd-inject-config.json"
+      }
+    },
+    {
+      "id": "sink",
+      "type": "StaticFileSink",
+      "inputs": {
+        "input": "inject.output"
+      },
+      "outputs": {},
+      "parameters": {
+        "destinationFolder": "inject-output/gd-inject",
+        "destinationFileName": "gd_injected_current.xlsx"
+      }
+    }
+  ]
+}
