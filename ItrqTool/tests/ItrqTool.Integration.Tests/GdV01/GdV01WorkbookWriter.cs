@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 using ItrqTool.Tasks.GeneralDataValidationV01;
 
 namespace ItrqTool.Integration.Tests.GdV01;
@@ -59,10 +60,11 @@ public static class GdV01WorkbookWriter
     /// numbers (1/2/3) conforming to the WholeNumber ≥ 0 DV applied to H. L uses inline
     /// List "Yes,No" DV on G-ST anchor rows.
     /// </summary>
-    public static void Write(string outputPath)
+    public static void Write(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
 
         // ── Section G-CO header ───────────────────────────────────────────────
         ws.Cell(SectionGCoRow, "D").Value = "G-CO";

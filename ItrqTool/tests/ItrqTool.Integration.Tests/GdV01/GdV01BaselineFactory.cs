@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using ItrqTool.Integration.Tests.WorksheetStructure;
 using ItrqTool.Tasks.GeneralDataValidationV01;
 
 namespace ItrqTool.Integration.Tests.GdV01;
@@ -70,10 +71,11 @@ public static class GdV01BaselineFactory
     public static GdV01Config Config() => GdV01WorkbookWriter.Config();
 
     /// <summary>Writes the current-response workbook (all answer/explanation fields filled).</summary>
-    public static void WriteCurrent(string outputPath)
+    public static void WriteCurrent(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteCurrentBody(ws);
         ApplyAnswerDv(ws);
         ApplyMaterialChangeDv(ws);
@@ -95,10 +97,11 @@ public static class GdV01BaselineFactory
     }
 
     /// <summary>Writes the empty-template workbook (same structure; H and K blank; DV applied).</summary>
-    public static void WriteTemplate(string outputPath)
+    public static void WriteTemplate(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteSectionHeaders(ws);
         WriteQ1Template(ws);
         WriteQ2A01Template(ws);
@@ -112,10 +115,11 @@ public static class GdV01BaselineFactory
     /// Writes the previous-response workbook (same XrefIds and text; H matches current so
     /// cross-year deviation = 0 on the clean baseline).
     /// </summary>
-    public static void WritePrevious(string outputPath)
+    public static void WritePrevious(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteSectionHeaders(ws);
         // H values MATCH current (1/2/3) so cross-year deviation = 0 ≤ threshold 0.25.
         // Text values MATCH current so GdAnswerTextDivergedCell is silent.
@@ -248,11 +252,12 @@ public static class GdV01BaselineFactory
     // H11 DV = List sourced from Lists!A1:A2 (Yes/No). H4 and H12 keep WholeNumber ≥ 0.
     // Current H11 = "Yes" (conformant with the range-ref List vocabulary).
 
-    public static void WriteCurrentHRangeRef(string outputPath)
+    public static void WriteCurrentHRangeRef(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteCurrentBody(ws);
         ws.Cell(Q2A01Row, AnsCol).Value = "Yes";   // conformant with List {Yes, No}
         ws.Cell(Q1Row,    AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
@@ -262,11 +267,12 @@ public static class GdV01BaselineFactory
         wb.SaveAs(outputPath);
     }
 
-    public static void WriteTemplateHRangeRef(string outputPath)
+    public static void WriteTemplateHRangeRef(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteSectionHeaders(ws);
         WriteQ1Template(ws);
         WriteQ2A01Template(ws);
@@ -282,11 +288,12 @@ public static class GdV01BaselineFactory
     // L11 and L12 DV = List sourced from Lists!A1:A2 (Yes/No). H DV unchanged (WholeNumber).
     // Current L values stay "Yes"/"No" (conformant).
 
-    public static void WriteCurrentLRangeRef(string outputPath)
+    public static void WriteCurrentLRangeRef(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteCurrentBody(ws);
         ApplyAnswerDv(ws);
         foreach (var row in new[] { Q2A01Row, Q2A02Row })
@@ -294,11 +301,12 @@ public static class GdV01BaselineFactory
         wb.SaveAs(outputPath);
     }
 
-    public static void WriteTemplateLRangeRef(string outputPath)
+    public static void WriteTemplateLRangeRef(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteSectionHeaders(ws);
         WriteQ1Template(ws);
         WriteQ2A01Template(ws);
@@ -313,12 +321,13 @@ public static class GdV01BaselineFactory
     // H11 DV = List sourced from workbook-scoped named range "GdAnswerOptions" → Lists!A1:A2.
     // H4 and H12 keep WholeNumber ≥ 0. Current H11 = "Yes" (conformant).
 
-    public static void WriteCurrentHNamedRange(string outputPath)
+    public static void WriteCurrentHNamedRange(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         wb.NamedRanges.Add(HAnswerNamedRange, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteCurrentBody(ws);
         ws.Cell(Q2A01Row, AnsCol).Value = "Yes";   // conformant
         ws.Cell(Q1Row,    AnsCol).CreateDataValidation().WholeNumber.EqualOrGreaterThan(0);
@@ -328,12 +337,13 @@ public static class GdV01BaselineFactory
         wb.SaveAs(outputPath);
     }
 
-    public static void WriteTemplateHNamedRange(string outputPath)
+    public static void WriteTemplateHNamedRange(string outputPath, bool stampHeader = true)
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
         wb.NamedRanges.Add(HAnswerNamedRange, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteSectionHeaders(ws);
         WriteQ1Template(ws);
         WriteQ2A01Template(ws);
