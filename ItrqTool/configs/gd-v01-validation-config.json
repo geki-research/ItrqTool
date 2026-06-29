@@ -1,0 +1,54 @@
+{
+  "QuestionNumberColumn": "C",
+  "TextColumn": "D",
+  "GuidanceColumn": "E",
+  "RequestedTypeColumn": "F",
+  "PreviousAnswerColumn": "G",
+  "AnswerColumn": "H",
+  "RequestedExplanationColumn": "I",
+  "PreviousExplanationColumn": "J",
+  "CurrentExplanationColumn": "K",
+  "MaterialChangeColumn": "L",
+  "ProvidedByColumn": "O",
+  "XrefIdColumn": "Q",
+  "SheetName": "General Data",
+  "Sections": [
+    {
+      "HeaderRow": 3,
+      "FirstDataRow": 4,
+      "LastDataRow": 9,
+      "ExpectedName": "Entities in scope/contact details",
+      "MaterialChangeRequired": false
+    },
+    {
+      "HeaderRow": 10,
+      "FirstDataRow": 11,
+      "LastDataRow": 43,
+      "ExpectedName": "Staff",
+      "MaterialChangeRequired": true
+    },
+    {
+      "HeaderRow": 44,
+      "FirstDataRow": 45,
+      "LastDataRow": 64,
+      "ExpectedName": "Financials (please refer to the Glossary for this section)",
+      "MaterialChangeRequired": true
+    },
+    {
+      "HeaderRow": 65,
+      "FirstDataRow": 66,
+      "LastDataRow": 91,
+      "ExpectedName": "Oversight",
+      "MaterialChangeRequired": true
+    },
+    {
+      "HeaderRow": 92,
+      "FirstDataRow": 93,
+      "LastDataRow": 120,
+      "ExpectedName": "IT Environment",
+      "MaterialChangeRequired": true
+    }
+  ],
+  "DeviationThreshold": 0.25,
+  "SeverityOverrides": {}
+}
