@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
+using ItrqTool.Tasks.Configuration;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
@@ -18,8 +19,8 @@ namespace ItrqTool.Tasks.ControlLevelQuestionInject;
 /// downstream StaticFileSink's job (chunk 5b) — this task performs NO File.* / SaveAs (R1).
 /// </summary>
 /// <remarks>
-/// Parameters: <c>configurationFullFilename</c> (full path to the inject config; the two
-/// referenced validation configs resolve relative to ITS directory).
+/// Parameters: <c>configurationFullFilename</c> (absolute path, or relative to the application
+/// directory (AppContext.BaseDirectory); the two referenced validation configs resolve relative to ITS directory).
 /// Inputs: <c>previousResponse</c> (v02), <c>currentTemplate</c> (v01).
 /// Output: <c>output</c>.
 /// Succeeded semantics: false only on missing inputs/params, missing/invalid config files,
@@ -50,13 +51,14 @@ public sealed class ControlLevelQuestionInjectV02ToV01Task : IWorkflowTask
 
         try
         {
-            if (!TryGetParam(ctx, "configurationFullFilename", out var injectConfigPath))
+            if (!TryGetParam(ctx, "configurationFullFilename", out var injectConfigPathRaw))
             {
                 messages.Add(new(MessageSeverity.Error,
                     "Required parameter missing or empty: configurationFullFilename.",
                     DateTimeOffset.Now));
                 return new TaskResult(Succeeded: false, messages, sw.Elapsed);
             }
+            var injectConfigPath = ConfigPathResolver.Resolve(injectConfigPathRaw);
 
             if (!TryGetInput(ctx, "previousResponse", out var previousPath, messages) ||
                 !TryGetInput(ctx, "currentTemplate", out var currentPath, messages))

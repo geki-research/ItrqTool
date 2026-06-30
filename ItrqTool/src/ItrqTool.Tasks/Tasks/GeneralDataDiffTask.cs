@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Domain.Reporting;
+using ItrqTool.Tasks.Configuration;
 using ItrqTool.Tasks.GeneralDataDiff;
 using ItrqTool.Tasks.Shared;
 
@@ -45,9 +46,9 @@ public sealed class GeneralDataDiffTask : IWorkflowTask
                 missingParams.Add("previousWorkbookFullFilename");
             if (!TryGetParam(ctx, "currentWorkbookFullFilename", out var currentPath))
                 missingParams.Add("currentWorkbookFullFilename");
-            if (!TryGetParam(ctx, "previousConfigurationFullFilename", out var previousConfigPath))
+            if (!TryGetParam(ctx, "previousConfigurationFullFilename", out var previousConfigPathRaw))
                 missingParams.Add("previousConfigurationFullFilename");
-            if (!TryGetParam(ctx, "currentConfigurationFullFilename", out var currentConfigPath))
+            if (!TryGetParam(ctx, "currentConfigurationFullFilename", out var currentConfigPathRaw))
                 missingParams.Add("currentConfigurationFullFilename");
 
             if (missingParams.Count > 0)
@@ -57,6 +58,9 @@ public sealed class GeneralDataDiffTask : IWorkflowTask
                     DateTimeOffset.Now));
                 return new TaskResult(Succeeded: false, messages, sw.Elapsed);
             }
+
+            var previousConfigPath = ConfigPathResolver.Resolve(previousConfigPathRaw);
+            var currentConfigPath = ConfigPathResolver.Resolve(currentConfigPathRaw);
 
             ctx.Parameters.TryGetValue("reportTitle", out var reportTitleRaw);
             var reportTitle = string.IsNullOrWhiteSpace(reportTitleRaw)

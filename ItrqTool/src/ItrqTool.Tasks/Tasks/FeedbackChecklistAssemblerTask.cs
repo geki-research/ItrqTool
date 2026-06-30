@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Domain.Validation;
+using ItrqTool.Tasks.Configuration;
 using ItrqTool.Tasks.FeedbackChecklist;
 using ItrqTool.Tasks.Validation;
 
@@ -18,7 +19,8 @@ namespace ItrqTool.Tasks;
 /// <remarks>
 /// Wiring contract (for the workflow JSON, Chunk B):
 /// <list type="bullet">
-/// <item>Parameter <c>configurationFullFilename</c>: path to the assembler config JSON
+/// <item>Parameter <c>configurationFullFilename</c>: absolute path, or relative to the
+///   application directory (AppContext.BaseDirectory), to the assembler config JSON
 ///   (<see cref="FeedbackChecklistConfig"/>).</item>
 /// <item>Inputs: each declared input is a findings JSON file. They are consumed in
 ///   <em>ordinal order of the input key</em>, so name them with an order-significant
@@ -61,13 +63,14 @@ public sealed class FeedbackChecklistAssemblerTask : IWorkflowTask
         try
         {
             // 1. Config-file parameter
-            if (!TryGetParam(ctx, "configurationFullFilename", out var configPath))
+            if (!TryGetParam(ctx, "configurationFullFilename", out var configPathRaw))
             {
                 messages.Add(new(MessageSeverity.Error,
                     "Required parameter missing or empty: configurationFullFilename.",
                     DateTimeOffset.Now));
                 return new TaskResult(Succeeded: false, messages, sw.Elapsed);
             }
+            var configPath = ConfigPathResolver.Resolve(configPathRaw);
 
             if (!File.Exists(configPath))
             {

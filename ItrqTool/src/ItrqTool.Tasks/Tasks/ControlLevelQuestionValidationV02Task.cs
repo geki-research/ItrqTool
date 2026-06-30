@@ -3,6 +3,7 @@ using System.Linq;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Domain.Validation;
+using ItrqTool.Tasks.Configuration;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
@@ -18,7 +19,7 @@ namespace ItrqTool.Tasks;
 /// <see cref="ValidationReport"/> JSON to the <c>report</c> output.
 /// </summary>
 /// <remarks>
-/// Parameters: <c>configurationFullFilename</c> (full path — not CWD-relative).
+/// Parameters: <c>configurationFullFilename</c> (absolute path, or relative to the application directory (AppContext.BaseDirectory)).
 /// Inputs: <c>currentResponse</c>, <c>emptyTemplate</c>, <c>previousResponse</c>.
 /// Output: <c>report</c>.
 /// Succeeded semantics: false only on unreadable/missing files or invalid config.
@@ -49,13 +50,14 @@ public sealed class ControlLevelQuestionValidationV02Task : IWorkflowTask
 
         try
         {
-            if (!TryGetParam(ctx, "configurationFullFilename", out var configPath))
+            if (!TryGetParam(ctx, "configurationFullFilename", out var configPathRaw))
             {
                 messages.Add(new(MessageSeverity.Error,
                     "Required parameter missing or empty: configurationFullFilename.",
                     DateTimeOffset.Now));
                 return new TaskResult(Succeeded: false, messages, sw.Elapsed);
             }
+            var configPath = ConfigPathResolver.Resolve(configPathRaw);
 
             if (!TryGetInput(ctx, "currentResponse", out var currentPath, messages) ||
                 !TryGetInput(ctx, "emptyTemplate", out var templatePath, messages) ||
