@@ -68,6 +68,22 @@ if (-not (Test-Path $settingsPath)) {
     throw "Expected $settingsPath in publish output - check the csproj copy rule"
 }
 
+# Verify every schemas/*.structure.json and configs/*.json present in publish output.
+# A missing trusted-content asset is a deployment defect that must fail the publish
+# immediately rather than surface as a runtime error during the user's manual run.
+function Assert-ShippedClass([string]$className, [string]$repoSubdir, [string]$filter) {
+    $repoFiles = Get-ChildItem (Join-Path $repoRoot $repoSubdir) -Filter $filter -File
+    foreach ($f in $repoFiles) {
+        $expected = Join-Path (Join-Path $publishDir $repoSubdir) $f.Name
+        if (-not (Test-Path $expected)) {
+            throw "Publish verification FAILED: missing $className asset '$($f.Name)' (expected at $expected)"
+        }
+    }
+    Write-Host "  publish-verify: $className $($repoFiles.Count) asset(s) present" -ForegroundColor Green
+}
+Assert-ShippedClass 'schema' 'schemas' '*.structure.json'
+Assert-ShippedClass 'config' 'configs' '*.json'
+
 # Workflows: the csproj currently copies them into the BUILD output. They
 # also need to be in the PUBLISH output. The existing <None> rule should
 # handle this, but verify and stage manually if missing.
@@ -88,6 +104,11 @@ if (-not (Test-Path $publishWorkflowsDir)) {
 if (Test-Path $publishWorkflowsDir) {
     Remove-Item -Path (Join-Path $publishWorkflowsDir '*') -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+# Remove templates/ from publish output — it is an authoring-time artifact only
+# (the proprietary auditor template file) and must not ship to end users.
+$publishTemplates = Join-Path $publishDir 'templates'
+if (Test-Path $publishTemplates) { Remove-Item $publishTemplates -Recurse -Force }
 
 # Generate README.txt for end users.
 $readmePath = Join-Path $publishDir 'README.txt'
@@ -128,21 +149,26 @@ Getting started
            },
            "parameters": {
              "previousWorkbookFullFilename":
-               "<path to previous year's workbook>",
+               "<absolute path to previous year's workbook>",
              "currentWorkbookFullFilename":
-               "<path to current year's workbook>",
+               "<absolute path to current year's workbook>",
              "previousConfigurationFullFilename":
-               "<path to previous year's clq-structure.json>",
+               "configs/clq-v01.structure.json",
              "currentConfigurationFullFilename":
-               "<path to current year's clq-structure.json>"
+               "configs/clq-v02.structure.json"
            }
          }
        ]
      }
 
-3. Create the clq-structure.json files that the workflow
-   references. Each describes the row layout of one
-   auditor workbook:
+   The configs/ subdirectory ships with the install and
+   contains the structure configs for all supported versions.
+   Relative paths (e.g. configs/clq-v01.structure.json) are
+   resolved against the install directory automatically.
+
+3. The clq-structure.json files in configs/ describe the row
+   layout of each supported auditor workbook version. For
+   reference, the structure of a config file is:
 
      {
        "sheetName": "Control Level Questions",
