@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Tasks.Configuration;
 using ItrqTool.Tasks.GeneralDataValidationV01;
@@ -210,6 +211,7 @@ public sealed class GeneralDataInjectV01ToV02Task : IWorkflowTask
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
+            ctx.Logger.LogError(ex, "GD inject (v01→v02) failed: {Message}", ex.Message);
             messages.Add(new(MessageSeverity.Error, ex.Message, DateTimeOffset.Now));
             return new TaskResult(Succeeded: false, messages, sw.Elapsed);
         }

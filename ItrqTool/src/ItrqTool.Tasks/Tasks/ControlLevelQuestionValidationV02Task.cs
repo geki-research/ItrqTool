@@ -165,6 +165,7 @@ public sealed class ControlLevelQuestionValidationV02Task : IWorkflowTask
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
+            ctx.Logger.LogError(ex, "CLQ v02 validation failed: {Message}", ex.Message);
             messages.Add(new(MessageSeverity.Error, ex.Message, DateTimeOffset.Now));
             return new TaskResult(Succeeded: false, messages, sw.Elapsed);
         }

@@ -178,6 +178,7 @@ public sealed class RiskLevelQuestionValidationV01Task : IWorkflowTask
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
+            ctx.Logger.LogError(ex, "RLQ v01 validation failed: {Message}", ex.Message);
             messages.Add(new(MessageSeverity.Error, ex.Message, DateTimeOffset.Now));
             return new TaskResult(Succeeded: false, messages, sw.Elapsed);
         }

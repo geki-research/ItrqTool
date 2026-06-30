@@ -172,4 +172,26 @@ public sealed class ClosedXmlExcelStructureReaderReadCellsTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // 7. Missing sheet throws ArgumentException with diagnostic details.
+    [Fact]
+    public void ReadCells_MissingSheet_ThrowsArgumentExceptionWithDetails()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "readcells-missingsheet.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                wb.Worksheets.Add("ActualSheet");
+                wb.SaveAs(filePath);
+            }
+
+            var act = () => Reader().ReadCells(filePath, "DoesNotExist", new[] { "A1:A1" });
+            act.Should().Throw<ArgumentException>()
+               .Which.Message.Should().ContainAll("DoesNotExist", filePath, "ActualSheet");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }

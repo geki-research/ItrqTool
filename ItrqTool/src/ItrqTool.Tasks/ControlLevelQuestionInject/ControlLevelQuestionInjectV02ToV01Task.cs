@@ -207,6 +207,7 @@ public sealed class ControlLevelQuestionInjectV02ToV01Task : IWorkflowTask
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
+            ctx.Logger.LogError(ex, "CLQ inject (v02→v01) failed: {Message}", ex.Message);
             messages.Add(new(MessageSeverity.Error, ex.Message, DateTimeOffset.Now));
             return new TaskResult(Succeeded: false, messages, sw.Elapsed);
         }

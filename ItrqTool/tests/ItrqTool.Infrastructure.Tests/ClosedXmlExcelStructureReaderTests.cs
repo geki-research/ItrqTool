@@ -519,4 +519,27 @@ public sealed class ClosedXmlExcelStructureReaderTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // ── Missing sheet throws ArgumentException with diagnostic details ────────────
+
+    [Fact]
+    public void ReadRows_MissingSheet_ThrowsArgumentExceptionWithDetails()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var filePath = Path.Combine(dir, "readrows-missingsheet.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                wb.Worksheets.Add("ActualSheet");
+                wb.SaveAs(filePath);
+            }
+
+            var act = () => Reader().ReadRows(filePath, "DoesNotExist");
+            act.Should().Throw<ArgumentException>()
+               .Which.Message.Should().ContainAll("DoesNotExist", filePath, "ActualSheet");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
 }

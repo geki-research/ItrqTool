@@ -14,7 +14,11 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
     public IReadOnlyList<ExcelRowStructure> ReadRows(string filePath, string sheetName)
     {
         using var workbook = new XLWorkbook(filePath);
-        var worksheet = workbook.Worksheet(sheetName);
+        if (!workbook.TryGetWorksheet(sheetName, out var worksheet))
+            throw new ArgumentException(
+                $"Worksheet '{sheetName}' was not found in '{filePath}'. " +
+                $"Available sheets: {string.Join(", ", workbook.Worksheets.Select(w => $"'{w.Name}'"))}.",
+                nameof(sheetName));
         var result = new List<ExcelRowStructure>();
 
         foreach (var row in worksheet.RowsUsed())
@@ -42,7 +46,11 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
         string filePath, string sheetName, IReadOnlyList<string> a1Ranges)
     {
         using var workbook = new XLWorkbook(filePath);
-        var worksheet = workbook.Worksheet(sheetName); // throws if missing — same as ReadRows
+        if (!workbook.TryGetWorksheet(sheetName, out var worksheet))
+            throw new ArgumentException(
+                $"Worksheet '{sheetName}' was not found in '{filePath}'. " +
+                $"Available sheets: {string.Join(", ", workbook.Worksheets.Select(w => $"'{w.Name}'"))}.",
+                nameof(sheetName));
         var result = new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var a1 in a1Ranges)
