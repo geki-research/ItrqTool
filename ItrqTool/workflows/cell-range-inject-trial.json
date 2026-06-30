@@ -1,0 +1,50 @@
+{
+  "id": "cell-range-inject-trial",
+  "name": "CellRangeInject Trial (shift + format-preservation)",
+  "tasks": [
+    {
+      "id": "load-source",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "cri_source.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/cell-range-inject/source.xlsx"
+      }
+    },
+    {
+      "id": "load-target",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "cri_target_template.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/cell-range-inject/target_template.xlsx"
+      }
+    },
+    {
+      "id": "inject",
+      "type": "CellRangeInject",
+      "inputs": {
+        "source": "load-source.output",
+        "targetTemplate": "load-target.output"
+      },
+      "outputs": { "output": "cri_injected.xlsx" },
+      "parameters": {
+        "sourceSheetName": "RLE",
+        "targetSheetName": "RLE",
+        "mappings": "B2:B4->G2:G4; D2->I2"
+      }
+    },
+    {
+      "id": "sink",
+      "type": "StaticFileSink",
+      "inputs": {
+        "input": "inject.output"
+      },
+      "outputs": {},
+      "parameters": {
+        "destinationFolder": "inject-output/cell-range-inject",
+        "destinationFileName": "cell_range_injected.xlsx"
+      }
+    }
+  ]
+}
