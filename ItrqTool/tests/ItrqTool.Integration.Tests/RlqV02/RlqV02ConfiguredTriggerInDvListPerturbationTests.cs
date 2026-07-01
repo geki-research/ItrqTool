@@ -125,7 +125,7 @@ public sealed class RlqV02ConfiguredTriggerInDvListPerturbationTests
         var listsWs = wb.Worksheets.Add("Lists");
         listsWs.Cell("A1").Value = "Yes";
         listsWs.Cell("A2").Value = "No";
-        wb.NamedRanges.Add("MaterialChangeList", listsWs.Range("A1:A2"));
+        wb.DefinedNames.Add("MaterialChangeList", listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.First(w => w.Name == RlqV02BaselineFactory.SheetName);
         foreach (var row in LAnchorRows)
             ws.Cell(row, "L").CreateDataValidation().List("=MaterialChangeList");

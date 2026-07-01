@@ -325,7 +325,7 @@ public static class GdV01BaselineFactory
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
-        wb.NamedRanges.Add(HAnswerNamedRange, listsWs.Range("A1:A2"));
+        wb.DefinedNames.Add(HAnswerNamedRange, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
         if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteCurrentBody(ws);
@@ -341,7 +341,7 @@ public static class GdV01BaselineFactory
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
-        wb.NamedRanges.Add(HAnswerNamedRange, listsWs.Range("A1:A2"));
+        wb.DefinedNames.Add(HAnswerNamedRange, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
         if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
         WriteSectionHeaders(ws);

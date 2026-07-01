@@ -381,7 +381,7 @@ public static class RlqV01BaselineFactory
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
-        wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
+        wb.DefinedNames.Add(NamedRangeName, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
         if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
         WriteCurrentBody(ws);
@@ -397,7 +397,7 @@ public static class RlqV01BaselineFactory
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
-        wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
+        wb.DefinedNames.Add(NamedRangeName, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
         if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 
@@ -428,7 +428,7 @@ public static class RlqV01BaselineFactory
     {
         using var wb = new XLWorkbook();
         var listsWs = AddListsSheet(wb);
-        wb.NamedRanges.Add(NamedRangeName, listsWs.Range("A1:A2"));
+        wb.DefinedNames.Add(NamedRangeName, listsWs.Range("A1:A2"));
         var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
         if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
 

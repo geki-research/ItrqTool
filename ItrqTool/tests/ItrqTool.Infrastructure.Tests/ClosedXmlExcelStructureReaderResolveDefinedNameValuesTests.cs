@@ -26,8 +26,8 @@ public sealed class ClosedXmlExcelStructureReaderResolveDefinedNameValuesTests
         var listsWs = wb.Worksheets.Add("Lists");
         listsWs.Cell("A1").Value = "Yes";
         listsWs.Cell("A2").Value = "No";
-        wb.NamedRanges.Add("MyAllowed", listsWs.Range("A1:A2"));
-        listsWs.NamedRanges.Add("WsScoped", listsWs.Range("A1:A2"));
+        wb.DefinedNames.Add("MyAllowed", listsWs.Range("A1:A2"));
+        listsWs.DefinedNames.Add("WsScoped", listsWs.Range("A1:A2"));
         wb.Worksheets.Add("Questions");
         wb.SaveAs(path);
         return path;
