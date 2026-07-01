@@ -472,6 +472,63 @@ public sealed class CellRangeInjectTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
+    // ── Target template unopenable (GetWorksheetNames throws) logs Error, fails ─
+
+    [Fact]
+    public async Task ExecuteAsync_TargetWorksheetNamesThrows_LogsErrorAndFails()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var src = Path.Combine(dir, "source.xlsx");
+            var tpl = Path.Combine(dir, "template.xlsx");
+            CreateEmptyWorkbook(src);
+            CreateEmptyWorkbook(tpl);
+
+            var reader = Substitute.For<IExcelStructureReader>();
+            reader.GetWorksheetNames(src).Returns(new[] { "Sheet1" });
+            reader.ReadCells(src, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["B2"] = new("42", null, null, null, NativeValue: 42.0)
+                });
+            reader.GetWorksheetNames(tpl)
+                .Returns(_ => throw new IOException("The process cannot access the file because it is being used by another process."));
+
+            var writer = Substitute.For<IExcelTemplateWriter>();
+            var logger = Substitute.For<ILogger<CellRangeInjectTask>>();
+
+            var ctx = MakeCtx(dir,
+                new Dictionary<string, string>
+                {
+                    ["mappings"]        = "B2->G2",
+                    ["sourceSheetName"] = "Sheet1",
+                    ["targetSheetName"] = "Sheet1",
+                },
+                inputs: new Dictionary<string, string>
+                {
+                    ["source"]         = src,
+                    ["targetTemplate"] = tpl,
+                });
+
+            var task = new CellRangeInjectTask(reader, writer, logger);
+            var result = await task.ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeFalse();
+            logger.ReceivedCalls()
+                .Should().Contain(call =>
+                    call.GetMethodInfo().Name == "Log" &&
+                    (LogLevel)call.GetArguments()[0]! == LogLevel.Error &&
+                    call.GetArguments()[2]!.ToString()!.Contains("failed to open target template") &&
+                    call.GetArguments()[2]!.ToString()!.Contains(tpl));
+            writer.DidNotReceive().Populate(
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<CellWriteEntry>>(), Arg.Any<string>());
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
     // ── Cancellation propagates ───────────────────────────────────────────────
 
     [Fact]

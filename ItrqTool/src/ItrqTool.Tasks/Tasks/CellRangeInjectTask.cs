@@ -85,9 +85,22 @@ public sealed class CellRangeInjectTask : IWorkflowTask
 
             _logger.LogInformation("Reading {Count} source address(es) from '{Sheet}' in {Path}",
                 a1Ranges.Count, sourceSheetName, sourcePath);
+            _logger.LogInformation("source worksheet sought: '{Sheet}'", sourceSheetName);
 
-            var sourceWorksheets = _reader.GetWorksheetNames(sourcePath);
-            _logger.LogInformation("source workbook worksheets: [ {Names} ]", FormatNames(sourceWorksheets));
+            IReadOnlyList<string> sourceWorksheets;
+            try
+            {
+                sourceWorksheets = _reader.GetWorksheetNames(sourcePath);
+                _logger.LogInformation("source workbook worksheets: [ {Names} ]", FormatNames(sourceWorksheets));
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "failed to open source workbook '{Path}' to list worksheets: {Message}",
+                    sourcePath, ex.Message);
+                throw;
+            }
 
             IReadOnlyDictionary<string, ExcelCellStructure> srcCells;
             try
@@ -118,9 +131,22 @@ public sealed class CellRangeInjectTask : IWorkflowTask
             }).ToList();
 
             _logger.LogInformation("target template path: {Path}", targetTemplatePath);
+            _logger.LogInformation("target worksheet sought: '{Sheet}'", targetSheetName);
 
-            var targetWorksheets = _reader.GetWorksheetNames(targetTemplatePath);
-            _logger.LogInformation("target workbook worksheets: [ {Names} ]", FormatNames(targetWorksheets));
+            IReadOnlyList<string> targetWorksheets;
+            try
+            {
+                targetWorksheets = _reader.GetWorksheetNames(targetTemplatePath);
+                _logger.LogInformation("target workbook worksheets: [ {Names} ]", FormatNames(targetWorksheets));
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "failed to open target template '{Path}' to list worksheets: {Message}",
+                    targetTemplatePath, ex.Message);
+                throw;
+            }
 
             // 7. Write — task does NO File.* / SaveAs; StaticFileSink owns placement.
             //    Missing target sheet throws ArgumentException → caught below.
