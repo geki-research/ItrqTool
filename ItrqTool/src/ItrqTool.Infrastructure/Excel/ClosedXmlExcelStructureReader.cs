@@ -89,6 +89,12 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
         return values.Count == 0 ? null : values;     // all-blank → NotCheckable
     }
 
+    public IReadOnlyList<string> GetWorksheetNames(string filePath)
+    {
+        using var workbook = new XLWorkbook(filePath);
+        return workbook.Worksheets.Select(w => w.Name).ToList();
+    }
+
     private ExcelCellStructure BuildCellStructure(IXLWorksheet worksheet, IXLCell cell)
     {
         var textValue = cell.GetString();

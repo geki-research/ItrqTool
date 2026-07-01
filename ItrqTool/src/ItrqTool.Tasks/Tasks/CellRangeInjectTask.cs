@@ -85,7 +85,25 @@ public sealed class CellRangeInjectTask : IWorkflowTask
 
             _logger.LogInformation("Reading {Count} source address(es) from '{Sheet}' in {Path}",
                 a1Ranges.Count, sourceSheetName, sourcePath);
-            var srcCells = _reader.ReadCells(sourcePath, sourceSheetName, a1Ranges);
+
+            var sourceWorksheets = _reader.GetWorksheetNames(sourcePath);
+            _logger.LogInformation("source workbook worksheets: [ {Names} ]", FormatNames(sourceWorksheets));
+
+            IReadOnlyDictionary<string, ExcelCellStructure> srcCells;
+            try
+            {
+                srcCells = _reader.ReadCells(sourcePath, sourceSheetName, a1Ranges);
+                _logger.LogInformation("source worksheet '{Sheet}' found", sourceSheetName);
+                _logger.LogInformation("read {Count} source cell(s)", srcCells.Count);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "source worksheet '{Sheet}' NOT FOUND in {Path}; available worksheets: [ {Names} ]",
+                    sourceSheetName, sourcePath, FormatNames(sourceWorksheets));
+                throw;
+            }
 
             // 6. Build write entries — native value carries via TypedValue so the target number format is preserved.
             var cells = parseResult.Pairs.Select(p =>
@@ -99,13 +117,35 @@ public sealed class CellRangeInjectTask : IWorkflowTask
                     TypedValue: src?.NativeValue);
             }).ToList();
 
+            _logger.LogInformation("target template path: {Path}", targetTemplatePath);
+
+            var targetWorksheets = _reader.GetWorksheetNames(targetTemplatePath);
+            _logger.LogInformation("target workbook worksheets: [ {Names} ]", FormatNames(targetWorksheets));
+
             // 7. Write — task does NO File.* / SaveAs; StaticFileSink owns placement.
             //    Missing target sheet throws ArgumentException → caught below.
-            _writer.Populate(targetTemplatePath, targetSheetName, cells, ctx.OutputPaths["output"]);
+            try
+            {
+                _writer.Populate(targetTemplatePath, targetSheetName, cells, ctx.OutputPaths["output"]);
+                _logger.LogInformation("target worksheet '{Sheet}' found", targetSheetName);
+                _logger.LogInformation("writing {Count} cell(s) to target worksheet '{Sheet}'",
+                    cells.Count, targetSheetName);
+                _logger.LogInformation("wrote output to '{OutputPath}'", ctx.OutputPaths["output"]);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "target worksheet '{Sheet}' NOT FOUND in {Path}; available worksheets: [ {Names} ]",
+                    targetSheetName, targetTemplatePath, FormatNames(targetWorksheets));
+                throw;
+            }
 
             messages.Add(new(MessageSeverity.Info,
                 $"Injected {cells.Count} cell(s) from '{sourceSheetName}' into '{targetSheetName}'.",
                 DateTimeOffset.Now));
+
+            _logger.LogInformation("CellRangeInject completed: {Count} cell(s) written", cells.Count);
 
             return Task.FromResult(new TaskResult(Succeeded: true, messages, sw.Elapsed));
         }
@@ -116,6 +156,9 @@ public sealed class CellRangeInjectTask : IWorkflowTask
             return Task.FromResult(new TaskResult(Succeeded: false, messages, sw.Elapsed));
         }
     }
+
+    private static string FormatNames(IReadOnlyList<string> names)
+        => string.Join(", ", names.Select(n => $"'{n}'"));
 
     private static bool TryGetParam(TaskExecutionContext ctx, string key, out string value)
     {

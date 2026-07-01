@@ -42,6 +42,9 @@ public sealed class ValidationPipelineTests
 
         public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name)
             => null;
+
+        public IReadOnlyList<string> GetWorksheetNames(string filePath)
+            => Array.Empty<string>();
     }
 
     private sealed class ThrowingReader : IExcelStructureReader
@@ -54,6 +57,9 @@ public sealed class ValidationPipelineTests
             => throw new InvalidOperationException("Simulated reader failure.");
 
         public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name)
+            => throw new InvalidOperationException("Simulated reader failure.");
+
+        public IReadOnlyList<string> GetWorksheetNames(string filePath)
             => throw new InvalidOperationException("Simulated reader failure.");
     }
 

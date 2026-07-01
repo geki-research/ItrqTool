@@ -29,6 +29,13 @@ public interface IExcelStructureReader
     /// all-blank range (→ DV-conformance treats the List as NotCheckable, never a false positive).
     /// </summary>
     IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name);
+
+    /// <summary>
+    /// Returns the exact worksheet names present in the workbook, in workbook tab order.
+    /// Diagnostic-only: surfaces available sheet names for logging (e.g. when a configured
+    /// sheet name does not match). Does not affect ReadRows/ReadCells matching semantics.
+    /// </summary>
+    IReadOnlyList<string> GetWorksheetNames(string filePath);
 }
 
 public record ExcelRowStructure(

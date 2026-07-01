@@ -44,6 +44,9 @@ public sealed class RunFromParsedTests
 
         public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name)
             => null;
+
+        public IReadOnlyList<string> GetWorksheetNames(string filePath)
+            => Array.Empty<string>();
     }
 
     // ── Local IAlignmentIdentity record ──────────────────────────────────────────

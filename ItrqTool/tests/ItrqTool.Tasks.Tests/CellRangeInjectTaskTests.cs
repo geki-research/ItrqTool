@@ -1,5 +1,6 @@
 using ClosedXML.Excel; // test fixture creation only
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
@@ -417,6 +418,56 @@ public sealed class CellRangeInjectTaskTests
             writer.DidNotReceive().Populate(
                 Arg.Any<string>(), Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<CellWriteEntry>>(), Arg.Any<string>());
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Missing source sheet logs available worksheet names at Error level ───
+
+    [Fact]
+    public async Task ExecuteAsync_MissingSourceSheet_LogsErrorWithAvailableWorksheets()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var src = Path.Combine(dir, "source.xlsx");
+            var tpl = Path.Combine(dir, "template.xlsx");
+            CreateEmptyWorkbook(src);
+            CreateEmptyWorkbook(tpl);
+
+            var reader = Substitute.For<IExcelStructureReader>();
+            reader.GetWorksheetNames(src).Returns(new[] { "Sheet1", "OtherSheet" });
+            reader.ReadCells(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>())
+                .Returns(_ => throw new ArgumentException("Worksheet 'NoSuchSheet' was not found."));
+
+            var writer = Substitute.For<IExcelTemplateWriter>();
+            var logger = Substitute.For<ILogger<CellRangeInjectTask>>();
+
+            var ctx = MakeCtx(dir,
+                new Dictionary<string, string>
+                {
+                    ["mappings"]        = "B2->G2",
+                    ["sourceSheetName"] = "NoSuchSheet",
+                    ["targetSheetName"] = "Sheet1",
+                },
+                inputs: new Dictionary<string, string>
+                {
+                    ["source"]         = src,
+                    ["targetTemplate"] = tpl,
+                });
+
+            var task = new CellRangeInjectTask(reader, writer, logger);
+            var result = await task.ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeFalse();
+            logger.ReceivedCalls()
+                .Should().Contain(call =>
+                    call.GetMethodInfo().Name == "Log" &&
+                    (LogLevel)call.GetArguments()[0]! == LogLevel.Error &&
+                    call.GetArguments()[2]!.ToString()!.Contains("NOT FOUND") &&
+                    call.GetArguments()[2]!.ToString()!.Contains("'Sheet1'") &&
+                    call.GetArguments()[2]!.ToString()!.Contains("'OtherSheet'"));
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
