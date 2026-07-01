@@ -529,6 +529,318 @@ public sealed class CellRangeInjectTaskTests
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
 
+    // ── DV-aware gating (BL-053 P3): InjectionValueGuard wired against the target cell's DV rule ──
+
+    // Inline List target: a conforming member injects; a non-member is skipped with a Warning.
+    [Fact]
+    public async Task ExecuteAsync_TargetInlineListDv_ConformingInjectsNonMemberSkipsWithWarning()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var src = Path.Combine(dir, "source.xlsx");
+            var tpl = Path.Combine(dir, "template.xlsx");
+            CreateEmptyWorkbook(src);
+            CreateEmptyWorkbook(tpl);
+
+            var reader = Substitute.For<IExcelStructureReader>();
+            reader.ReadCells(src, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["B2"] = new("Yes", null, null, null),
+                    ["B3"] = new("Maybe", null, null, null),
+                });
+            reader.ReadCells(tpl, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["G2"] = new(null, "List", "\"Yes,No\"", null),
+                    ["G3"] = new(null, "List", "\"Yes,No\"", null),
+                });
+
+            IReadOnlyList<CellWriteEntry>? capturedCells = null;
+            var writer = Substitute.For<IExcelTemplateWriter>();
+            writer.When(w => w.Populate(Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<IReadOnlyList<CellWriteEntry>>(), Arg.Any<string>()))
+                .Do(ci => capturedCells = ci.ArgAt<IReadOnlyList<CellWriteEntry>>(2));
+
+            var ctx = MakeCtx(dir,
+                new Dictionary<string, string>
+                {
+                    ["mappings"]        = "B2->G2;B3->G3",
+                    ["sourceSheetName"] = "Sheet1",
+                    ["targetSheetName"] = "Sheet1",
+                },
+                inputs: new Dictionary<string, string>
+                {
+                    ["source"]         = src,
+                    ["targetTemplate"] = tpl,
+                });
+
+            var result = await MakeTask(reader, writer).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            capturedCells.Should().NotBeNull();
+            capturedCells!.Should().ContainSingle().Which.Should().Be(
+                new CellWriteEntry(Row: 2, Column: "G", Value: "Yes", TypedValue: null));
+            result.Messages.Should().ContainSingle(m =>
+                m.Severity == MessageSeverity.Warning
+                && m.Text.StartsWith("G3:")
+                && m.Text.Contains("does not conform"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // WholeNumber target (bounded 1..10): a conforming value injects; a violator is skipped.
+    [Fact]
+    public async Task ExecuteAsync_TargetWholeNumberDv_ConformingInjectsViolatorSkipsWithWarning()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var src = Path.Combine(dir, "source.xlsx");
+            var tpl = Path.Combine(dir, "template.xlsx");
+            CreateEmptyWorkbook(src);
+            CreateEmptyWorkbook(tpl);
+
+            var reader = Substitute.For<IExcelStructureReader>();
+            reader.ReadCells(src, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["B2"] = new("5", null, null, null, NativeValue: 5.0),
+                    ["B3"] = new("99", null, null, null, NativeValue: 99.0),
+                });
+            reader.ReadCells(tpl, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["G2"] = new(null, "WholeNumber", "1", null, DataValidationOperator: "Between", DataValidationFormula2: "10"),
+                    ["G3"] = new(null, "WholeNumber", "1", null, DataValidationOperator: "Between", DataValidationFormula2: "10"),
+                });
+
+            IReadOnlyList<CellWriteEntry>? capturedCells = null;
+            var writer = Substitute.For<IExcelTemplateWriter>();
+            writer.When(w => w.Populate(Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<IReadOnlyList<CellWriteEntry>>(), Arg.Any<string>()))
+                .Do(ci => capturedCells = ci.ArgAt<IReadOnlyList<CellWriteEntry>>(2));
+
+            var ctx = MakeCtx(dir,
+                new Dictionary<string, string>
+                {
+                    ["mappings"]        = "B2->G2;B3->G3",
+                    ["sourceSheetName"] = "Sheet1",
+                    ["targetSheetName"] = "Sheet1",
+                },
+                inputs: new Dictionary<string, string>
+                {
+                    ["source"]         = src,
+                    ["targetTemplate"] = tpl,
+                });
+
+            var result = await MakeTask(reader, writer).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            capturedCells.Should().NotBeNull();
+            capturedCells!.Should().ContainSingle().Which.Should().Be(
+                new CellWriteEntry(Row: 2, Column: "G", Value: "5", TypedValue: 5.0));
+            result.Messages.Should().ContainSingle(m =>
+                m.Severity == MessageSeverity.Warning
+                && m.Text.StartsWith("G3:")
+                && m.Text.Contains("does not conform"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // Same-sheet range-ref List target: exercises DvRangeRefResolver wiring against the target workbook.
+    [Fact]
+    public async Task ExecuteAsync_TargetRangeRefListDv_MemberInjectsNonMemberSkipsWithWarning()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var src = Path.Combine(dir, "source.xlsx");
+            var tpl = Path.Combine(dir, "template.xlsx");
+            CreateEmptyWorkbook(src);
+            CreateEmptyWorkbook(tpl);
+
+            var reader = Substitute.For<IExcelStructureReader>();
+            reader.ReadCells(src, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["B2"] = new("Alpha", null, null, null),
+                    ["B3"] = new("Gamma", null, null, null),
+                });
+            reader.ReadCells(tpl, "Sheet1", Arg.Is<IReadOnlyList<string>>(a => a.Contains("G2") || a.Contains("G3")))
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["G2"] = new(null, "List", "K1:K2", null),
+                    ["G3"] = new(null, "List", "K1:K2", null),
+                });
+            reader.ReadCells(tpl, "Sheet1", Arg.Is<IReadOnlyList<string>>(a => a.Contains("K1:K2")))
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["K1"] = new("Alpha", null, null, null),
+                    ["K2"] = new("Beta", null, null, null),
+                });
+
+            IReadOnlyList<CellWriteEntry>? capturedCells = null;
+            var writer = Substitute.For<IExcelTemplateWriter>();
+            writer.When(w => w.Populate(Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<IReadOnlyList<CellWriteEntry>>(), Arg.Any<string>()))
+                .Do(ci => capturedCells = ci.ArgAt<IReadOnlyList<CellWriteEntry>>(2));
+
+            var ctx = MakeCtx(dir,
+                new Dictionary<string, string>
+                {
+                    ["mappings"]        = "B2->G2;B3->G3",
+                    ["sourceSheetName"] = "Sheet1",
+                    ["targetSheetName"] = "Sheet1",
+                },
+                inputs: new Dictionary<string, string>
+                {
+                    ["source"]         = src,
+                    ["targetTemplate"] = tpl,
+                });
+
+            var result = await MakeTask(reader, writer).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            capturedCells.Should().NotBeNull();
+            capturedCells!.Should().ContainSingle().Which.Should().Be(
+                new CellWriteEntry(Row: 2, Column: "G", Value: "Alpha", TypedValue: null));
+            result.Messages.Should().ContainSingle(m =>
+                m.Severity == MessageSeverity.Warning
+                && m.Text.StartsWith("G3:")
+                && m.Text.Contains("does not conform"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // Range-ref List target whose backing range is all-blank: UnresolvableList → Skip (never a false Inject).
+    [Fact]
+    public async Task ExecuteAsync_TargetRangeRefListDv_BlankBackingRange_SkipsAsUnresolvable()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var src = Path.Combine(dir, "source.xlsx");
+            var tpl = Path.Combine(dir, "template.xlsx");
+            CreateEmptyWorkbook(src);
+            CreateEmptyWorkbook(tpl);
+
+            var reader = Substitute.For<IExcelStructureReader>();
+            reader.ReadCells(src, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["B2"] = new("Alpha", null, null, null),
+                });
+            reader.ReadCells(tpl, "Sheet1", Arg.Is<IReadOnlyList<string>>(a => a.Contains("G2")))
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["G2"] = new(null, "List", "K1:K2", null),
+                });
+            reader.ReadCells(tpl, "Sheet1", Arg.Is<IReadOnlyList<string>>(a => a.Contains("K1:K2")))
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["K1"] = new(null, null, null, null),
+                    ["K2"] = new(null, null, null, null),
+                });
+
+            var writer = Substitute.For<IExcelTemplateWriter>();
+            IReadOnlyList<CellWriteEntry>? capturedCells = null;
+            writer.When(w => w.Populate(Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<IReadOnlyList<CellWriteEntry>>(), Arg.Any<string>()))
+                .Do(ci => capturedCells = ci.ArgAt<IReadOnlyList<CellWriteEntry>>(2));
+
+            var ctx = MakeCtx(dir,
+                new Dictionary<string, string>
+                {
+                    ["mappings"]        = "B2->G2",
+                    ["sourceSheetName"] = "Sheet1",
+                    ["targetSheetName"] = "Sheet1",
+                },
+                inputs: new Dictionary<string, string>
+                {
+                    ["source"]         = src,
+                    ["targetTemplate"] = tpl,
+                });
+
+            var result = await MakeTask(reader, writer).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            capturedCells.Should().NotBeNull();
+            capturedCells!.Should().BeEmpty();
+            result.Messages.Should().ContainSingle(m =>
+                m.Severity == MessageSeverity.Warning
+                && m.Text.StartsWith("G2:")
+                && m.Text.Contains("could not be resolved"));
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // Mixed DV'd and no-DV targets in one run: proves the blind-copy path for a no-DV target cell is
+    // unchanged (still injects unconditionally) alongside the new gated behaviour for a DV'd target.
+    [Fact]
+    public async Task ExecuteAsync_MixedDvAndNoDvTargets_GatesOnlyTheDvdCell()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var src = Path.Combine(dir, "source.xlsx");
+            var tpl = Path.Combine(dir, "template.xlsx");
+            CreateEmptyWorkbook(src);
+            CreateEmptyWorkbook(tpl);
+
+            var reader = Substitute.For<IExcelStructureReader>();
+            reader.ReadCells(src, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["B2"] = new("Yes", null, null, null),
+                    ["B3"] = new("anything at all", null, null, null),
+                });
+            reader.ReadCells(tpl, "Sheet1", Arg.Any<IReadOnlyList<string>>())
+                .Returns(new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["G2"] = new(null, "List", "\"Yes,No\"", null),
+                    // G3 intentionally absent → no DV rule on the target cell.
+                });
+
+            IReadOnlyList<CellWriteEntry>? capturedCells = null;
+            var writer = Substitute.For<IExcelTemplateWriter>();
+            writer.When(w => w.Populate(Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<IReadOnlyList<CellWriteEntry>>(), Arg.Any<string>()))
+                .Do(ci => capturedCells = ci.ArgAt<IReadOnlyList<CellWriteEntry>>(2));
+
+            var ctx = MakeCtx(dir,
+                new Dictionary<string, string>
+                {
+                    ["mappings"]        = "B2->G2;B3->G3",
+                    ["sourceSheetName"] = "Sheet1",
+                    ["targetSheetName"] = "Sheet1",
+                },
+                inputs: new Dictionary<string, string>
+                {
+                    ["source"]         = src,
+                    ["targetTemplate"] = tpl,
+                });
+
+            var result = await MakeTask(reader, writer).ExecuteAsync(ctx, CancellationToken.None);
+
+            result.Succeeded.Should().BeTrue();
+            capturedCells.Should().NotBeNull();
+            capturedCells!.Should().BeEquivalentTo(new[]
+            {
+                new CellWriteEntry(Row: 2, Column: "G", Value: "Yes", TypedValue: null),
+                new CellWriteEntry(Row: 3, Column: "G", Value: "anything at all", TypedValue: null),
+            });
+            result.Messages.Should().NotContain(m => m.Severity == MessageSeverity.Warning);
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
     // ── Cancellation propagates ───────────────────────────────────────────────
 
     [Fact]

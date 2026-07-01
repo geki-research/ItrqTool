@@ -261,6 +261,183 @@ public sealed class CellRangeInjectEndToEndWorkflowTests
         }
     }
 
+    // ── DV-aware gating e2e (BL-053 P3): real ClosedXmlExcelStructureReader/Writer, no mocks ──
+    // Inline List (G2/G3), WholeNumber (G4/G5), and same-sheet range-ref List (G6/G7, backing K1:K2)
+    // target DV rules; each pair's odd row conforms (→ inject), even row violates (→ skip + Warning).
+
+    [Fact]
+    public async Task DvGatedInject_RunsEndToEnd_ConformingInjectsViolatingSkipsWithWarnings()
+    {
+        var workbooksDir = Path.Combine(AppContext.BaseDirectory, "trial-workbooks", "cell-range-inject-dv");
+        Directory.CreateDirectory(workbooksDir);
+        var sourcePath   = Path.Combine(workbooksDir, "source.xlsx");
+        var templatePath = Path.Combine(workbooksDir, "target_template.xlsx");
+        WriteDvSourceWorkbook(sourcePath);
+        WriteDvTargetTemplateWorkbook(templatePath);
+
+        var workflowsDir = Path.Combine(Path.GetTempPath(),
+            "ItrqTool-cri-dv-wf-" + Guid.NewGuid().ToString("N"));
+        var workflowDataRoot = Path.Combine(Path.GetTempPath(),
+            "ItrqTool-cri-dv-data-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workflowsDir);
+        Directory.CreateDirectory(workflowDataRoot);
+
+        var sinkDestination = Path.Combine(
+            AppContext.BaseDirectory, "inject-output", "cell-range-inject-dv", "cell_range_dv_injected.xlsx");
+        try { File.Delete(sinkDestination); } catch (IOException) { }
+
+        const string dvWorkflowId = "cell-range-inject-trial-dv";
+        const string dvJson = """
+            {
+              "id": "cell-range-inject-trial-dv",
+              "name": "CellRangeInject DV-Gated Trial",
+              "tasks": [
+                {
+                  "id": "load-source",
+                  "type": "StaticFileSource",
+                  "inputs": {},
+                  "outputs": { "output": "cri_dv_source.xlsx" },
+                  "parameters": { "sourcePath": "trial-workbooks/cell-range-inject-dv/source.xlsx" }
+                },
+                {
+                  "id": "load-target",
+                  "type": "StaticFileSource",
+                  "inputs": {},
+                  "outputs": { "output": "cri_dv_target.xlsx" },
+                  "parameters": { "sourcePath": "trial-workbooks/cell-range-inject-dv/target_template.xlsx" }
+                },
+                {
+                  "id": "inject",
+                  "type": "CellRangeInject",
+                  "inputs": { "source": "load-source.output", "targetTemplate": "load-target.output" },
+                  "outputs": { "output": "cri_dv_injected.xlsx" },
+                  "parameters": {
+                    "sourceSheetName": "RLE",
+                    "targetSheetName": "RLE",
+                    "mappings": "B2->G2;B3->G3;B4->G4;B5->G5;B6->G6;B7->G7"
+                  }
+                },
+                {
+                  "id": "sink",
+                  "type": "StaticFileSink",
+                  "inputs": { "input": "inject.output" },
+                  "outputs": {},
+                  "parameters": {
+                    "destinationFolder": "inject-output/cell-range-inject-dv",
+                    "destinationFileName": "cell_range_dv_injected.xlsx"
+                  }
+                }
+              ]
+            }
+            """;
+        File.WriteAllText(
+            Path.Combine(workflowsDir, "cell-range-inject-trial-dv.json"), dvJson);
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddItrqToolServices(workflowsDir, workflowDataRoot);
+            using var sp = services.BuildServiceProvider();
+
+            var loader     = sp.GetRequiredService<IWorkflowLoader>();
+            var loadResult = loader.LoadAll();
+            loadResult.Failures.Should().BeEmpty("DV-gated trial workflow JSON must load without errors");
+            var workflow = loadResult.Workflows.Single(w => w.Id == dvWorkflowId);
+
+            var factory = sp.GetRequiredService<WorkflowSessionFactory>();
+            var session = factory.Create(workflow);
+
+            TaskResult? injectResult = null;
+            while (session.Status != WorkflowSessionStatus.Completed)
+            {
+                var currentNode = workflow.Nodes[session.CurrentIndex];
+                var result = await session.RunCurrentTaskAsync();
+                result.Succeeded.Should().BeTrue(
+                    "task '{0}' must succeed; messages: {1}", currentNode.Id,
+                    string.Join("; ", result.Messages.Select(m => m.Text)));
+
+                if (currentNode.Id == "inject") injectResult = result;
+
+                if (session.Status != WorkflowSessionStatus.Completed)
+                    session.Status.Should().Be(WorkflowSessionStatus.AwaitingReview);
+            }
+
+            session.Status.Should().Be(WorkflowSessionStatus.Completed);
+
+            injectResult.Should().NotBeNull();
+            injectResult!.Messages.Should().Contain(m => m.Text.Contains("Injected 3 cell"),
+                "3 of the 6 mapped pairs conform and must be injected");
+            injectResult.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Warning && m.Text.StartsWith("G3:") && m.Text.Contains("does not conform"),
+                "the inline-List non-member must be skipped with a Warning");
+            injectResult.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Warning && m.Text.StartsWith("G5:") && m.Text.Contains("does not conform"),
+                "the WholeNumber violator must be skipped with a Warning");
+            injectResult.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Warning && m.Text.StartsWith("G7:") && m.Text.Contains("does not conform"),
+                "the range-ref-List non-member must be skipped with a Warning");
+
+            File.Exists(sinkDestination).Should().BeTrue(
+                "the StaticFileSink must place the final deliverable even though some pairs were skipped");
+
+            using var wb = new XLWorkbook(sinkDestination);
+            var ws = wb.Worksheet(SheetName);
+
+            ws.Cell("G2").GetString().Should().Be("Yes", "the conforming inline-List member must be injected");
+            ws.Cell("G3").IsEmpty().Should().BeTrue("the inline-List non-member must be omitted, not written");
+
+            ws.Cell("G4").GetValue<double>().Should().Be(5.0, "the conforming WholeNumber value must be injected");
+            ws.Cell("G5").IsEmpty().Should().BeTrue("the WholeNumber violator must be omitted, not written");
+
+            ws.Cell("G6").GetString().Should().Be("Alpha", "the conforming range-ref-List member must be injected");
+            ws.Cell("G7").IsEmpty().Should().BeTrue("the range-ref-List non-member must be omitted, not written");
+        }
+        finally
+        {
+            try { Directory.Delete(workflowsDir,     recursive: true); } catch (IOException) { }
+            try { Directory.Delete(workflowDataRoot, recursive: true); } catch (IOException) { }
+            try { Directory.Delete(workbooksDir,     recursive: true); } catch (IOException) { }
+            try { File.Delete(sinkDestination); } catch (IOException) { }
+        }
+    }
+
+    // Source workbook: sheet "RLE" — B2/B4/B6 conform to their mapped target's DV rule, B3/B5/B7 violate it.
+    private static void WriteDvSourceWorkbook(string path)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(SheetName);
+
+        ws.Cell("B2").Value = "Yes";     // inline List member
+        ws.Cell("B3").Value = "Maybe";   // inline List non-member
+        ws.Cell("B4").Value = 5;         // WholeNumber, within 1..10
+        ws.Cell("B5").Value = 99;        // WholeNumber, out of bound
+        ws.Cell("B6").Value = "Alpha";   // range-ref List member (K1:K2)
+        ws.Cell("B7").Value = "Gamma";   // range-ref List non-member
+
+        wb.SaveAs(path);
+    }
+
+    // Target template workbook: sheet "RLE" — G2/G3 inline List, G4/G5 WholeNumber(1..10),
+    // G6/G7 range-ref List backed by K1:K2 ("Alpha","Beta").
+    private static void WriteDvTargetTemplateWorkbook(string path)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(SheetName);
+
+        ws.Cell("G2").CreateDataValidation().List("\"Yes,No\"");
+        ws.Cell("G3").CreateDataValidation().List("\"Yes,No\"");
+
+        ws.Cell("G4").CreateDataValidation().WholeNumber.Between(1, 10);
+        ws.Cell("G5").CreateDataValidation().WholeNumber.Between(1, 10);
+
+        ws.Cell("K1").Value = "Alpha";
+        ws.Cell("K2").Value = "Beta";
+        ws.Cell("G6").CreateDataValidation().List(ws.Range("K1:K2"));
+        ws.Cell("G7").CreateDataValidation().List(ws.Range("K1:K2"));
+
+        wb.SaveAs(path);
+    }
+
     // ── Fixture builders ────────────────────────────────────────────────────────
 
     // Source workbook: sheet "RLE" with B2:B4 numeric and D2 text.

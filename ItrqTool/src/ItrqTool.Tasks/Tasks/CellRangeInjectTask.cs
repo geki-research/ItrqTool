@@ -2,6 +2,8 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
 using ItrqTool.Tasks.CellRangeInject;
+using ItrqTool.Tasks.QuestionnaireValidation.Parsing;
+using ItrqTool.Tasks.Shared;
 
 namespace ItrqTool.Tasks;
 
@@ -118,18 +120,7 @@ public sealed class CellRangeInjectTask : IWorkflowTask
                 throw;
             }
 
-            // 6. Build write entries — native value carries via TypedValue so the target number format is preserved.
-            var cells = parseResult.Pairs.Select(p =>
-            {
-                var key = $"{p.SourceColumn}{p.SourceRow}".ToUpperInvariant();
-                srcCells.TryGetValue(key, out var src);
-                return new CellWriteEntry(
-                    Row: p.TargetRow,
-                    Column: p.TargetColumn,
-                    Value: src?.TextValue ?? "",
-                    TypedValue: src?.NativeValue);
-            }).ToList();
-
+            // 6. Read target cells' DV structure (numeric<->date pre-gate + conformance gate, BL-053 P3).
             _logger.LogInformation("target template path: {Path}", targetTemplatePath);
             _logger.LogInformation("target worksheet sought: '{Sheet}'", targetSheetName);
 
@@ -148,7 +139,98 @@ public sealed class CellRangeInjectTask : IWorkflowTask
                 throw;
             }
 
-            // 7. Write — task does NO File.* / SaveAs; StaticFileSink owns placement.
+            var targetA1Ranges = parseResult.Pairs
+                .Select(p => $"{p.TargetColumn}{p.TargetRow}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            IReadOnlyDictionary<string, ExcelCellStructure> targetCells;
+            try
+            {
+                targetCells = _reader.ReadCells(targetTemplatePath, targetSheetName, targetA1Ranges);
+                _logger.LogInformation("target worksheet '{Sheet}' found", targetSheetName);
+                _logger.LogInformation("read {Count} target cell(s) for DV metadata", targetCells.Count);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "target worksheet '{Sheet}' NOT FOUND in {Path}; available worksheets: [ {Names} ]",
+                    targetSheetName, targetTemplatePath, FormatNames(targetWorksheets));
+                throw;
+            }
+
+            // Resolve target List DV vocabulary — inline parsed here, range-ref/named-range resolved by
+            // reusing the exact validation-path routine (DvRangeRefResolver) against the target workbook.
+            IReadOnlyList<TargetDvHolder> targetDvHolders = targetA1Ranges
+                .Select(addr =>
+                {
+                    targetCells.TryGetValue(addr, out var cell);
+                    return new TargetDvHolder(
+                        addr,
+                        cell?.DataValidationType,
+                        cell?.DataValidationOperator,
+                        cell?.DataValidationFormula,
+                        cell?.DataValidationFormula2,
+                        cell is null ? null : InlineListValues(cell));
+                })
+                .ToList();
+
+            targetDvHolders = DvRangeRefResolver.Resolve(
+                _reader, targetTemplatePath, targetSheetName, targetDvHolders,
+                dvTypeSelector:            h => h.DvType,
+                dvFormulaSelector:         h => h.DvFormula,
+                currentListValuesSelector: h => h.ListValues,
+                stampListValues:           (h, vals) => h with { ListValues = vals });
+
+            var targetDvByAddress = targetDvHolders.ToDictionary(
+                h => h.Address, StringComparer.OrdinalIgnoreCase);
+
+            // 7. Build write entries — native value carries via TypedValue so the target number format is
+            //    preserved. Each non-blank source value is gated through InjectionValueGuard against the
+            //    target cell's DV rule: Inject → written as before; Skip → omitted + a Warning message.
+            //    Blank sources bypass the guard (it assumes non-blank) and keep today's unconditional write.
+            var cells = new List<CellWriteEntry>();
+            foreach (var p in parseResult.Pairs)
+            {
+                var srcKey = $"{p.SourceColumn}{p.SourceRow}".ToUpperInvariant();
+                srcCells.TryGetValue(srcKey, out var src);
+                var sourceText = src?.TextValue;
+
+                if (string.IsNullOrEmpty(sourceText))
+                {
+                    cells.Add(new CellWriteEntry(
+                        Row: p.TargetRow, Column: p.TargetColumn,
+                        Value: sourceText ?? "", TypedValue: src?.NativeValue));
+                    continue;
+                }
+
+                var targetA1 = $"{p.TargetColumn}{p.TargetRow}";
+                targetDvByAddress.TryGetValue(targetA1, out var tgtDv);
+
+                var decision = InjectionValueGuard.Evaluate(
+                    sourceText: sourceText,
+                    sourceDvType: src?.DataValidationType,
+                    targetDvType: tgtDv?.DvType,
+                    targetDvOperator: tgtDv?.DvOperator,
+                    targetDvFormula: tgtDv?.DvFormula,
+                    targetDvFormula2: tgtDv?.DvFormula2,
+                    targetResolvedListValues: tgtDv?.ListValues);
+
+                if (decision.Decision == InjectionDecision.Inject)
+                {
+                    cells.Add(new CellWriteEntry(
+                        Row: p.TargetRow, Column: p.TargetColumn,
+                        Value: sourceText, TypedValue: src?.NativeValue));
+                }
+                else
+                {
+                    messages.Add(new(MessageSeverity.Warning,
+                        $"{targetA1}: {decision.SkipReason}", DateTimeOffset.Now));
+                }
+            }
+
+            // 8. Write — task does NO File.* / SaveAs; StaticFileSink owns placement.
             //    Missing target sheet throws ArgumentException → caught below.
             try
             {
@@ -207,4 +289,19 @@ public sealed class CellRangeInjectTask : IWorkflowTask
         value = string.Empty;
         return false;
     }
+
+    // Carries a target cell's DV fields (plus its resolved List vocabulary, once known) keyed by A1
+    // address, so DvRangeRefResolver.Resolve<T> — designed for per-question record collections — can be
+    // reused as-is for CellRangeInject's flat per-address cell collection.
+    private sealed record TargetDvHolder(
+        string Address, string? DvType, string? DvOperator, string? DvFormula, string? DvFormula2,
+        IReadOnlyList<string>? ListValues);
+
+    // Mirrors the inline-List idiom frozen in RlqV01Profile / GdDvPatcher: a List-typed cell whose source
+    // classifies as Inline → its parsed members; otherwise null (range-ref / named-range resolved next).
+    private static IReadOnlyList<string>? InlineListValues(ExcelCellStructure cell)
+        => string.Equals(cell.DataValidationType, "List", StringComparison.OrdinalIgnoreCase)
+           && DvListParser.ClassifySource(cell.DataValidationFormula ?? "") == DvListSourceKind.Inline
+            ? DvListParser.ParseInline(cell.DataValidationFormula ?? "")
+            : null;
 }
