@@ -70,12 +70,12 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
     {
         using var workbook = RobustWorkbookLoader.Open(filePath);
 
-        IXLNamedRange? nr = null;
+        IXLDefinedName? nr = null;
         // Worksheet-scoped name on the DV cell's own sheet shadows a workbook-scoped name.
         if (workbook.TryGetWorksheet(sheetName, out var ws)
-            && ws.NamedRanges.TryGetValue(name, out var wsNr))
+            && ws.DefinedNames.TryGetValue(name, out var wsNr))
             nr = wsNr;
-        else if (workbook.NamedRanges.TryGetValue(name, out var wbNr))
+        else if (workbook.DefinedNames.TryGetValue(name, out var wbNr))
             nr = wbNr;
 
         if (nr is null) return null;                  // absent → NotCheckable

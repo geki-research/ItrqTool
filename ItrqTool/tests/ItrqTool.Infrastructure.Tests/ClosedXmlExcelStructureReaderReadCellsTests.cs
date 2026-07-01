@@ -194,4 +194,24 @@ public sealed class ClosedXmlExcelStructureReaderReadCellsTests
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
+
+    // 8. Cross-sheet range-reference List DV stored ONLY in the OOXML x14 extension block
+    //    (<extLst>/x14:dataValidations — the legal form for a List DV whose source lives on a
+    //    different worksheet). ClosedXML 0.102.3 never parsed this block (ClosedXML/ClosedXML#1797,
+    //    fixed in 0.104.2) — BuildCellStructure fell through with DvType=null. This fixture's C2 cell
+    //    has NO entry in the legacy <dataValidations> element; its List DV is exclusively in x14,
+    //    pointing at 'Dropdown Menus'!$A$2:$A$5. Confirmed genuine by unzipping the asset.
+    [Fact]
+    public void ReadCells_CrossSheetRangeRefListDvInX14Extension_IsReadAsListType()
+    {
+        var filePath = Path.Combine(AppContext.BaseDirectory, "assets", "dv-crosssheet-x14ext.xlsx");
+
+        var result = Reader().ReadCells(filePath, "Data", new[] { "A2:C2" });
+
+        // Control: A2 (inline list) and B2 (same-sheet range-ref, legacy element) already read
+        // correctly under the old ClosedXML version — only C2 (cross-sheet, x14-only) was broken.
+        result["A2"].DataValidationType.Should().Be("List");
+        result["B2"].DataValidationType.Should().Be("List");
+        result["C2"].DataValidationType.Should().Be("List");
+    }
 }
