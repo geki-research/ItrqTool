@@ -531,9 +531,9 @@ public sealed class CellRangeInjectTaskTests
 
     // ── DV-aware gating (BL-053 P3): InjectionValueGuard wired against the target cell's DV rule ──
 
-    // Inline List target: a conforming member injects; a non-member is skipped with a Warning.
+    // Inline List target: a conforming member injects; a non-member is skipped with an Error.
     [Fact]
-    public async Task ExecuteAsync_TargetInlineListDv_ConformingInjectsNonMemberSkipsWithWarning()
+    public async Task ExecuteAsync_TargetInlineListDv_ConformingInjectsNonMemberSkipsWithError()
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
@@ -584,7 +584,7 @@ public sealed class CellRangeInjectTaskTests
             capturedCells!.Should().ContainSingle().Which.Should().Be(
                 new CellWriteEntry(Row: 2, Column: "G", Value: "Yes", TypedValue: null));
             result.Messages.Should().ContainSingle(m =>
-                m.Severity == MessageSeverity.Warning
+                m.Severity == MessageSeverity.Error
                 && m.Text.StartsWith("G3:")
                 && m.Text.Contains("does not conform"));
         }
@@ -593,7 +593,7 @@ public sealed class CellRangeInjectTaskTests
 
     // WholeNumber target (bounded 1..10): a conforming value injects; a violator is skipped.
     [Fact]
-    public async Task ExecuteAsync_TargetWholeNumberDv_ConformingInjectsViolatorSkipsWithWarning()
+    public async Task ExecuteAsync_TargetWholeNumberDv_ConformingInjectsViolatorSkipsWithError()
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
@@ -644,7 +644,7 @@ public sealed class CellRangeInjectTaskTests
             capturedCells!.Should().ContainSingle().Which.Should().Be(
                 new CellWriteEntry(Row: 2, Column: "G", Value: "5", TypedValue: 5.0));
             result.Messages.Should().ContainSingle(m =>
-                m.Severity == MessageSeverity.Warning
+                m.Severity == MessageSeverity.Error
                 && m.Text.StartsWith("G3:")
                 && m.Text.Contains("does not conform"));
         }
@@ -653,7 +653,7 @@ public sealed class CellRangeInjectTaskTests
 
     // Same-sheet range-ref List target: exercises DvRangeRefResolver wiring against the target workbook.
     [Fact]
-    public async Task ExecuteAsync_TargetRangeRefListDv_MemberInjectsNonMemberSkipsWithWarning()
+    public async Task ExecuteAsync_TargetRangeRefListDv_MemberInjectsNonMemberSkipsWithError()
     {
         var dir = TestWorkDir();
         Directory.CreateDirectory(dir);
@@ -710,7 +710,7 @@ public sealed class CellRangeInjectTaskTests
             capturedCells!.Should().ContainSingle().Which.Should().Be(
                 new CellWriteEntry(Row: 2, Column: "G", Value: "Alpha", TypedValue: null));
             result.Messages.Should().ContainSingle(m =>
-                m.Severity == MessageSeverity.Warning
+                m.Severity == MessageSeverity.Error
                 && m.Text.StartsWith("G3:")
                 && m.Text.Contains("does not conform"));
         }

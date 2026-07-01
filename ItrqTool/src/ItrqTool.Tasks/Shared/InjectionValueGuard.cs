@@ -4,9 +4,12 @@ namespace ItrqTool.Tasks.Shared;
 
 public enum InjectionDecision { Inject, Skip }
 
+public enum SkipSeverity { Warning, Error }
+
 // SkipReason is LOCATION-FREE — the caller prepends its own address idiom and emits the
-// TaskMessage at Warning.
-public sealed record InjectionCheckResult(InjectionDecision Decision, string? SkipReason);
+// TaskMessage at the severity given by SkipSeverity. SkipSeverity is null on Inject and set
+// on every Skip.
+public sealed record InjectionCheckResult(InjectionDecision Decision, string? SkipReason, SkipSeverity? SkipSeverity = null);
 
 /// <summary>
 /// Pure, IO-free gate: should <paramref name="sourceText"/>(as passed to
@@ -56,10 +59,10 @@ public static class InjectionValueGuard
         if (sourceDvType is not null)
         {
             if (NumericTypes.Contains(sourceDvType) && targetDvType is not null && DateTimeTypes.Contains(targetDvType))
-                return new InjectionCheckResult(InjectionDecision.Skip, "numeric value not injected into a date/time cell");
+                return new InjectionCheckResult(InjectionDecision.Skip, "numeric value not injected into a date/time cell", SkipSeverity.Error);
 
             if (DateTimeTypes.Contains(sourceDvType) && targetDvType is not null && NumericTypes.Contains(targetDvType))
-                return new InjectionCheckResult(InjectionDecision.Skip, "date/time value not injected into a numeric cell");
+                return new InjectionCheckResult(InjectionDecision.Skip, "date/time value not injected into a numeric cell", SkipSeverity.Error);
         }
 
         var result = DvConformanceEvaluator.Evaluate(
@@ -75,18 +78,18 @@ public static class InjectionValueGuard
                 var reason = ruleText == "—"
                     ? $"value '{sourceText}' does not conform to the target data-validation rule"
                     : $"value '{sourceText}' does not conform to the target data-validation rule ({ruleText})";
-                return new InjectionCheckResult(InjectionDecision.Skip, reason);
+                return new InjectionCheckResult(InjectionDecision.Skip, reason, SkipSeverity.Error);
 
             case DvConformanceResult.UnresolvableList:
-                return new InjectionCheckResult(InjectionDecision.Skip, "target data-validation vocabulary could not be resolved");
+                return new InjectionCheckResult(InjectionDecision.Skip, "target data-validation vocabulary could not be resolved", SkipSeverity.Warning);
 
             case DvConformanceResult.NotCheckable:
                 if (targetDvType is not null && RecognisedValueTypedRules.Contains(targetDvType))
                     return new InjectionCheckResult(InjectionDecision.Inject, null);
-                return new InjectionCheckResult(InjectionDecision.Skip, "target data-validation rule could not be evaluated");
+                return new InjectionCheckResult(InjectionDecision.Skip, "target data-validation rule could not be evaluated", SkipSeverity.Warning);
 
             default:
-                return new InjectionCheckResult(InjectionDecision.Skip, "target data-validation rule could not be evaluated");
+                return new InjectionCheckResult(InjectionDecision.Skip, "target data-validation rule could not be evaluated", SkipSeverity.Warning);
         }
     }
 }

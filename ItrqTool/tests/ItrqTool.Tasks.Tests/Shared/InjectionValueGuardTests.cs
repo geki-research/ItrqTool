@@ -30,8 +30,11 @@ public sealed class InjectionValueGuardTests
     // ── List target (Conformant / NotConformant / UnresolvableList) ──
     [Fact]
     public void List_MemberValue_Inject()
-        => Eval("Yes", null, "List", targetResolvedListValues: new[] { "Yes", "No" })
-            .Decision.Should().Be(InjectionDecision.Inject);
+    {
+        var r = Eval("Yes", null, "List", targetResolvedListValues: new[] { "Yes", "No" });
+        r.Decision.Should().Be(InjectionDecision.Inject);
+        r.SkipSeverity.Should().BeNull();
+    }
 
     [Fact]
     public void List_NonMemberValue_Skip_NotConformantReason()
@@ -39,6 +42,7 @@ public sealed class InjectionValueGuardTests
         var r = Eval("Maybe", null, "List", targetResolvedListValues: new[] { "Yes", "No" });
         r.Decision.Should().Be(InjectionDecision.Skip);
         r.SkipReason.Should().Contain("does not conform");
+        r.SkipSeverity.Should().Be(SkipSeverity.Error);
     }
 
     [Fact]
@@ -47,6 +51,7 @@ public sealed class InjectionValueGuardTests
         var r = Eval("Yes", null, "List", targetResolvedListValues: null);
         r.Decision.Should().Be(InjectionDecision.Skip);
         r.SkipReason.Should().Be("target data-validation vocabulary could not be resolved");
+        r.SkipSeverity.Should().Be(SkipSeverity.Warning);
     }
 
     // ── Numeric widening / narrowing (Conformant / NotConformant, no pre-gate — both Numeric) ──
@@ -61,6 +66,7 @@ public sealed class InjectionValueGuardTests
         var r = Eval("3.5", "Decimal", "WholeNumber", "EqualOrGreaterThan", "0");
         r.Decision.Should().Be(InjectionDecision.Skip);
         r.SkipReason.Should().Contain("does not conform");
+        r.SkipSeverity.Should().Be(SkipSeverity.Error);
     }
 
     [Fact]
@@ -98,6 +104,7 @@ public sealed class InjectionValueGuardTests
         var r = Eval("anything", null, "Custom", targetDvFormula: "ISNUMBER(A1)");
         r.Decision.Should().Be(InjectionDecision.Skip);
         r.SkipReason.Should().Be("target data-validation rule could not be evaluated");
+        r.SkipSeverity.Should().Be(SkipSeverity.Warning);
     }
 
     [Fact]
@@ -106,12 +113,16 @@ public sealed class InjectionValueGuardTests
         var r = Eval("5", null, "Bogus", "EqualTo", "5");
         r.Decision.Should().Be(InjectionDecision.Skip);
         r.SkipReason.Should().Be("target data-validation rule could not be evaluated");
+        r.SkipSeverity.Should().Be(SkipSeverity.Warning);
     }
 
     [Fact]
     public void RecognisedTypeNotCheckable_Unbounded_Inject()
-        => Eval("7", null, "WholeNumber")
-            .Decision.Should().Be(InjectionDecision.Inject);
+    {
+        var r = Eval("7", null, "WholeNumber");
+        r.Decision.Should().Be(InjectionDecision.Inject);
+        r.SkipSeverity.Should().BeNull();
+    }
 
     // ── Numeric<->date category pre-gate, both directions ──
     [Fact]
@@ -120,6 +131,7 @@ public sealed class InjectionValueGuardTests
         var r = Eval("45000", "WholeNumber", "Date");
         r.Decision.Should().Be(InjectionDecision.Skip);
         r.SkipReason.Should().Be("numeric value not injected into a date/time cell");
+        r.SkipSeverity.Should().Be(SkipSeverity.Error);
     }
 
     [Fact]
@@ -128,17 +140,24 @@ public sealed class InjectionValueGuardTests
         var r = Eval("45000", "Date", "Decimal");
         r.Decision.Should().Be(InjectionDecision.Skip);
         r.SkipReason.Should().Be("date/time value not injected into a numeric cell");
+        r.SkipSeverity.Should().Be(SkipSeverity.Error);
     }
 
     [Fact]
     public void PreGate_DecimalSourceIntoTimeTarget_Skip()
-        => Eval("0.5", "Decimal", "Time")
-            .Decision.Should().Be(InjectionDecision.Skip);
+    {
+        var r = Eval("0.5", "Decimal", "Time");
+        r.Decision.Should().Be(InjectionDecision.Skip);
+        r.SkipSeverity.Should().Be(SkipSeverity.Error);
+    }
 
     [Fact]
     public void PreGate_TimeSourceIntoWholeNumberTarget_Skip()
-        => Eval("0.5", "Time", "WholeNumber")
-            .Decision.Should().Be(InjectionDecision.Skip);
+    {
+        var r = Eval("0.5", "Time", "WholeNumber");
+        r.Decision.Should().Be(InjectionDecision.Skip);
+        r.SkipSeverity.Should().Be(SkipSeverity.Error);
+    }
 
     // ── Pre-gate must NOT fire when sourceDvType is unknown — falls through to Evaluate ──
     [Fact]

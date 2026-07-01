@@ -225,7 +225,13 @@ public sealed class CellRangeInjectTask : IWorkflowTask
                 }
                 else
                 {
-                    messages.Add(new(MessageSeverity.Warning,
+                    var severity = decision.SkipSeverity switch
+                    {
+                        SkipSeverity.Error => MessageSeverity.Error,
+                        SkipSeverity.Warning => MessageSeverity.Warning,
+                        _ => MessageSeverity.Error
+                    };
+                    messages.Add(new(severity,
                         $"{targetA1}: {decision.SkipReason}", DateTimeOffset.Now));
                 }
             }
