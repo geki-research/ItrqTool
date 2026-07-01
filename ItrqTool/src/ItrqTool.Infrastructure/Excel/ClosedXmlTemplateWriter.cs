@@ -11,7 +11,7 @@ public sealed class ClosedXmlTemplateWriter : IExcelTemplateWriter
         IReadOnlyList<CellWriteEntry> cells,
         string outputPath)
     {
-        using var workbook = new XLWorkbook(templatePath);
+        using var workbook = RobustWorkbookLoader.Open(templatePath);
 
         if (!workbook.TryGetWorksheet(sheetName, out var worksheet))
             throw new ArgumentException(

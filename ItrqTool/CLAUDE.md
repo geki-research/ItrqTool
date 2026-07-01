@@ -190,6 +190,7 @@ They are copied to the output directory by the Presentation project's `.csproj`.
 | Logging abstraction | Microsoft.Extensions.Logging.Abstractions | 10.0.8 | Domain, Application, Tasks |
 | Excel I/O | ClosedXML | 0.102.3 | Infrastructure only (Tasks.Tests for fixtures) |
 | OPC/OOXML packaging (ClosedXML dependency) | System.IO.Packaging | 10.0.7 | Infrastructure (Tasks.Tests for fixtures) |
+| OOXML SDK (LibreOffice load sanitization) | DocumentFormat.OpenXml | 2.16.0 | Infrastructure only |
 | Testing framework | xUnit | 2.9.2 | all test projects |
 | Mocking | NSubstitute | 5.3.0 | Application.Tests, Tasks.Tests |
 | Assertions | FluentAssertions | 6.12.2 | all test projects |

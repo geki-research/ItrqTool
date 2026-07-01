@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using Microsoft.Extensions.Logging;
 using ItrqTool.Domain;
+using ItrqTool.Infrastructure.Excel;
 
 namespace ItrqTool.Infrastructure;
 
@@ -13,7 +14,7 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
 
     public IReadOnlyList<ExcelRowStructure> ReadRows(string filePath, string sheetName)
     {
-        using var workbook = new XLWorkbook(filePath);
+        using var workbook = RobustWorkbookLoader.Open(filePath);
         if (!workbook.TryGetWorksheet(sheetName, out var worksheet))
             throw new ArgumentException(
                 $"Worksheet '{sheetName}' was not found in '{filePath}'. " +
@@ -45,7 +46,7 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
     public IReadOnlyDictionary<string, ExcelCellStructure> ReadCells(
         string filePath, string sheetName, IReadOnlyList<string> a1Ranges)
     {
-        using var workbook = new XLWorkbook(filePath);
+        using var workbook = RobustWorkbookLoader.Open(filePath);
         if (!workbook.TryGetWorksheet(sheetName, out var worksheet))
             throw new ArgumentException(
                 $"Worksheet '{sheetName}' was not found in '{filePath}'. " +
@@ -67,7 +68,7 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
 
     public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name)
     {
-        using var workbook = new XLWorkbook(filePath);
+        using var workbook = RobustWorkbookLoader.Open(filePath);
 
         IXLNamedRange? nr = null;
         // Worksheet-scoped name on the DV cell's own sheet shadows a workbook-scoped name.
@@ -91,7 +92,7 @@ public sealed class ClosedXmlExcelStructureReader : IExcelStructureReader
 
     public IReadOnlyList<string> GetWorksheetNames(string filePath)
     {
-        using var workbook = new XLWorkbook(filePath);
+        using var workbook = RobustWorkbookLoader.Open(filePath);
         return workbook.Worksheets.Select(w => w.Name).ToList();
     }
 

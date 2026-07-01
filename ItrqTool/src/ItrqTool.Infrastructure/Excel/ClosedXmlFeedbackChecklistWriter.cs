@@ -17,7 +17,7 @@ public sealed class ClosedXmlFeedbackChecklistWriter : IFeedbackChecklistWriter
     {
         ValidateColumnMap(options.ColumnMap);
 
-        using var workbook  = new XLWorkbook(templatePath);
+        using var workbook  = RobustWorkbookLoader.Open(templatePath);
         var worksheet = workbook.Worksheet(options.SheetName);
 
         for (int i = 0; i < rows.Count; i++)

@@ -14,6 +14,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>templates\feedback-checklist-template.xlsx</Link>
     </Content>
+    <Content Include="assets\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>assets\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
