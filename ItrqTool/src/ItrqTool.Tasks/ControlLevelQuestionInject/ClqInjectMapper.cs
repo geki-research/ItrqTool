@@ -2,6 +2,7 @@ using ItrqTool.Domain;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
+using ItrqTool.Tasks.Shared;
 
 namespace ItrqTool.Tasks.ControlLevelQuestionInject;
 
@@ -20,6 +21,17 @@ namespace ItrqTool.Tasks.ControlLevelQuestionInject;
 ///
 /// Cell emission obeys a non-blank-or-omit rule: a source value that is null/whitespace
 /// leaves the target cell untouched (no <see cref="CellWriteEntry"/> emitted).
+///
+/// The H carry-forward write (BL-053 P4c-C2) is gated by <see cref="InjectionValueGuard.Evaluate"/>
+/// against the target's FULL data-validation rule (type, operator, both formulas, resolved List
+/// vocabulary), mirroring <c>RlqInjectMapper.MapAnswer</c>:
+///   1. blank source (p.Answer null/whitespace) → omit the H cell (no message) — unchanged.
+///   2. guard Inject → write p.Answer AS TODAY (untyped string write — CLQ never switches to a
+///      typed write). If the source/target categories are WholeNumber→Decimal (a widen), ALSO
+///      emit an Info note (value written as-is).
+///   3. guard Skip → SKIP the H cell, emit the guard's SkipReason at its SkipSeverity (Warning or
+///      Error), CONTINUE (task still succeeds; I/J carry-forward and F/G/M references still run).
+/// I/J carry-forward and F/G/M reference writes carry no DV — not guarded.
 /// </summary>
 public static class ClqInjectMapper
 {
@@ -27,10 +39,8 @@ public static class ClqInjectMapper
         CrossFormatAlignmentResult<ClqV01Question, ClqV02Question> alignment,
         ClqInjectConfig injectConfig,
         ClqV01Config currentConfig,
-        // BL-053 P4c-C1 (additive, read-phase only): dormant plumbing — not yet read by this
-        // method. A later phase wires InjectionValueGuard into the H carry-forward decision
-        // below, keyed by sourceHByRow (v02 previous RowNumber) / targetHByRow (v01 current
-        // RowNumber). Mirrors RlqInjectMapper.Map's sourceHByRow/targetHByRow parameters.
+        // BL-053 P4c-C2: keyed by sourceHByRow (v02 previous RowNumber) / targetHByRow (v01
+        // current RowNumber). Mirrors RlqInjectMapper.Map's sourceHByRow/targetHByRow parameters.
         IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow,
         IReadOnlyDictionary<int, ClqTargetDvHolder> targetHByRow)
     {
@@ -59,7 +69,7 @@ public static class ClqInjectMapper
                     if (injectConfig.CarryForwardEnabled &&
                         string.Equals(p.AnswerStability, injectConfig.StabilityTriggerToken, StringComparison.Ordinal))
                     {
-                        AddIfPresent(cells, c.RowNumber, currentConfig.AnswerColumn, p.Answer);
+                        MapCarryForwardAnswer(cells, messages, c, p, currentConfig, sourceHByRow, targetHByRow);
                         AddIfPresent(cells, c.RowNumber, currentConfig.StrengthsColumn, p.Strengths);
                         AddIfPresent(cells, c.RowNumber, currentConfig.WeaknessesColumn, p.Weaknesses);
                     }
@@ -113,4 +123,55 @@ public static class ClqInjectMapper
         if (!string.IsNullOrWhiteSpace(value))
             cells.Add(new CellWriteEntry(rowNumber, column, value));
     }
+
+    // ── H carry-forward — gated by InjectionValueGuard against the target's DV rule ───────────
+    private static void MapCarryForwardAnswer(
+        List<CellWriteEntry> cells,
+        List<TaskMessage> messages,
+        ClqV01Question c,
+        ClqV02Question p,
+        ClqV01Config cfg,
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow,
+        IReadOnlyDictionary<int, ClqTargetDvHolder> targetHByRow)
+    {
+        // 1. blank source — checked FIRST, before any guard logic. Unchanged from before.
+        if (string.IsNullOrWhiteSpace(p.Answer))
+            return;
+
+        sourceHByRow.TryGetValue(p.RowNumber, out var src); // (null, null, null) when absent
+        targetHByRow.TryGetValue(c.RowNumber, out var targetHolder);
+
+        var decision = InjectionValueGuard.Evaluate(
+            sourceText: p.Answer,
+            sourceDvType: src.DvType,
+            targetDvType: targetHolder?.Type,
+            targetDvOperator: targetHolder?.Operator,
+            targetDvFormula: targetHolder?.Formula,
+            targetDvFormula2: targetHolder?.Formula2,
+            targetResolvedListValues: targetHolder?.ListValues);
+
+        if (decision.Decision == InjectionDecision.Inject)
+        {
+            AddIfPresent(cells, c.RowNumber, cfg.AnswerColumn, p.Answer);
+
+            // Delta A: widen (WholeNumber → Decimal) is now conformant-and-injected — still
+            // worth an informational note that the value was widened, not rounded/converted.
+            if (IsWhole(src.DvType) && IsDecimal(targetHolder?.Type))
+                messages.Add(new(MessageSeverity.Info,
+                    $"Row {c.RowNumber} (xref {c.XrefId ?? "<none>"}): answer type widened (WholeNumber → Decimal) — value written as-is.",
+                    DateTimeOffset.Now));
+        }
+        else
+        {
+            var severity = decision.SkipSeverity == SkipSeverity.Error
+                ? MessageSeverity.Error
+                : MessageSeverity.Warning;
+            messages.Add(new(severity,
+                $"Row {c.RowNumber} (xref {c.XrefId ?? "<none>"}): {decision.SkipReason}",
+                DateTimeOffset.Now));
+        }
+    }
+
+    private static bool IsWhole(string? cat) => cat == "WholeNumber";
+    private static bool IsDecimal(string? cat) => cat == "Decimal";
 }

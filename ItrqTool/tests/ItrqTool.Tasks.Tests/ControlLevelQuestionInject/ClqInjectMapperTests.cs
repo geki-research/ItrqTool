@@ -103,13 +103,15 @@ public sealed class ClqInjectMapperTests
     private static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) MapOne(
         CrossFormatMatch<ClqV01Question, ClqV02Question> match,
         ClqInjectConfig inject,
-        ClqV01Config? config = null)
+        ClqV01Config? config = null,
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)>? sourceHByRow = null,
+        IReadOnlyDictionary<int, ClqTargetDvHolder>? targetHByRow = null)
     {
         var result = new CrossFormatAlignmentResult<ClqV01Question, ClqV02Question>([match], []);
         return ClqInjectMapper.Map(
             result, inject, config ?? StandardConfig(),
-            sourceHByRow: new Dictionary<int, (string?, object?, string?)>(),
-            targetHByRow: new Dictionary<int, ClqTargetDvHolder>());
+            sourceHByRow: sourceHByRow ?? new Dictionary<int, (string?, object?, string?)>(),
+            targetHByRow: targetHByRow ?? new Dictionary<int, ClqTargetDvHolder>());
     }
 
     private static string? Cell(IReadOnlyList<CellWriteEntry> cells, int row, string column)
@@ -309,5 +311,66 @@ public sealed class ClqInjectMapperTests
         Cell(cells, 77, "R").Should().Be("3");                       // carried answer
         Cell(cells, 77, "S").Should().Be("Robust SSO and MFA enforced."); // carried strengths
         Cell(cells, 77, "T").Should().Be("No periodic access review.");   // carried weaknesses
+    }
+
+    // ── 10. H carry-forward guard (BL-053 P4c-C2) ─────────────────────────────
+
+    [Fact]
+    public void CarryForward_ConformantListMember_InjectsAnswer_NoMessage()
+    {
+        var c = Current();
+        var p = Previous(answer: "3", stability: "No");
+        var targetHByRow = new Dictionary<int, ClqTargetDvHolder>
+        {
+            [10] = new ClqTargetDvHolder(10, "List", null, null, null, ["1", "2", "3", "4"]),
+        };
+
+        var (cells, messages) = MapOne(
+            AgreeMatch(c, p), Inject(carryForward: true, trigger: "No"), targetHByRow: targetHByRow);
+
+        Cell(cells, 10, "H").Should().Be("3");
+        messages.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CarryForward_NonMemberOfTargetList_SkipsAnswer_EmitsError()
+    {
+        var c = Current();
+        var p = Previous(answer: "9", stability: "No");
+        var targetHByRow = new Dictionary<int, ClqTargetDvHolder>
+        {
+            [10] = new ClqTargetDvHolder(10, "List", null, null, null, ["1", "2", "3", "4"]),
+        };
+
+        var (cells, messages) = MapOne(
+            AgreeMatch(c, p), Inject(carryForward: true, trigger: "No"), targetHByRow: targetHByRow);
+
+        cells.Should().NotContain(e => e.Column == "H");
+        messages.Should().ContainSingle();
+        var msg = messages[0];
+        msg.Severity.Should().Be(MessageSeverity.Error);
+        msg.Text.Should().Contain("10");
+        msg.Text.Should().Contain("does not conform to the target data-validation rule");
+    }
+
+    [Fact]
+    public void CarryForward_UnresolvableTargetList_SkipsAnswer_EmitsWarning()
+    {
+        var c = Current();
+        var p = Previous(answer: "3", stability: "No");
+        var targetHByRow = new Dictionary<int, ClqTargetDvHolder>
+        {
+            [10] = new ClqTargetDvHolder(10, "List", null, null, null, null),
+        };
+
+        var (cells, messages) = MapOne(
+            AgreeMatch(c, p), Inject(carryForward: true, trigger: "No"), targetHByRow: targetHByRow);
+
+        cells.Should().NotContain(e => e.Column == "H");
+        messages.Should().ContainSingle();
+        var msg = messages[0];
+        msg.Severity.Should().Be(MessageSeverity.Warning);
+        msg.Text.Should().Contain("10");
+        msg.Text.Should().Contain("target data-validation vocabulary could not be resolved");
     }
 }
