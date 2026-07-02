@@ -253,4 +253,133 @@ public sealed class ClqInjectEndToEndWorkflowTests
             try { File.Delete(sinkDestination); } catch (IOException) { }
         }
     }
+
+    /// <summary>
+    /// A stability-gated carry-forward whose source answer violates the target v01 H List DV
+    /// ("1,2,3,4", stamped on every row by <see cref="ClqV01WorkbookWriter"/>'s default) must be
+    /// SKIPPED by <see cref="ItrqTool.Tasks.Shared.InjectionValueGuard"/>, not written — the task
+    /// still succeeds (skip is non-fatal) and surfaces an Error message naming the row.
+    /// Row 12 (section "5:6-13") is used to avoid touching rows 6-11's existing perturbations.
+    /// </summary>
+    [Fact]
+    public async Task InjectWorkflow_CarryForwardSourceViolatesTargetDv_SkipsHCellAndSurfacesErrorMessage()
+    {
+        var solutionRoot = FindSolutionRoot();
+        var configsRoot = Path.Combine(solutionRoot.FullName, "configs");
+
+        var v01ConfigAbs    = Path.Combine(configsRoot, "clq-v01-validation-config.json");
+        var v02ConfigAbs    = Path.Combine(configsRoot, "clq-v02-validation-config.json");
+        var injectConfigAbs = Path.Combine(configsRoot, "clq-inject-config.json");
+
+        var v01Config = ConfigLoader.Load<ClqV01Config>(
+            await File.ReadAllTextAsync(v01ConfigAbs), c => c.Validate());
+        var v02Config = ConfigLoader.Load<ControlLevelQuestionValidationV02Config>(
+            await File.ReadAllTextAsync(v02ConfigAbs), c => c.Validate());
+
+        var sheetName = v01Config.SheetName;
+
+        var v01Trio = ClqV01BaselineFactory.Build(v01Config);
+        var v02Trio = ClqV02BaselineFactory.Build(v02Config);
+
+        var currentDescriptor = v01Trio.Template;
+
+        // Row 12 — carry-forward fires (stability "No") but the source answer "9" is not a
+        // member of the target v01 H List DV → the guard must Skip the H write.
+        var previousQuestions = v02Trio.Previous.Questions
+            .Select(q => q.RowNumber == 12
+                ? q with
+                {
+                    Answer = "9", Strengths = "S12 skip", Weaknesses = "W12 skip",
+                    ProvidedBy = "Org12", AnswerStability = "No"
+                }
+                : q)
+            .ToList();
+        var previousDescriptor = v02Trio.Previous with { Questions = previousQuestions };
+
+        // NOTE: the committed clq-inject-trial.json hardcodes both the StaticFileSource
+        // sourcePath ("trial-workbooks/clq-inject/…") and the StaticFileSink destinationFolder
+        // ("inject-output/clq-inject") — this workflow JSON is shared, frozen production
+        // config and must not be duplicated or edited for this test, so this test reuses the
+        // SAME relative paths as the sibling Fact above. Safe: xUnit runs Facts within one
+        // class/collection sequentially, never in parallel with each other.
+        var workbooksDir = Path.Combine(AppContext.BaseDirectory, "trial-workbooks", "clq-inject");
+        Directory.CreateDirectory(workbooksDir);
+        var currentPath  = Path.Combine(workbooksDir, "clq_current_template.xlsx");
+        var previousPath = Path.Combine(workbooksDir, "clq_previous_response.xlsx");
+        ClqV01WorkbookWriter.Write(currentPath,  sheetName, currentDescriptor);
+        ClqV02WorkbookWriter.Write(previousPath, sheetName, previousDescriptor);
+
+        var configsOut = Path.Combine(AppContext.BaseDirectory, "configs");
+        Directory.CreateDirectory(configsOut);
+        File.Copy(injectConfigAbs, Path.Combine(configsOut, "clq-inject-config.json"),       overwrite: true);
+        File.Copy(v01ConfigAbs,    Path.Combine(configsOut, "clq-v01-validation-config.json"), overwrite: true);
+        File.Copy(v02ConfigAbs,    Path.Combine(configsOut, "clq-v02-validation-config.json"), overwrite: true);
+
+        var workflowsDir = Path.Combine(Path.GetTempPath(),
+            "ItrqTool-inject-wf-skip-" + Guid.NewGuid().ToString("N"));
+        var workflowDataRoot = Path.Combine(Path.GetTempPath(),
+            "ItrqTool-inject-data-skip-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workflowsDir);
+        Directory.CreateDirectory(workflowDataRoot);
+
+        var sinkDestination = Path.Combine(
+            AppContext.BaseDirectory, "inject-output", "clq-inject", "clq_injected_current.xlsx");
+        try { File.Delete(sinkDestination); } catch (IOException) { }
+
+        try
+        {
+            File.Copy(
+                Path.Combine(solutionRoot.FullName, "workflows", "clq-inject-trial.json"),
+                Path.Combine(workflowsDir, "clq-inject-trial.json"));
+
+            var services = new ServiceCollection();
+            services.AddItrqToolServices(workflowsDir, workflowDataRoot);
+            using var sp = services.BuildServiceProvider();
+
+            var loader     = sp.GetRequiredService<IWorkflowLoader>();
+            var loadResult = loader.LoadAll();
+            loadResult.Failures.Should().BeEmpty("inject trial workflow JSON must load without errors");
+            var workflow = loadResult.Workflows.Single(w => w.Id == "clq-inject-trial");
+
+            var factory = sp.GetRequiredService<WorkflowSessionFactory>();
+            var session = factory.Create(workflow);
+
+            TaskResult? injectResult = null;
+            while (session.Status != WorkflowSessionStatus.Completed)
+            {
+                var currentNode = workflow.Nodes[session.CurrentIndex];
+                var result = await session.RunCurrentTaskAsync();
+                result.Succeeded.Should().BeTrue(
+                    "task '{0}' must succeed even when a carry-forward answer is skipped (non-fatal); messages: {1}",
+                    currentNode.Id, string.Join("; ", result.Messages.Select(m => m.Text)));
+
+                if (currentNode.Id == "inject") injectResult = result;
+
+                if (session.Status != WorkflowSessionStatus.Completed)
+                    session.Status.Should().Be(WorkflowSessionStatus.AwaitingReview);
+            }
+
+            session.Status.Should().Be(WorkflowSessionStatus.Completed);
+
+            injectResult.Should().NotBeNull();
+            injectResult!.Messages.Should().Contain(m =>
+                m.Severity == MessageSeverity.Error &&
+                m.Text.Contains("Row 12") &&
+                m.Text.Contains("does not conform to the target data-validation rule"),
+                "the guard's skip reason for row 12's non-conforming carry-forward answer must surface as an Error");
+
+            using var wb = new XLWorkbook(sinkDestination);
+            var ws = wb.Worksheet(sheetName);
+            string H = v01Config.AnswerColumn;
+            ws.Cell($"{H}12").GetString().Should().BeEmpty(
+                "the guard must skip the H write for a source answer that violates the target's List DV");
+        }
+        finally
+        {
+            try { Directory.Delete(workflowsDir,     recursive: true); } catch (IOException) { }
+            try { Directory.Delete(workflowDataRoot, recursive: true); } catch (IOException) { }
+            try { Directory.Delete(workbooksDir,     recursive: true); } catch (IOException) { }
+            try { File.Delete(sinkDestination); } catch (IOException) { }
+        }
+    }
 }
