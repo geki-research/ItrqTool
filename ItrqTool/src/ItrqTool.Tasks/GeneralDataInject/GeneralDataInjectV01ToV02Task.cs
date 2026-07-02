@@ -7,6 +7,7 @@ using ItrqTool.Tasks.GeneralDataValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
 using ItrqTool.Tasks.QuestionnaireValidation.Parsing;
+using ItrqTool.Tasks.Shared;
 using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks.GeneralDataInject;
@@ -251,28 +252,58 @@ public sealed class GeneralDataInjectV01ToV02Task : IWorkflowTask
         return result;
     }
 
-    // Target H dual-read: v02 answer AnchorRow → DV-type only.
-    private IReadOnlyDictionary<int, string?> BuildTargetHLookup(
+    // BL-053 P4b-G1 (additive, read-phase only): reads the target answer cell's FULL data
+    // validation rule (type, operator, both formulas, resolved List vocabulary), mirroring the
+    // RLQ inject-R1 target-DV read idiom (inline-List parsed here; range-ref / named-range
+    // resolved via the shared DvRangeRefResolver, reused as-is against this task's own _reader
+    // and currentPath), adapted to GD's per-ANSWER AnchorRow grain. The mapper still derives its
+    // decision from Type only (byte-equivalent to today) — the richer fields are populated but
+    // unread until a later phase wires the injection value guard in.
+    private IReadOnlyDictionary<int, GdTargetDvHolder> BuildTargetHLookup(
         string path, string sheetName, GdV02Config config,
         IReadOnlyList<GdV02Question> questions)
     {
         var anchorRows = questions.SelectMany(q => q.Answers).Select(a => a.AnchorRow).Distinct().ToList();
         if (anchorRows.Count == 0)
-            return new Dictionary<int, string?>();
+            return new Dictionary<int, GdTargetDvHolder>();
 
         var col    = config.AnswerColumn;
         var minRow = anchorRows.Min();
         var maxRow = anchorRows.Max();
         var cells  = _reader.ReadCells(path, sheetName, [$"{col}{minRow}:{col}{maxRow}"]);
 
-        var result = new Dictionary<int, string?>(anchorRows.Count);
-        foreach (var row in anchorRows)
-        {
-            cells.TryGetValue($"{col}{row}", out var cell);
-            result[row] = cell?.DataValidationType;
-        }
-        return result;
+        IReadOnlyList<GdTargetDvHolder> holders = anchorRows
+            .Select(row =>
+            {
+                cells.TryGetValue($"{col}{row}", out var cell);
+                return new GdTargetDvHolder(
+                    row,
+                    cell?.DataValidationType,
+                    cell?.DataValidationOperator,
+                    cell?.DataValidationFormula,
+                    cell?.DataValidationFormula2,
+                    cell is null ? null : InlineListValues(cell));
+            })
+            .ToList();
+
+        holders = DvRangeRefResolver.Resolve(
+            _reader, path, sheetName, holders,
+            dvTypeSelector:            h => h.Type,
+            dvFormulaSelector:         h => h.Formula,
+            currentListValuesSelector: h => h.ListValues,
+            stampListValues:           (h, vals) => h with { ListValues = vals });
+
+        return holders.ToDictionary(h => h.AnchorRow);
     }
+
+    // Mirrors the inline-List idiom frozen in RlqV01Profile / GdDvPatcher / CellRangeInjectTask:
+    // a List-typed cell whose source classifies as Inline → its parsed members; otherwise null
+    // (range-ref / named-range resolved next, by DvRangeRefResolver.Resolve above).
+    private static IReadOnlyList<string>? InlineListValues(ExcelCellStructure cell)
+        => string.Equals(cell.DataValidationType, "List", StringComparison.OrdinalIgnoreCase)
+           && DvListParser.ClassifySource(cell.DataValidationFormula ?? "") == DvListSourceKind.Inline
+            ? DvListParser.ParseInline(cell.DataValidationFormula ?? "")
+            : null;
 
     private static bool TryGetParam(TaskExecutionContext ctx, string key, out string value)
     {

@@ -44,7 +44,7 @@ public static class GdInjectMapper
         CrossFormatAlignmentResult<GdV02Question, GdV01Question> alignment,
         GdV02Config currentConfig,
         IReadOnlyDictionary<int, (string? DvType, object? Native)> sourceHByAnchorRow, // v01 answer AnchorRow → H DV + native
-        IReadOnlyDictionary<int, string?> targetHByAnchorRow)                          // v02 answer AnchorRow → H DV-type
+        IReadOnlyDictionary<int, GdTargetDvHolder> targetHByAnchorRow)                 // v02 answer AnchorRow → H full DV rule
     {
         var cells = new List<CellWriteEntry>();
         var messages = new List<TaskMessage>();
@@ -123,12 +123,13 @@ public static class GdInjectMapper
         GdAnswer pa,
         GdV02Config cfg,
         IReadOnlyDictionary<int, (string? DvType, object? Native)> sourceHByAnchorRow,
-        IReadOnlyDictionary<int, string?> targetHByAnchorRow)
+        IReadOnlyDictionary<int, GdTargetDvHolder> targetHByAnchorRow)
     {
         sourceHByAnchorRow.TryGetValue(pa.AnchorRow, out var src); // (null, null) when absent
-        targetHByAnchorRow.TryGetValue(ca.AnchorRow, out var tgtCat);
+        targetHByAnchorRow.TryGetValue(ca.AnchorRow, out var targetHolder);
 
         var srcCat = src.DvType;
+        var tgtCat = targetHolder?.Type;
         var native = src.Native;
         var g = cfg.PreviousAnswerColumn;
 
