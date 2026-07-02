@@ -106,7 +106,10 @@ public sealed class ClqInjectMapperTests
         ClqV01Config? config = null)
     {
         var result = new CrossFormatAlignmentResult<ClqV01Question, ClqV02Question>([match], []);
-        return ClqInjectMapper.Map(result, inject, config ?? StandardConfig());
+        return ClqInjectMapper.Map(
+            result, inject, config ?? StandardConfig(),
+            sourceHByRow: new Dictionary<int, (string?, object?, string?)>(),
+            targetHByRow: new Dictionary<int, ClqTargetDvHolder>());
     }
 
     private static string? Cell(IReadOnlyList<CellWriteEntry> cells, int row, string column)

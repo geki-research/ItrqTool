@@ -26,7 +26,13 @@ public static class ClqInjectMapper
     public static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) Map(
         CrossFormatAlignmentResult<ClqV01Question, ClqV02Question> alignment,
         ClqInjectConfig injectConfig,
-        ClqV01Config currentConfig)
+        ClqV01Config currentConfig,
+        // BL-053 P4c-C1 (additive, read-phase only): dormant plumbing — not yet read by this
+        // method. A later phase wires InjectionValueGuard into the H carry-forward decision
+        // below, keyed by sourceHByRow (v02 previous RowNumber) / targetHByRow (v01 current
+        // RowNumber). Mirrors RlqInjectMapper.Map's sourceHByRow/targetHByRow parameters.
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow,
+        IReadOnlyDictionary<int, ClqTargetDvHolder> targetHByRow)
     {
         var cells = new List<CellWriteEntry>();
         var messages = new List<TaskMessage>();
