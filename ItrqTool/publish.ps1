@@ -39,6 +39,13 @@ if (Test-Path $publishDir) {
 }
 New-Item -ItemType Directory -Path $publishDir | Out-Null
 
+Write-Host "Cleaning solution build outputs (bin/obj) before publish" -ForegroundColor Cyan
+$slnPath = Join-Path $repoRoot 'ItrqTool.slnx'
+& dotnet clean $slnPath --configuration $Configuration --nologo
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet clean failed with exit code $LASTEXITCODE"
+}
+
 Write-Host "Publishing $Configuration build of ItrqTool" -ForegroundColor Cyan
 & dotnet publish $projectPath `
     --configuration $Configuration `
@@ -83,6 +90,72 @@ function Assert-ShippedClass([string]$className, [string]$repoSubdir, [string]$f
 }
 Assert-ShippedClass 'schema' 'schemas' '*.structure.json'
 Assert-ShippedClass 'config' 'configs' '*.json'
+
+# Verify the produced single-file exe embeds the ClosedXML version pinned in
+# ItrqTool.Infrastructure.csproj. A version-mismatched embed has previously
+# caused a runtime-only crash for end users with no publish-time signal (see
+# diagnostics/2026-07-02_175500_publish-closedxml-recon.md) - fail the publish
+# immediately instead. The expected version is derived from the pin itself,
+# never hardcoded here.
+function Assert-ClosedXmlVersion {
+    $csprojPath = Join-Path $repoRoot 'src\ItrqTool.Infrastructure\ItrqTool.Infrastructure.csproj'
+    if (-not (Test-Path $csprojPath)) {
+        throw "Publish verification FAILED: cannot derive expected ClosedXML version - csproj not found at $csprojPath"
+    }
+    $csprojContent = Get-Content -Path $csprojPath -Raw
+    $match = [regex]::Match($csprojContent, '<PackageReference\s+Include="ClosedXML"\s+Version="([^"]+)"')
+    if (-not $match.Success) {
+        throw "Publish verification FAILED: could not find the ClosedXML PackageReference in $csprojPath - cannot derive expected version"
+    }
+    $expectedVersion = $match.Groups[1].Value
+    $expectedMarker = "ClosedXML/$expectedVersion"
+
+    $exeBytes = [System.IO.File]::ReadAllBytes($exePath)
+    $exeText = [System.Text.Encoding]::GetEncoding(28591).GetString($exeBytes)
+
+    if ($exeText.Contains($expectedMarker)) {
+        Write-Host "  publish-verify: ClosedXML $expectedVersion embedded (marker '$expectedMarker' found)" -ForegroundColor Green
+        return
+    }
+
+    $wrongVersionMatch = [regex]::Match($exeText, 'ClosedXML/(\d+\.\d+\.\d+(?:[.\-][0-9A-Za-z]+)*)')
+    if ($wrongVersionMatch.Success) {
+        throw "Publish verification FAILED: expected embedded ClosedXML version $expectedVersion (marker '$expectedMarker') but the published bundle embeds '$($wrongVersionMatch.Value)' instead - it does not match the pin in ItrqTool.Infrastructure.csproj"
+    }
+    throw "Publish verification FAILED: expected embedded ClosedXML version $expectedVersion (marker '$expectedMarker') was not found anywhere in $exePath"
+}
+Assert-ClosedXmlVersion
+
+# Same technique and rationale as Assert-ClosedXmlVersion above, applied to the
+# other NuGet-sourced assembly ItrqTool.Infrastructure depends on for Excel I/O.
+function Assert-OpenXmlVersion {
+    $csprojPath = Join-Path $repoRoot 'src\ItrqTool.Infrastructure\ItrqTool.Infrastructure.csproj'
+    if (-not (Test-Path $csprojPath)) {
+        throw "Publish verification FAILED: cannot derive expected DocumentFormat.OpenXml version - csproj not found at $csprojPath"
+    }
+    $csprojContent = Get-Content -Path $csprojPath -Raw
+    $match = [regex]::Match($csprojContent, '<PackageReference\s+Include="DocumentFormat\.OpenXml"\s+Version="([^"]+)"')
+    if (-not $match.Success) {
+        throw "Publish verification FAILED: could not find the DocumentFormat.OpenXml PackageReference in $csprojPath - cannot derive expected version"
+    }
+    $expectedVersion = $match.Groups[1].Value
+    $expectedMarker = "DocumentFormat.OpenXml/$expectedVersion"
+
+    $exeBytes = [System.IO.File]::ReadAllBytes($exePath)
+    $exeText = [System.Text.Encoding]::GetEncoding(28591).GetString($exeBytes)
+
+    if ($exeText.Contains($expectedMarker)) {
+        Write-Host "  publish-verify: DocumentFormat.OpenXml $expectedVersion embedded (marker '$expectedMarker' found)" -ForegroundColor Green
+        return
+    }
+
+    $wrongVersionMatch = [regex]::Match($exeText, 'DocumentFormat\.OpenXml/(\d+\.\d+\.\d+(?:[.\-][0-9A-Za-z]+)*)')
+    if ($wrongVersionMatch.Success) {
+        throw "Publish verification FAILED: expected embedded DocumentFormat.OpenXml version $expectedVersion (marker '$expectedMarker') but the published bundle embeds '$($wrongVersionMatch.Value)' instead - it does not match the pin in ItrqTool.Infrastructure.csproj"
+    }
+    throw "Publish verification FAILED: expected embedded DocumentFormat.OpenXml version $expectedVersion (marker '$expectedMarker') was not found anywhere in $exePath"
+}
+Assert-OpenXmlVersion
 
 # Workflows: the csproj currently copies them into the BUILD output. They
 # also need to be in the PUBLISH output. The existing <None> rule should
