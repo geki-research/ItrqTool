@@ -37,7 +37,7 @@ public static class RlqInjectMapper
         CrossFormatAlignmentResult<RlqV02Question, RlqV01Question> alignment,
         RlqV02Config currentConfig,
         IReadOnlyDictionary<int, (string? DvType, object? Native)> sourceHByRow, // keyed by v01 source RowNumber
-        IReadOnlyDictionary<int, string?> targetHByRow)                          // keyed by v02 current RowNumber
+        IReadOnlyDictionary<int, RlqTargetDvHolder> targetHByRow)                // keyed by v02 current RowNumber
     {
         var cells = new List<CellWriteEntry>();
         var messages = new List<TaskMessage>();
@@ -88,13 +88,14 @@ public static class RlqInjectMapper
         RlqV01Question p,
         RlqV02Config cfg,
         IReadOnlyDictionary<int, (string? DvType, object? Native)> sourceHByRow,
-        IReadOnlyDictionary<int, string?> targetHByRow)
+        IReadOnlyDictionary<int, RlqTargetDvHolder> targetHByRow)
     {
         sourceHByRow.TryGetValue(p.RowNumber, out var src); // (null, null) when absent
-        targetHByRow.TryGetValue(c.RowNumber, out var tgtCat);
+        targetHByRow.TryGetValue(c.RowNumber, out var targetHolder);
 
         var srcCat = src.DvType;
         var native = src.Native;
+        var tgtCat = targetHolder?.Type; // R1: decision still reads Type only — byte-equivalent to today.
         var g = cfg.PreviousAnswerColumn;
 
         // 1. blank source — checked FIRST, before any type logic.

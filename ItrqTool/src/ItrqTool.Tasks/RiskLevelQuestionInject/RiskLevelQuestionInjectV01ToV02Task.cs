@@ -4,8 +4,10 @@ using ItrqTool.Domain;
 using ItrqTool.Tasks.Configuration;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 using ItrqTool.Tasks.QuestionnaireValidation.Config;
+using ItrqTool.Tasks.QuestionnaireValidation.Parsing;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV02;
+using ItrqTool.Tasks.Shared;
 using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks.RiskLevelQuestionInject;
@@ -230,26 +232,56 @@ public sealed class RiskLevelQuestionInjectV01ToV02Task : IWorkflowTask
             });
     }
 
-    private IReadOnlyDictionary<int, string?> BuildTargetHLookup(
+    // BL-053 P4b-R1 (additive, read-phase only): reads the target answer cell's FULL data
+    // validation rule (type, operator, both formulas, resolved List vocabulary), mirroring the
+    // CellRangeInject-P3 target-DV read idiom (inline-List parsed here; range-ref / named-range
+    // resolved via the shared DvRangeRefResolver, reused as-is against this task's own _reader
+    // and currentPath). The mapper still derives its decision from Type only (byte-equivalent to
+    // today) — the richer fields are populated but unread until R2 wires InjectionValueGuard in.
+    private IReadOnlyDictionary<int, RlqTargetDvHolder> BuildTargetHLookup(
         string path, string sheetName, RlqV02Config config,
         IReadOnlyList<RlqV02Question> questions)
     {
         if (questions.Count == 0)
-            return new Dictionary<int, string?>();
+            return new Dictionary<int, RlqTargetDvHolder>();
 
         var col    = config.AnswerColumn;
         var minRow = questions.Min(q => q.RowNumber);
         var maxRow = questions.Max(q => q.RowNumber);
         var cells  = _reader.ReadCells(path, sheetName, [$"{col}{minRow}:{col}{maxRow}"]);
 
-        return questions.ToDictionary(
-            q => q.RowNumber,
-            q =>
+        IReadOnlyList<RlqTargetDvHolder> holders = questions
+            .Select(q =>
             {
                 cells.TryGetValue($"{col}{q.RowNumber}", out var cell);
-                return cell?.DataValidationType;
-            });
+                return new RlqTargetDvHolder(
+                    q.RowNumber,
+                    cell?.DataValidationType,
+                    cell?.DataValidationOperator,
+                    cell?.DataValidationFormula,
+                    cell?.DataValidationFormula2,
+                    cell is null ? null : InlineListValues(cell));
+            })
+            .ToList();
+
+        holders = DvRangeRefResolver.Resolve(
+            _reader, path, sheetName, holders,
+            dvTypeSelector:            h => h.Type,
+            dvFormulaSelector:         h => h.Formula,
+            currentListValuesSelector: h => h.ListValues,
+            stampListValues:           (h, vals) => h with { ListValues = vals });
+
+        return holders.ToDictionary(h => h.RowNumber);
     }
+
+    // Mirrors the inline-List idiom frozen in RlqV01Profile / GdDvPatcher / CellRangeInjectTask:
+    // a List-typed cell whose source classifies as Inline → its parsed members; otherwise null
+    // (range-ref / named-range resolved next, by DvRangeRefResolver.Resolve above).
+    private static IReadOnlyList<string>? InlineListValues(ExcelCellStructure cell)
+        => string.Equals(cell.DataValidationType, "List", StringComparison.OrdinalIgnoreCase)
+           && DvListParser.ClassifySource(cell.DataValidationFormula ?? "") == DvListSourceKind.Inline
+            ? DvListParser.ParseInline(cell.DataValidationFormula ?? "")
+            : null;
 
     private static bool TryGetParam(TaskExecutionContext ctx, string key, out string value)
     {
