@@ -2,6 +2,7 @@ using ItrqTool.Domain;
 using ItrqTool.Tasks.GeneralDataValidationV01;
 using ItrqTool.Tasks.GeneralDataValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
+using ItrqTool.Tasks.Shared;
 
 namespace ItrqTool.Tasks.GeneralDataInject;
 
@@ -26,16 +27,18 @@ namespace ItrqTool.Tasks.GeneralDataInject;
 /// The ambiguous outcomes (XrefIdConflict / NewXrefIdWithLookalike / SameXrefIdTextDiverged)
 /// emit ONE Warning per question and no cells; Neither / NotEvaluatedMalformedKey emit nothing.
 ///
-/// The H→G TYPE-COMPATIBILITY POLICY keys on the SOURCE (v01 H) and TARGET (v02 H)
-/// data-validation categories — NOT the native CLR type, which cannot distinguish
-/// WholeNumber from Decimal (ClosedXML surfaces every numeric as a double):
-///   1. blank source (native null, or native a blank string) → omit the G cell (no message).
-///   2. srcCat == tgtCat (string-equal, incl. both null / both List / both numeric) → EQUAL:
-///      write the native value, no message.
-///   3. WholeNumber → Decimal → WIDEN: write the native value, + Warning.
-///   4. Decimal → WholeNumber → NARROW: write the native value AS-IS (no rounding), + Warning.
-///   5. any other pair → MISMATCH: Error message, SKIP the G cell, CONTINUE (task still succeeds;
-///      the same answer's K→J and O→P writes still fire).
+/// The H→G decision (BL-053 P4b-G2) is delegated to <see cref="InjectionValueGuard.Evaluate"/>,
+/// keyed on the source cell's TextValue (the DV-governed literal — never a re-stringified
+/// NativeValue) against the target's FULL data-validation rule (type, operator, both formulas,
+/// resolved List vocabulary):
+///   1. blank source (native null, or native a blank string) → omit the G cell (no message) —
+///      checked BEFORE the guard, unchanged from before.
+///   2. guard Inject → write the native value. If the source/target categories are
+///      WholeNumber→Decimal (a widen), ALSO emit an Info note (value written as-is).
+///   3. guard Skip → SKIP the G cell, emit the guard's SkipReason at its SkipSeverity
+///      (Warning or Error), CONTINUE (task still succeeds; K→J / O→P still run).
+/// The native value (native CLR value) is the locale-safe payload; its CLR type selects the
+/// writer branch (Chunk A). The K→J and O→P writes are plain text — never typed.
 /// The DV lookups are keyed by ANSWER AnchorRow (source by v01 anchor, target by v02 anchor).
 /// </summary>
 public static class GdInjectMapper
@@ -43,7 +46,7 @@ public static class GdInjectMapper
     public static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) Map(
         CrossFormatAlignmentResult<GdV02Question, GdV01Question> alignment,
         GdV02Config currentConfig,
-        IReadOnlyDictionary<int, (string? DvType, object? Native)> sourceHByAnchorRow, // v01 answer AnchorRow → H DV + native
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByAnchorRow, // v01 answer AnchorRow → H DV + native + text
         IReadOnlyDictionary<int, GdTargetDvHolder> targetHByAnchorRow)                 // v02 answer AnchorRow → H full DV rule
     {
         var cells = new List<CellWriteEntry>();
@@ -114,7 +117,7 @@ public static class GdInjectMapper
         return pairs;
     }
 
-    // ── (a) H→G — typed, per the answer type-compatibility policy ──────────────
+    // ── (a) H→G — typed, gated by InjectionValueGuard against the target's DV rule ─────────────
     private static void MapAnswer(
         List<CellWriteEntry> cells,
         List<TaskMessage> messages,
@@ -122,57 +125,56 @@ public static class GdInjectMapper
         GdV02Answer ca,
         GdAnswer pa,
         GdV02Config cfg,
-        IReadOnlyDictionary<int, (string? DvType, object? Native)> sourceHByAnchorRow,
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByAnchorRow,
         IReadOnlyDictionary<int, GdTargetDvHolder> targetHByAnchorRow)
     {
-        sourceHByAnchorRow.TryGetValue(pa.AnchorRow, out var src); // (null, null) when absent
+        sourceHByAnchorRow.TryGetValue(pa.AnchorRow, out var src); // (null, null, null) when absent
         targetHByAnchorRow.TryGetValue(ca.AnchorRow, out var targetHolder);
 
         var srcCat = src.DvType;
-        var tgtCat = targetHolder?.Type;
         var native = src.Native;
+        var tgtCat = targetHolder?.Type;
         var g = cfg.PreviousAnswerColumn;
 
-        // 1. blank source — checked FIRST, before any type logic.
+        // 1. blank source — checked FIRST, before any guard logic. Unchanged from before.
         if (native is null || (native is string s && string.IsNullOrWhiteSpace(s)))
             return;
 
         var textFallback = pa.Answer ?? native.ToString() ?? "";
 
-        // 2. equal category (string-equal, incl. both null / both List / both numeric).
-        if (string.Equals(srcCat, tgtCat, StringComparison.Ordinal))
-        {
-            cells.Add(new CellWriteEntry(ca.AnchorRow, g, textFallback, native));
-            return;
-        }
+        // Invariant: a non-blank native value is always paired with a non-null TextValue —
+        // both are read from the same source cell in BuildSourceHLookup. Never fall back to a
+        // re-stringified Native.
+        var decision = InjectionValueGuard.Evaluate(
+            sourceText: src.TextValue!,
+            sourceDvType: srcCat,
+            targetDvType: targetHolder?.Type,
+            targetDvOperator: targetHolder?.Operator,
+            targetDvFormula: targetHolder?.Formula,
+            targetDvFormula2: targetHolder?.Formula2,
+            targetResolvedListValues: targetHolder?.ListValues);
 
-        // 3. widen: WholeNumber → Decimal.
-        if (IsWhole(srcCat) && IsDecimal(tgtCat))
+        if (decision.Decision == InjectionDecision.Inject)
         {
             cells.Add(new CellWriteEntry(ca.AnchorRow, g, textFallback, native));
-            messages.Add(new(MessageSeverity.Warning,
-                $"Question {Xref(cq)} answer {Aid(ca)} (row {ca.AnchorRow}): answer type widened " +
-                $"(WholeNumber → Decimal) — value written as-is.",
+
+            // Delta A: widen (WholeNumber → Decimal) is now conformant-and-injected — still
+            // worth an informational note that the value was widened, not rounded/converted.
+            if (IsWhole(srcCat) && IsDecimal(tgtCat))
+                messages.Add(new(MessageSeverity.Info,
+                    $"Question {Xref(cq)} answer {Aid(ca)} (row {ca.AnchorRow}): answer type widened " +
+                    $"(WholeNumber → Decimal) — value written as-is.",
+                    DateTimeOffset.Now));
+        }
+        else
+        {
+            var severity = decision.SkipSeverity == SkipSeverity.Error
+                ? MessageSeverity.Error
+                : MessageSeverity.Warning;
+            messages.Add(new(severity,
+                $"Question {Xref(cq)} answer {Aid(ca)} (row {ca.AnchorRow}): {decision.SkipReason}",
                 DateTimeOffset.Now));
-            return;
         }
-
-        // 4. narrow: Decimal → WholeNumber — written AS-IS (no rounding).
-        if (IsDecimal(srcCat) && IsWhole(tgtCat))
-        {
-            cells.Add(new CellWriteEntry(ca.AnchorRow, g, textFallback, native));
-            messages.Add(new(MessageSeverity.Warning,
-                $"Question {Xref(cq)} answer {Aid(ca)} (row {ca.AnchorRow}): answer type narrowed " +
-                $"(Decimal → WholeNumber) — value written as-is (not rounded).",
-                DateTimeOffset.Now));
-            return;
-        }
-
-        // 5. mismatch: any other pair — Error, skip the G cell, continue.
-        messages.Add(new(MessageSeverity.Error,
-            $"Question {Xref(cq)} answer {Aid(ca)} (row {ca.AnchorRow}): incompatible answer types " +
-            $"(source {Cat(srcCat)} → target {Cat(tgtCat)}) — previous answer not injected.",
-            DateTimeOffset.Now));
     }
 
     // ── (b) K→J — per explanation-row, position/index-aligned, text ────────────
@@ -218,5 +220,4 @@ public static class GdInjectMapper
 
     private static string Xref(GdV02Question c) => c.XrefId ?? "<none>";
     private static string Aid(GdV02Answer a) => a.AnswerId ?? "<bare>";
-    private static string Cat(string? cat) => cat ?? "<none>";
 }

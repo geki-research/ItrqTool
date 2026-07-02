@@ -13,26 +13,31 @@ using ItrqTool.Tasks.QuestionnaireValidation.Config;
 namespace ItrqTool.Integration.Tests.GeneralDataInject;
 
 /// <summary>
-/// End-to-end trial of the GD inject answer-type-compatibility POLICY through the workflow engine:
+/// End-to-end trial of the GD inject H→G DV-CONFORMANCE GUARD policy through the workflow engine:
 /// <c>StaticFileSource(previous v01) + StaticFileSource(current v02 template) →
 /// GeneralDataInject_v01_to_v02 → StaticFileSink</c>, every task resolved via the production
 /// composition root (real readers/writers, no mocks) — the same harness the chunk-3 happy-path
-/// e2e uses, here exercising all four H→G type-policy arms on ONE Agree question with four answers.
+/// e2e uses, here exercising all four H→G guard arms on ONE Agree question with four answers.
 ///
 /// One Agree question (qid "q1", same OriginalText on both books) with answers a1–a4 in section 1
 /// (rows 4–9, header row 3 = "Entities in scope/contact details"), one answer per row (anchors
 /// 4/5/6/7). Each answer pairs by AnswerId and carries a v01 K explanation + a v01 O provided-by,
-/// so the K→J and O→P writes fire on EVERY matched answer regardless of the H arm:
+/// so the K→J and O→P writes fire on EVERY matched answer regardless of the H arm. Every target H
+/// cell in this fixture carries a real "≥ 0" DV bound (<c>GdInjectWorkbookWriter.ApplyDv</c>), so
+/// <c>InjectionValueGuard</c> evaluates real DV conformance, not a category-only comparison:
 ///
-///   a1 (row 4) equal:        v01 H WholeNumber 5   ↔ v02 H WholeNumber → G4 = 5   (Number), NO message.
-///   a2 (row 5) widen:        v01 H WholeNumber 7   ↔ v02 H Decimal     → G5 = 7   (Number) + ONE Warning.
-///   a3 (row 6) narrow:       v01 H Decimal 3.5     ↔ v02 H WholeNumber → G6 = 3.5 (Number, NOT rounded) + ONE Warning.
-///   a4 (row 7) incompatible: v01 H List "yes"      ↔ v02 H WholeNumber → G7 EMPTY (skipped) + ONE Error;
-///                            K→J and O→P STILL written (incompatible skips ONLY the G write, continue-not-abort).
+///   a1 (row 4) equal:       v01 H WholeNumber 5   ↔ v02 H WholeNumber → G4 = 5 (Number), NO message.
+///   a2 (row 5) widen:       v01 H WholeNumber 7   ↔ v02 H Decimal     → G5 = 7 (Number) + ONE Info.
+///   a3 (row 6) narrow:      v01 H Decimal 3.5     ↔ v02 H WholeNumber → G6 EMPTY (skipped — "3.5"
+///                           does not conform to WholeNumber) + ONE Error.
+///   a4 (row 7) list source: v01 H List "yes"      ↔ v02 H WholeNumber → G7 EMPTY (skipped — "yes"
+///                           does not conform to WholeNumber) + ONE Error;
+///                           K→J and O→P STILL written on BOTH skip arms (guard Skip skips ONLY the
+///                           G write, continue-not-abort).
 ///
-/// M (how-explanation) is never written; the incompatible Error does NOT fail the task; the message
-/// set is asserted EXACTLY: { one widen Warning, one narrow Warning, one incompatible Error }, none
-/// for the equal arm.
+/// M (how-explanation) is never written; neither Error fails the task; the message set is asserted
+/// EXACTLY: { one widen Info (a2), two does-not-conform Errors (a3, a4) }, none for the equal arm,
+/// zero Warnings.
 /// </summary>
 public sealed class GdInjectPolicyE2ETests
 {
@@ -47,8 +52,8 @@ public sealed class GdInjectPolicyE2ETests
     [
         new("a1", "WholeNumber", 5.0, "WholeNumber", "OU1", ["k1"]), // equal
         new("a2", "WholeNumber", 7.0, "Decimal",     "OU2", ["k2"]), // widen
-        new("a3", "Decimal",     3.5, "WholeNumber", "OU3", ["k3"]), // narrow
-        new("a4", "List",        "yes", "WholeNumber", "OU4", ["k4"]), // incompatible
+        new("a3", "Decimal",     3.5, "WholeNumber", "OU3", ["k3"]), // narrow — does not conform
+        new("a4", "List",        "yes", "WholeNumber", "OU4", ["k4"]), // list source — does not conform
     ];
 
     private static DirectoryInfo FindSolutionRoot()
@@ -167,51 +172,57 @@ public sealed class GdInjectPolicyE2ETests
                 "equal WholeNumber→WholeNumber typed write must produce a Number-typed cell");
             ws.Cell($"{G}{a1}").GetValue<double>().Should().Be(5.0);
 
-            // a2 widen — WholeNumber → Decimal: G written TYPED (Number) == 7 + Warning.
+            // a2 widen — WholeNumber → Decimal: G written TYPED (Number) == 7 + Info.
             ws.Cell($"{G}{a2}").DataType.Should().Be(XLDataType.Number,
                 "widen typed write must produce a Number-typed cell");
             ws.Cell($"{G}{a2}").GetValue<double>().Should().Be(7.0);
 
-            // a3 narrow — Decimal → WholeNumber: G written AS-IS (Number) == 3.5 (NOT rounded) + Warning.
-            ws.Cell($"{G}{a3}").DataType.Should().Be(XLDataType.Number,
-                "narrow typed write must produce a Number-typed cell");
-            ws.Cell($"{G}{a3}").GetValue<double>().Should().Be(3.5,
-                "narrow write must be as-is, NOT rounded");
+            // a3 narrow — Decimal 3.5 does not conform to the target WholeNumber DV rule: G SKIPPED (empty).
+            ws.Cell($"{G}{a3}").IsEmpty().Should().BeTrue(
+                "a value that does not conform to the target DV rule must cause the G write to be skipped");
 
-            // a4 incompatible — List → WholeNumber: G SKIPPED (empty).
+            // a4 list source — "yes" does not conform to the target WholeNumber DV rule: G SKIPPED (empty).
             ws.Cell($"{G}{a4}").IsEmpty().Should().BeTrue(
-                "incompatible answer type must cause the G write to be skipped");
+                "a value that does not conform to the target DV rule must cause the G write to be skipped");
 
-            // K→J fires on EVERY matched answer (incl. a4 — the continue-not-abort proof).
+            // K→J fires on EVERY matched answer (incl. a3/a4 — the continue-not-abort proof).
             ws.Cell($"{J}{a1}").GetString().Should().Be("k1");
             ws.Cell($"{J}{a2}").GetString().Should().Be("k2");
-            ws.Cell($"{J}{a3}").GetString().Should().Be("k3");
+            ws.Cell($"{J}{a3}").GetString().Should().Be("k3",
+                "K→J must still be written for the does-not-conform narrow answer (only the G write is skipped)");
             ws.Cell($"{J}{a4}").GetString().Should().Be("k4",
-                "K→J must still be written for the incompatible answer (only the G write is skipped)");
+                "K→J must still be written for the does-not-conform list-source answer (only the G write is skipped)");
 
-            // O→P fires on EVERY matched answer (incl. a4).
+            // O→P fires on EVERY matched answer (incl. a3/a4).
             ws.Cell($"{P}{a1}").GetString().Should().Be("OU1");
             ws.Cell($"{P}{a2}").GetString().Should().Be("OU2");
-            ws.Cell($"{P}{a3}").GetString().Should().Be("OU3");
+            ws.Cell($"{P}{a3}").GetString().Should().Be("OU3",
+                "O→P must still be written for the does-not-conform narrow answer");
             ws.Cell($"{P}{a4}").GetString().Should().Be("OU4",
-                "O→P must still be written for the incompatible answer");
+                "O→P must still be written for the does-not-conform list-source answer");
 
             // M is NEVER written — reference injection writes only previous-* columns.
             foreach (var row in anchors)
                 ws.Cell($"{M}{row}").IsEmpty().Should().BeTrue(
                     $"M (how-explanation) at row {row} is not an inject target and must stay empty");
 
-            // ── EXACT message set: one widen Warning, one narrow Warning, one incompatible Error ──
+            // ── EXACT message set: one widen Info (a2), two does-not-conform Errors (a3, a4) ──
+            // (excludes the task's own "Inject complete" outcome-summary Info)
+            var infos    = msgs.Where(m => m.Severity == MessageSeverity.Info && !m.Text.Contains("Inject complete")).ToList();
             var warnings = msgs.Where(m => m.Severity == MessageSeverity.Warning).ToList();
             var errors   = msgs.Where(m => m.Severity == MessageSeverity.Error).ToList();
 
-            warnings.Should().HaveCount(2,
-                "exactly two type-policy Warnings (widen a2 + narrow a3) — none for the equal arm");
-            warnings.Should().ContainSingle(m => m.Text.Contains("widened"), "the a2 widen Warning");
-            warnings.Should().ContainSingle(m => m.Text.Contains("narrowed"), "the a3 narrow Warning");
+            infos.Should().HaveCount(1, "exactly one type-policy Info (widen a2) — none for the equal arm");
+            infos.Should().ContainSingle(m => m.Text.Contains("widened"), "the a2 widen Info");
 
-            errors.Should().HaveCount(1, "exactly one type-policy Error (incompatible a4)");
-            errors.Should().ContainSingle(m => m.Text.Contains("incompatible"), "the a4 incompatible Error");
+            warnings.Should().BeEmpty("the DV-conformance guard produces no Warning in this fixture");
+
+            errors.Should().HaveCount(2,
+                "exactly two type-policy Errors (narrow a3 + list-source a4, both does-not-conform)");
+            errors.Should().ContainSingle(m => m.Text.Contains("answer a3") && m.Text.Contains("does not conform"),
+                "the a3 narrow does-not-conform Error");
+            errors.Should().ContainSingle(m => m.Text.Contains("answer a4") && m.Text.Contains("does not conform"),
+                "the a4 list-source does-not-conform Error");
 
             // The equal arm (a1) must produce NO type-compatibility message.
             msgs.Should().NotContain(m => m.Text.Contains("answer a1"),

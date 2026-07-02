@@ -83,7 +83,7 @@ public sealed class GdInjectMapperTests
         GdV02Question c,
         GdV01Question p,
         GdV02Config config,
-        IReadOnlyDictionary<int, (string? DvType, object? Native)>? sourceH = null,
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)>? sourceH = null,
         IReadOnlyDictionary<int, GdTargetDvHolder>? targetH = null)
     {
         var match = new CrossFormatMatch<GdV02Question, GdV01Question>(
@@ -92,7 +92,7 @@ public sealed class GdInjectMapperTests
             new[] { match }, Array.Empty<MalformedKey>());
         return GdInjectMapper.Map(
             result, config,
-            sourceH ?? new Dictionary<int, (string?, object?)>(),
+            sourceH ?? new Dictionary<int, (string?, object?, string?)>(),
             targetH ?? new Dictionary<int, GdTargetDvHolder>());
     }
 
@@ -104,7 +104,7 @@ public sealed class GdInjectMapperTests
             new[] { match }, Array.Empty<MalformedKey>());
         return GdInjectMapper.Map(
             result, config,
-            new Dictionary<int, (string?, object?)>(),
+            new Dictionary<int, (string?, object?, string?)>(),
             new Dictionary<int, GdTargetDvHolder>());
     }
 
@@ -116,7 +116,7 @@ public sealed class GdInjectMapperTests
     [Fact]
     public void Hg_EqualType_WritesNativeNoMessage()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("WholeNumber", 3.0) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 3.0, "3") };
         var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", null, null, null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
@@ -128,36 +128,36 @@ public sealed class GdInjectMapperTests
         messages.Should().BeEmpty();
     }
 
-    // ── 2. H→G widen (WholeNumber → Decimal) → native + Warning ───────────────
+    // ── 2. H→G widen (WholeNumber → Decimal) → native + Info ──────────────────
 
     [Fact]
-    public void Hg_WholeToDecimal_WritesNativePlusWarning()
+    public void Hg_WholeToDecimal_WritesNativePlusInfo()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("WholeNumber", 3.0) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 3.0, "3") };
         var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "Decimal", null, null, null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
         Cell(cells, 10, "G")!.TypedValue.Should().Be(3.0);
         messages.Should().ContainSingle();
-        messages[0].Severity.Should().Be(MessageSeverity.Warning);
+        messages[0].Severity.Should().Be(MessageSeverity.Info);
         messages[0].Text.Should().Contain("widened");
     }
 
-    // ── 3. H→G narrow (Decimal → WholeNumber) → native AS-IS + Warning ────────
+    // ── 3. H→G narrow (Decimal → WholeNumber), value does not conform → skip + Error ──
 
     [Fact]
-    public void Hg_DecimalToWhole_WritesNativeAsIsPlusWarning()
+    public void Hg_DecimalToWhole_SkipsWithError()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("Decimal", 3.5) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("Decimal", 3.5, "3.5") };
         var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", null, null, null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
-        Cell(cells, 10, "G")!.TypedValue.Should().Be(3.5); // NOT rounded
+        Cell(cells, 10, "G").Should().BeNull(); // G skipped
         messages.Should().ContainSingle();
-        messages[0].Severity.Should().Be(MessageSeverity.Warning);
-        messages[0].Text.Should().Contain("narrowed");
+        messages[0].Severity.Should().Be(MessageSeverity.Error);
+        messages[0].Text.Should().Contain("does not conform");
     }
 
     // ── 4. H→G incompatible → Error, skip G, continue (K→J / O→P still run) ────
@@ -165,7 +165,7 @@ public sealed class GdInjectMapperTests
     [Fact]
     public void Hg_IncompatibleTypes_EmitsErrorSkipsCellContinues()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("List", "Yes") };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("List", "Yes", "Yes") };
         var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", null, null, null, null) };
 
         var c = CurQ(answers: new[] { CurAns(anchorRow: 10, expl: new[] { Expl(null, 11) }) });
@@ -179,7 +179,7 @@ public sealed class GdInjectMapperTests
         Cell(cells, 10, "G").Should().BeNull(); // G skipped
         messages.Should().ContainSingle();
         messages[0].Severity.Should().Be(MessageSeverity.Error);
-        messages[0].Text.Should().Contain("incompatible");
+        messages[0].Text.Should().Contain("does not conform");
 
         // The SAME answer's other writes still happen (continue, not abort).
         Cell(cells, 11, "J")!.Value.Should().Be("expl-A");
@@ -191,13 +191,45 @@ public sealed class GdInjectMapperTests
     [Fact]
     public void Hg_BlankSource_OmitsCell()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("WholeNumber", null) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", null, null) };
         var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", null, null, null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
         Cell(cells, 10, "G").Should().BeNull();
         messages.Should().BeEmpty();
+    }
+
+    // ── 5a. H→G List target, non-member source → skip + Error ─────────────────
+
+    [Fact]
+    public void Hg_ListTargetNonMemberSource_SkipsWithError()
+    {
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("List", "Maybe", "Maybe") };
+        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "List", null, null, null, ["Yes", "No"]) };
+
+        var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
+
+        Cell(cells, 10, "G").Should().BeNull();
+        messages.Should().ContainSingle();
+        messages[0].Severity.Should().Be(MessageSeverity.Error);
+        messages[0].Text.Should().Contain("does not conform");
+    }
+
+    // ── 5b. H→G value-typed target, source violates the operator bound → skip + Error ──
+
+    [Fact]
+    public void Hg_ValueTypedTargetViolatesBound_SkipsWithError()
+    {
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 20.0, "20") };
+        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", "LessThan", "10", null, null) };
+
+        var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
+
+        Cell(cells, 10, "G").Should().BeNull();
+        messages.Should().ContainSingle();
+        messages[0].Severity.Should().Be(MessageSeverity.Error);
+        messages[0].Text.Should().Contain("does not conform");
     }
 
     // ── 6. K→J position-aligned → one write per overlapping row ───────────────
@@ -333,15 +365,15 @@ public sealed class GdInjectMapperTests
     [Fact]
     public void MultiAnswer_PairedByAnswerId_EachAnswerWritesAtItsAnchor()
     {
-        var src = new Dictionary<int, (string?, object?)>
+        var src = new Dictionary<int, (string?, object?, string?)>
         {
-            [100] = ("List", "x"),
-            [200] = ("List", "y"),
+            [100] = ("List", "x", "x"),
+            [200] = ("List", "y", "y"),
         };
         var tgt = new Dictionary<int, GdTargetDvHolder>
         {
-            [10] = new GdTargetDvHolder(10, "List", null, null, null, null),
-            [20] = new GdTargetDvHolder(20, "List", null, null, null, null),
+            [10] = new GdTargetDvHolder(10, "List", null, null, null, ["x", "y"]),
+            [20] = new GdTargetDvHolder(20, "List", null, null, null, ["x", "y"]),
         };
 
         var c = CurQ(answers: new[]
@@ -369,11 +401,11 @@ public sealed class GdInjectMapperTests
     [Fact]
     public void UnmatchedCurrentAnswer_NoWrites()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("List", "x") };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("List", "x", "x") };
         var tgt = new Dictionary<int, GdTargetDvHolder>
         {
-            [10] = new GdTargetDvHolder(10, "List", null, null, null, null),
-            [20] = new GdTargetDvHolder(20, "List", null, null, null, null),
+            [10] = new GdTargetDvHolder(10, "List", null, null, null, ["x", "y"]),
+            [20] = new GdTargetDvHolder(20, "List", null, null, null, ["x", "y"]),
         };
 
         var c = CurQ(answers: new[]
@@ -401,7 +433,7 @@ public sealed class GdInjectMapperTests
     public void CellCoordinates_UseConfiguredColumnsAndExplanationRows()
     {
         var cfg = Config(g: "X", j: "Y", p: "Z");
-        var src = new Dictionary<int, (string?, object?)> { [200] = ("WholeNumber", 5.0) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [200] = ("WholeNumber", 5.0, "5") };
         var tgt = new Dictionary<int, GdTargetDvHolder> { [77] = new GdTargetDvHolder(77, "WholeNumber", null, null, null, null) };
 
         var c = CurQ(answers: new[]

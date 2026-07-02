@@ -228,26 +228,28 @@ public sealed class GeneralDataInjectV01ToV02Task : IWorkflowTask
                 .Select(s => new LayoutSection(s.HeaderRow, s.FirstDataRow, s.LastDataRow, textColumn))
                 .ToList());
 
-    // Source H dual-read: v01 answer AnchorRow → (DV-type, native value). Keyed by answer anchor row
-    // (not question row) — the per-answer-grain analog of RlqInjectMapper's BuildSourceHLookup.
-    private IReadOnlyDictionary<int, (string? DvType, object? Native)> BuildSourceHLookup(
+    // Source H dual-read: v01 answer AnchorRow → (DV-type, native value, TextValue). Keyed by
+    // answer anchor row (not question row) — the per-answer-grain analog of RlqInjectMapper's
+    // BuildSourceHLookup. BL-053 P4b-G2: TextValue added — the DV-governed literal InjectionValueGuard
+    // evaluates against the target's DV rule; never a re-stringified NativeValue.
+    private IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> BuildSourceHLookup(
         string path, string sheetName, GdV01Config config,
         IReadOnlyList<GdV01Question> questions)
     {
         var anchorRows = questions.SelectMany(q => q.Answers).Select(a => a.AnchorRow).Distinct().ToList();
         if (anchorRows.Count == 0)
-            return new Dictionary<int, (string?, object?)>();
+            return new Dictionary<int, (string?, object?, string?)>();
 
         var col    = config.AnswerColumn;
         var minRow = anchorRows.Min();
         var maxRow = anchorRows.Max();
         var cells  = _reader.ReadCells(path, sheetName, [$"{col}{minRow}:{col}{maxRow}"]);
 
-        var result = new Dictionary<int, (string?, object?)>(anchorRows.Count);
+        var result = new Dictionary<int, (string?, object?, string?)>(anchorRows.Count);
         foreach (var row in anchorRows)
         {
             cells.TryGetValue($"{col}{row}", out var cell);
-            result[row] = (cell?.DataValidationType, cell?.NativeValue);
+            result[row] = (cell?.DataValidationType, cell?.NativeValue, cell?.TextValue);
         }
         return result;
     }
