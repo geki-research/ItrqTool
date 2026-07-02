@@ -211,12 +211,12 @@ public sealed class RiskLevelQuestionInjectV01ToV02Task : IWorkflowTask
         }
     }
 
-    private IReadOnlyDictionary<int, (string? DvType, object? Native)> BuildSourceHLookup(
+    private IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> BuildSourceHLookup(
         string path, string sheetName, RlqV01Config config,
         IReadOnlyList<RlqV01Question> questions)
     {
         if (questions.Count == 0)
-            return new Dictionary<int, (string?, object?)>();
+            return new Dictionary<int, (string?, object?, string?)>();
 
         var col    = config.AnswerColumn;
         var minRow = questions.Min(q => q.RowNumber);
@@ -228,7 +228,7 @@ public sealed class RiskLevelQuestionInjectV01ToV02Task : IWorkflowTask
             q =>
             {
                 cells.TryGetValue($"{col}{q.RowNumber}", out var cell);
-                return (cell?.DataValidationType, cell?.NativeValue);
+                return (cell?.DataValidationType, cell?.NativeValue, cell?.TextValue);
             });
     }
 

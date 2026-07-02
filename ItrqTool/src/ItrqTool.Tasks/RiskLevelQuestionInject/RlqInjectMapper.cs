@@ -2,6 +2,7 @@ using ItrqTool.Domain;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV02;
+using ItrqTool.Tasks.Shared;
 
 namespace ItrqTool.Tasks.RiskLevelQuestionInject;
 
@@ -12,22 +13,23 @@ namespace ItrqTool.Tasks.RiskLevelQuestionInject;
 /// is no carry-forward.
 ///
 /// Per <see cref="CrossYearOutcome"/>, on Agree it emits three writes for the matched question:
-///   • H→G  — the previous answer, written TYPED per the answer type-compatibility policy
-///            (equal / widen / narrow / incompatible — see below);
+///   • H→G  — the previous answer, written TYPED, gated by <see cref="InjectionValueGuard"/>
+///            against the target's FULL data-validation rule (type, operator, both formulas,
+///            resolved List vocabulary) — see below;
 ///   • K→J  — the previous current-explanation values, per-row position-aligned (text);
 ///   • O→P  — the previous provided-by value (text, once at the anchor row).
 /// The ambiguous outcomes (XrefIdConflict / NewXrefIdWithLookalike / SameXrefIdTextDiverged)
 /// emit ONE Warning and no cells; Neither / NotEvaluatedMalformedKey emit nothing.
 ///
-/// The H→G TYPE-COMPATIBILITY POLICY keys on the SOURCE (v01 H) and TARGET (v02 H)
-/// data-validation categories — NOT the native CLR type, which cannot distinguish
-/// WholeNumber from Decimal (ClosedXML surfaces every numeric as a double):
-///   1. blank source (native null, or native a blank string) → omit the G cell (no message).
-///   2. srcCat == tgtCat (string-equal, incl. both null / both List / both numeric) → EQUAL:
-///      write the native value, no message.
-///   3. WholeNumber → Decimal → WIDEN: write the native value, + Warning.
-///   4. Decimal → WholeNumber → NARROW: write the native value AS-IS (no rounding), + Warning.
-///   5. any other pair → MISMATCH: Error message, SKIP the G cell, CONTINUE (task still succeeds).
+/// The H→G decision (BL-053 P4b-R2) is delegated to <see cref="InjectionValueGuard.Evaluate"/>,
+/// keyed on the source cell's TextValue (the DV-governed literal — never a re-stringified
+/// NativeValue) against the target's DV rule:
+///   1. blank source (native null, or native a blank string) → omit the G cell (no message) —
+///      checked BEFORE the guard, unchanged from before.
+///   2. guard Inject → write the native value. If the source/target categories are
+///      WholeNumber→Decimal (a widen), ALSO emit an Info note (value written as-is).
+///   3. guard Skip → SKIP the G cell, emit the guard's SkipReason at its SkipSeverity
+///      (Warning or Error), CONTINUE (task still succeeds; K→J / O→P still run).
 /// The native value (B1 NativeValue) is the locale-safe payload; its CLR type selects the
 /// writer branch (Chunk A). The K→J and O→P writes are plain text — never typed.
 /// </summary>
@@ -36,7 +38,7 @@ public static class RlqInjectMapper
     public static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) Map(
         CrossFormatAlignmentResult<RlqV02Question, RlqV01Question> alignment,
         RlqV02Config currentConfig,
-        IReadOnlyDictionary<int, (string? DvType, object? Native)> sourceHByRow, // keyed by v01 source RowNumber
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow, // keyed by v01 source RowNumber
         IReadOnlyDictionary<int, RlqTargetDvHolder> targetHByRow)                // keyed by v02 current RowNumber
     {
         var cells = new List<CellWriteEntry>();
@@ -80,62 +82,62 @@ public static class RlqInjectMapper
         return (cells, messages);
     }
 
-    // ── (a) H→G — typed, per the answer type-compatibility policy ──────────────
+    // ── (a) H→G — typed, gated by InjectionValueGuard against the target's DV rule ─────────────
     private static void MapAnswer(
         List<CellWriteEntry> cells,
         List<TaskMessage> messages,
         RlqV02Question c,
         RlqV01Question p,
         RlqV02Config cfg,
-        IReadOnlyDictionary<int, (string? DvType, object? Native)> sourceHByRow,
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow,
         IReadOnlyDictionary<int, RlqTargetDvHolder> targetHByRow)
     {
-        sourceHByRow.TryGetValue(p.RowNumber, out var src); // (null, null) when absent
+        sourceHByRow.TryGetValue(p.RowNumber, out var src); // (null, null, null) when absent
         targetHByRow.TryGetValue(c.RowNumber, out var targetHolder);
 
         var srcCat = src.DvType;
         var native = src.Native;
-        var tgtCat = targetHolder?.Type; // R1: decision still reads Type only — byte-equivalent to today.
+        var tgtCat = targetHolder?.Type;
         var g = cfg.PreviousAnswerColumn;
 
-        // 1. blank source — checked FIRST, before any type logic.
+        // 1. blank source — checked FIRST, before any guard logic. Unchanged from before.
         if (native is null || (native is string s && string.IsNullOrWhiteSpace(s)))
             return;
 
         var textFallback = p.Answer ?? native.ToString() ?? "";
 
-        // 2. equal category (string-equal, incl. both null / both List / both numeric).
-        if (string.Equals(srcCat, tgtCat, StringComparison.Ordinal))
-        {
-            cells.Add(new CellWriteEntry(c.RowNumber, g, textFallback, native));
-            return;
-        }
+        // Invariant: a non-blank native value is always paired with a non-null TextValue —
+        // both are read from the same source cell in BuildSourceHLookup (cell.GetString() never
+        // returns null). Never fall back to a re-stringified Native.
+        var decision = InjectionValueGuard.Evaluate(
+            sourceText: src.TextValue!,
+            sourceDvType: srcCat,
+            targetDvType: targetHolder?.Type,
+            targetDvOperator: targetHolder?.Operator,
+            targetDvFormula: targetHolder?.Formula,
+            targetDvFormula2: targetHolder?.Formula2,
+            targetResolvedListValues: targetHolder?.ListValues);
 
-        // 3. widen: WholeNumber → Decimal.
-        if (IsWhole(srcCat) && IsDecimal(tgtCat))
+        if (decision.Decision == InjectionDecision.Inject)
         {
             cells.Add(new CellWriteEntry(c.RowNumber, g, textFallback, native));
-            messages.Add(new(MessageSeverity.Warning,
-                $"Row {c.RowNumber} (xref {Xref(c)}): answer type widened (WholeNumber → Decimal) — value written as-is.",
+
+            // Delta A: widen (WholeNumber → Decimal) is now conformant-and-injected — still
+            // worth an informational note that the value was widened, not rounded/converted.
+            if (IsWhole(srcCat) && IsDecimal(tgtCat))
+                messages.Add(new(MessageSeverity.Info,
+                    $"Row {c.RowNumber} (xref {Xref(c)}): answer type widened (WholeNumber → Decimal) — value written as-is.",
+                    DateTimeOffset.Now));
+        }
+        else
+        {
+            var severity = decision.SkipSeverity == SkipSeverity.Error
+                ? MessageSeverity.Error
+                : MessageSeverity.Warning;
+            messages.Add(new(severity,
+                $"Row {c.RowNumber} (xref {Xref(c)}): {decision.SkipReason}",
                 DateTimeOffset.Now));
-            return;
         }
-
-        // 4. narrow: Decimal → WholeNumber — written AS-IS (no rounding).
-        if (IsDecimal(srcCat) && IsWhole(tgtCat))
-        {
-            cells.Add(new CellWriteEntry(c.RowNumber, g, textFallback, native));
-            messages.Add(new(MessageSeverity.Warning,
-                $"Row {c.RowNumber} (xref {Xref(c)}): answer type narrowed (Decimal → WholeNumber) — value written as-is (not rounded).",
-                DateTimeOffset.Now));
-            return;
-        }
-
-        // 5. mismatch: any other pair — Error, skip the G cell, continue.
-        messages.Add(new(MessageSeverity.Error,
-            $"Row {c.RowNumber} (xref {Xref(c)}): incompatible answer types " +
-            $"(source {Cat(srcCat)} → target {Cat(tgtCat)}) — previous answer not injected.",
-            DateTimeOffset.Now));
     }
 
     // ── (b) K→J — per-row, position/index-aligned, text ────────────────────────
@@ -179,5 +181,4 @@ public static class RlqInjectMapper
     private static bool IsDecimal(string? cat) => cat == "Decimal";
 
     private static string Xref(RlqV02Question c) => c.XrefId ?? "<none>";
-    private static string Cat(string? cat) => cat ?? "<none>";
 }

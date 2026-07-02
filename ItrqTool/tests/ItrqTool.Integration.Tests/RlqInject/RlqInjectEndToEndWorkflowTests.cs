@@ -25,10 +25,12 @@ namespace ItrqTool.Integration.Tests.RlqInject;
 ///
 /// Scenarios (v01 anchor row / v02 anchor row):
 ///   X1 row 4  — (1) equal:       v01 H=WholeNumber 3,  v02 H=WholeNumber → G4=3.0 (numeric).
-///   X2 row 5  — (2) widen:       v01 H=WholeNumber 5,  v02 H=Decimal    → G5=5.0 + Warning.
-///   X3 rows 6–8 — (3) narrow:    v01 H=Decimal 4.5,    v02 H=WholeNumber → G6=4.5 + Warning.
+///   X2 row 5  — (2) widen:       v01 H=WholeNumber 5,  v02 H=Decimal    → G5=5.0 + Info (guard Inject).
+///   X3 rows 6–8 — (3) narrow:    v01 H=Decimal 4.5,    v02 H=WholeNumber → guard NotConformant →
+///               G6 SKIPPED + Error ("does not conform"); K→J / O→P still written.
 ///   X5 rows 9–11 — (5) multi-row K→J: v01 K9/10/11 written to v02 J9/10/11.
-///   X4 row 12 — (4) mismatch:    v01 H=List "Yes",     v02 H=WholeNumber → G12 SKIPPED + Error;
+///   X4 row 12 — (4) mismatch:    v01 H=List "Yes",     v02 H=WholeNumber → guard NotConformant →
+///               G12 SKIPPED + Error ("does not conform");
 ///               K→J and O→P ARE still written (continue-not-abort).
 ///   X6 rows 13–15(v01)/13–14(v02) — (6) row-count mismatch: 2 J writes + Warning.
 ///   X9 row 15 (v02 only) — (7) non-Agree: row left entirely untouched.
@@ -149,24 +151,23 @@ public sealed class RlqInjectEndToEndWorkflowTests
                 "equal WholeNumber→WholeNumber typed write must produce a Number-typed cell");
             ws.Cell($"{G}4").GetValue<double>().Should().Be(3.0);
             msgs.Should().NotContain(
-                m => (m.Text.Contains("widened") || m.Text.Contains("narrowed") || m.Text.Contains("incompatible"))
+                m => (m.Text.Contains("widened") || m.Text.Contains("does not conform"))
                      && m.Text.Contains("xref x1"),
                 "the equal arm (X1) must emit no answer-type-compatibility message");
 
-            // (2) X2 row 5 — widen: WholeNumber → Decimal, G5 must be numeric 5 + Warning.
+            // (2) X2 row 5 — widen: WholeNumber → Decimal, G5 must be numeric 5 + Info (guard Inject).
             ws.Cell($"{G}5").DataType.Should().Be(XLDataType.Number,
                 "widen typed write must produce a Number-typed cell");
             ws.Cell($"{G}5").GetValue<double>().Should().Be(5.0);
-            msgs.Should().Contain(m => m.Severity == MessageSeverity.Warning && m.Text.Contains("widened"),
-                "widen case must emit a Warning containing 'widened'");
+            msgs.Should().Contain(m => m.Severity == MessageSeverity.Info && m.Text.Contains("widened"),
+                "widen case must emit an Info note containing 'widened'");
 
-            // (3) X3 rows 6–8 — narrow: Decimal 4.5 → WholeNumber, G6=4.5 (not rounded) + Warning.
-            ws.Cell($"{G}6").DataType.Should().Be(XLDataType.Number,
-                "narrow typed write must produce a Number-typed cell");
-            ws.Cell($"{G}6").GetValue<double>().Should().Be(4.5,
-                "narrow write must be as-is, NOT rounded");
-            msgs.Should().Contain(m => m.Severity == MessageSeverity.Warning && m.Text.Contains("narrowed"),
-                "narrow case must emit a Warning containing 'narrowed'");
+            // (3) X3 rows 6–8 — narrow: Decimal 4.5 → WholeNumber DV — guard finds "4.5" NotConformant
+            // against the WholeNumber type constraint → G6 SKIPPED + Error ("does not conform").
+            ws.Cell($"{G}6").IsEmpty().Should().BeTrue(
+                "narrow value fails the target WholeNumber DV rule — the guard skips the G write");
+            msgs.Should().Contain(m => m.Severity == MessageSeverity.Error && m.Text.Contains("does not conform"),
+                "narrow case must emit an Error containing 'does not conform'");
             // K→J for X3 anchor + continuation rows
             GetStr(J, 6).Should().Be("k3a");
             GetStr(J, 7).Should().Be("k3b");
@@ -183,8 +184,8 @@ public sealed class RlqInjectEndToEndWorkflowTests
             // (4) X4 row 12 — mismatch: G12 NOT written; K→J and O→P still written (continue-not-abort).
             ws.Cell($"{G}12").IsEmpty().Should().BeTrue(
                 "incompatible answer type must cause the G write to be skipped");
-            msgs.Should().Contain(m => m.Severity == MessageSeverity.Error && m.Text.Contains("incompatible"),
-                "mismatch case must emit an Error containing 'incompatible'");
+            msgs.Should().Contain(m => m.Severity == MessageSeverity.Error && m.Text.Contains("does not conform"),
+                "mismatch case must emit an Error containing 'does not conform'");
             GetStr(J, 12).Should().Be("k4a",
                 "K→J must still be written even when the G write is skipped (continue-not-abort)");
             GetStr(P, 12).Should().Be("OU4",

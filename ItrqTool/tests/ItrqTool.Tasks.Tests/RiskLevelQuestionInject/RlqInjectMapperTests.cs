@@ -99,13 +99,13 @@ public sealed class RlqInjectMapperTests
     private static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) MapOne(
         CrossFormatMatch<RlqV02Question, RlqV01Question> match,
         RlqV02Config config,
-        IReadOnlyDictionary<int, (string? DvType, object? Native)>? sourceH = null,
+        IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)>? sourceH = null,
         IReadOnlyDictionary<int, RlqTargetDvHolder>? targetH = null)
     {
         var result = new CrossFormatAlignmentResult<RlqV02Question, RlqV01Question>([match], []);
         return RlqInjectMapper.Map(
             result, config,
-            sourceH ?? new Dictionary<int, (string?, object?)>(),
+            sourceH ?? new Dictionary<int, (string?, object?, string?)>(),
             targetH ?? new Dictionary<int, RlqTargetDvHolder>());
     }
 
@@ -117,7 +117,7 @@ public sealed class RlqInjectMapperTests
     [Fact]
     public void Hg_EqualType_WritesNativeNoMessage()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("WholeNumber", 3.0) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 3.0, "3") };
         var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "WholeNumber") };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev()), Config(), src, tgt);
@@ -129,44 +129,44 @@ public sealed class RlqInjectMapperTests
         messages.Should().BeEmpty();
     }
 
-    // ── 2. H→G widen (WholeNumber → Decimal) → native + Warning ───────────────
+    // ── 2. H→G widen (WholeNumber → Decimal) → guard Inject, native + Info ────
 
     [Fact]
-    public void Hg_WholeToDecimal_WritesNativePlusWarning()
+    public void Hg_WholeToDecimal_WritesNativePlusInfo()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("WholeNumber", 3.0) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 3.0, "3") };
         var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "Decimal") };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev()), Config(), src, tgt);
 
         Cell(cells, 10, "G")!.TypedValue.Should().Be(3.0);
         messages.Should().ContainSingle();
-        messages[0].Severity.Should().Be(MessageSeverity.Warning);
+        messages[0].Severity.Should().Be(MessageSeverity.Info);
         messages[0].Text.Should().Contain("widened");
     }
 
-    // ── 3. H→G narrow (Decimal → WholeNumber) → native AS-IS + Warning ────────
+    // ── 3. H→G narrow (Decimal → WholeNumber) → guard NotConformant → skip + Error ──
 
     [Fact]
-    public void Hg_DecimalToWhole_WritesNativeAsIsPlusWarning()
+    public void Hg_DecimalToWhole_SkipsWithError()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("Decimal", 3.5) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("Decimal", 3.5, "3.5") };
         var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "WholeNumber") };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev()), Config(), src, tgt);
 
-        Cell(cells, 10, "G")!.TypedValue.Should().Be(3.5); // NOT rounded
+        Cell(cells, 10, "G").Should().BeNull(); // no longer written — guard finds it non-conformant
         messages.Should().ContainSingle();
-        messages[0].Severity.Should().Be(MessageSeverity.Warning);
-        messages[0].Text.Should().Contain("narrowed");
+        messages[0].Severity.Should().Be(MessageSeverity.Error);
+        messages[0].Text.Should().Contain("does not conform");
     }
 
-    // ── 4. H→G incompatible → Error, skip G, continue (K→J / O→P still run) ────
+    // ── 4. H→G mismatch → guard NotConformant → skip + Error, continue (K→J / O→P still run) ──
 
     [Fact]
     public void Hg_IncompatibleTypes_EmitsErrorSkipsCellContinues()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("List", "Yes") };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("List", "Yes", "Yes") };
         var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "WholeNumber") };
 
         var c = Cur(row: 10, expl: [Expl("expl-A", 11)]);
@@ -177,7 +177,7 @@ public sealed class RlqInjectMapperTests
         Cell(cells, 10, "G").Should().BeNull(); // G skipped
         messages.Should().ContainSingle();
         messages[0].Severity.Should().Be(MessageSeverity.Error);
-        messages[0].Text.Should().Contain("incompatible");
+        messages[0].Text.Should().Contain("does not conform");
 
         // The SAME match's other writes still happen (continue, not abort).
         Cell(cells, 11, "J")!.Value.Should().Be("expl-A");
@@ -189,13 +189,53 @@ public sealed class RlqInjectMapperTests
     [Fact]
     public void Hg_BlankSource_OmitsCell()
     {
-        var src = new Dictionary<int, (string?, object?)> { [100] = ("WholeNumber", null) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", null, null) };
         var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "WholeNumber") };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev(providedBy: null)), Config(), src, tgt);
 
         Cell(cells, 10, "G").Should().BeNull();
         messages.Should().BeEmpty();
+    }
+
+    // ── 5b. H→G List target, non-member source → guard NotConformant → skip + Error ──
+    // (BL-053 P4b-R2: List-membership enforcement now live.)
+
+    [Fact]
+    public void Hg_ListTargetNonMemberSource_SkipsWithError()
+    {
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = (null, "Maybe", "Maybe") };
+        var tgt = new Dictionary<int, RlqTargetDvHolder>
+        {
+            [10] = new(10, "List", Operator: null, Formula: null, Formula2: null, ListValues: ["Yes", "No"])
+        };
+
+        var (cells, messages) = MapOne(Agree(Cur(), Prev(answer: "Maybe")), Config(), src, tgt);
+
+        Cell(cells, 10, "G").Should().BeNull();
+        messages.Should().ContainSingle();
+        messages[0].Severity.Should().Be(MessageSeverity.Error);
+        messages[0].Text.Should().Contain("does not conform");
+    }
+
+    // ── 5c. H→G numeric target, source violates the operator bound → skip + Error ──
+    // (BL-053 P4b-R2: operator/bound enforcement now live.)
+
+    [Fact]
+    public void Hg_NumericOperatorBoundViolation_SkipsWithError()
+    {
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 15.0, "15") };
+        var tgt = new Dictionary<int, RlqTargetDvHolder>
+        {
+            [10] = new(10, "WholeNumber", Operator: "Between", Formula: "1", Formula2: "10", ListValues: null)
+        };
+
+        var (cells, messages) = MapOne(Agree(Cur(), Prev(answer: "15")), Config(), src, tgt);
+
+        Cell(cells, 10, "G").Should().BeNull();
+        messages.Should().ContainSingle();
+        messages[0].Severity.Should().Be(MessageSeverity.Error);
+        messages[0].Text.Should().Contain("does not conform");
     }
 
     // ── 6. K→J position-aligned → one write per overlapping row ───────────────
@@ -311,7 +351,7 @@ public sealed class RlqInjectMapperTests
     public void CellCoordinates_UseConfiguredColumnsAndExplanationRows()
     {
         var cfg = Config(g: "X", j: "Y", p: "Z");
-        var src = new Dictionary<int, (string?, object?)> { [200] = ("WholeNumber", 5.0) };
+        var src = new Dictionary<int, (string?, object?, string?)> { [200] = ("WholeNumber", 5.0, "5") };
         var tgt = new Dictionary<int, RlqTargetDvHolder> { [77] = TgtDv(77, "WholeNumber") };
 
         var c = Cur(row: 77, expl: [Expl(null, 78), Expl(null, 79)]);
