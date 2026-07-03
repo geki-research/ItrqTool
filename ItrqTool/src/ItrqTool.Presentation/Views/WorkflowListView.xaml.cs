@@ -23,8 +23,8 @@ public partial class WorkflowListView : UserControl
     {
         base.OnMouseDoubleClick(e);
         if (DataContext is not WorkflowListViewModel vm) return;
-        if (vm.SelectedWorkflow is null) return;
-        if (vm.SelectCurrentCommand.CanExecute(null))
-            vm.SelectCurrentCommand.Execute(null);
+        if (WorkflowTreeView.SelectedItem is not WorkflowListItem selected) return;
+        if (vm.SelectCurrentCommand.CanExecute(selected))
+            vm.SelectCurrentCommand.Execute(selected);
     }
 }

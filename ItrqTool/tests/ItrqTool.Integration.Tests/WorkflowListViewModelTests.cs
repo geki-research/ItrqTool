@@ -165,6 +165,29 @@ public sealed class WorkflowListViewModelTests
         vm.SelectCurrentCommand.CanExecute(null).Should().BeTrue();
     }
 
+    [Fact]
+    public void SelectCurrentCommand_OpensTheExplicitArgument_NotTheLastOrStaleField()
+    {
+        var wf1 = new WorkflowDefinition("wf1", "Workflow 1", "G", []);
+        var wf2 = new WorkflowDefinition("wf2", "Workflow 2", "G", []);
+        var wf3 = new WorkflowDefinition("wf3", "Workflow 3", "G", []);
+        var loader = LoaderWith([wf1, wf2, wf3], []);
+        var vm = MakeVm(loader);
+        vm.Load();
+        var leaves = vm.WorkflowGroups[0].Children.OfType<WorkflowListItem>().ToList();
+        var firstLeaf = leaves.Single(l => l.Id == "wf1");
+        var thirdLeaf = leaves.Single(l => l.Id == "wf3");
+
+        WorkflowDefinition? selected = null;
+        vm.WorkflowSelected += def => selected = def;
+
+        vm.SelectCurrentCommand.Execute(firstLeaf);
+        selected!.Id.Should().Be("wf1");
+
+        vm.SelectCurrentCommand.Execute(thirdLeaf);
+        selected!.Id.Should().Be("wf3");
+    }
+
     // ── Hierarchical grouping ──────────────────────────────────────────────────
 
     [Fact]

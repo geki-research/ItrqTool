@@ -61,6 +61,7 @@
 
         <Button DockPanel.Dock="Bottom" Content="Open"
                 Command="{Binding SelectCurrentCommand}"
+                CommandParameter="{Binding SelectedItem, ElementName=WorkflowTreeView}"
                 HorizontalAlignment="Right" Padding="16,6"
                 IsDefault="True"/>
 
@@ -81,7 +82,8 @@
                 </DataTemplate>
             </TreeView.Resources>
             <TreeView.InputBindings>
-                <KeyBinding Key="Enter" Command="{Binding SelectCurrentCommand}"/>
+                <KeyBinding Key="Enter" Command="{Binding SelectCurrentCommand}"
+                            CommandParameter="{Binding SelectedItem, ElementName=WorkflowTreeView}"/>
             </TreeView.InputBindings>
         </TreeView>
     </DockPanel>

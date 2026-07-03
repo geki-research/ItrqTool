@@ -69,10 +69,11 @@ public partial class WorkflowListViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanSelect))]
-    private void SelectCurrent()
+    private void SelectCurrent(WorkflowListItem? item)
     {
-        if (SelectedWorkflow is null) return;
-        if (_definitionsById.TryGetValue(SelectedWorkflow.Id, out var def))
+        var target = item ?? SelectedWorkflow;
+        if (target is null) return;
+        if (_definitionsById.TryGetValue(target.Id, out var def))
             WorkflowSelected?.Invoke(def);
     }
 
