@@ -37,9 +37,9 @@ public static class InjectionValueGuard
 
     /// <param name="sourceText">
     /// The value proposed for injection — the source cell's TextValue (the literal captured text
-    /// reflecting original DV-governed formatting). NEVER pass a re-stringified NativeValue: a
-    /// double round-trip can change culture / ".0" / separators and parse differently. Callers
-    /// must omit blank sources before calling; a non-blank value is assumed.
+    /// reflecting original DV-governed formatting). NEVER re-stringify <paramref name="sourceNative"/>
+    /// into this parameter: a double round-trip can change culture / ".0" / separators and parse
+    /// differently. Callers must omit blank sources before calling; a non-blank value is assumed.
     /// </param>
     /// <param name="sourceDvType">
     /// The source cell's DV category string, if known (RLQ/GD supply it); null when unknown
@@ -50,11 +50,20 @@ public static class InjectionValueGuard
     /// the target is a List whose vocabulary could not be resolved. This method performs no I/O
     /// and no list resolution itself.
     /// </param>
+    /// <param name="sourceNative">
+    /// Optional native CLR value of the source cell (a boxed <c>double</c> for numeric cells) —
+    /// an ACCEPTED locale-safe compare hint threaded straight to
+    /// <see cref="DvConformanceEvaluator.Evaluate"/>: it bypasses <paramref name="sourceText"/>'s
+    /// invariant text parse for numeric DV targets, so a comma-rendered value still compares
+    /// correctly. Still never re-stringify it into <paramref name="sourceText"/>. Null (the
+    /// default) preserves the existing text-parse path byte-for-byte.
+    /// </param>
     public static InjectionCheckResult Evaluate(
         string sourceText,
         string? sourceDvType,
         string? targetDvType, string? targetDvOperator, string? targetDvFormula, string? targetDvFormula2,
-        IReadOnlyList<string>? targetResolvedListValues)
+        IReadOnlyList<string>? targetResolvedListValues,
+        object? sourceNative = null)
     {
         if (sourceDvType is not null)
         {
@@ -66,7 +75,8 @@ public static class InjectionValueGuard
         }
 
         var result = DvConformanceEvaluator.Evaluate(
-            sourceText, targetDvType, targetDvOperator, targetDvFormula, targetDvFormula2, targetResolvedListValues);
+            sourceText, targetDvType, targetDvOperator, targetDvFormula, targetDvFormula2, targetResolvedListValues,
+            sourceNative);
 
         switch (result)
         {

@@ -152,7 +152,8 @@ public static class GdInjectMapper
             targetDvOperator: targetHolder?.Operator,
             targetDvFormula: targetHolder?.Formula,
             targetDvFormula2: targetHolder?.Formula2,
-            targetResolvedListValues: targetHolder?.ListValues);
+            targetResolvedListValues: targetHolder?.ListValues,
+            sourceNative: native);
 
         if (decision.Decision == InjectionDecision.Inject)
         {

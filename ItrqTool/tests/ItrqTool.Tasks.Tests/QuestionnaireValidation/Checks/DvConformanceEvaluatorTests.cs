@@ -13,8 +13,8 @@ public sealed class DvConformanceEvaluatorTests
 {
     private static DvConformanceResult Eval(
         string value, string? type, string? op = null, string? f1 = null, string? f2 = null,
-        IReadOnlyList<string>? list = null)
-        => DvConformanceEvaluator.Evaluate(value, type, op, f1, f2, list);
+        IReadOnlyList<string>? list = null, object? sourceNative = null)
+        => DvConformanceEvaluator.Evaluate(value, type, op, f1, f2, list, sourceNative);
 
     private static string Serial(int y, int m, int d) =>
         new DateTime(y, m, d).ToOADate().ToString(CultureInfo.InvariantCulture);
@@ -118,4 +118,26 @@ public sealed class DvConformanceEvaluatorTests
     [Fact]
     public void UnknownType_NotCheckable()
         => Eval("5", "Bogus", "EqualTo", "5").Should().Be(DvConformanceResult.NotCheckable);
+
+    // ── sourceNative (BL-058): native-numeric compare bypasses the invariant text parse,
+    // fixing the comma-decimal false-reject; sourceNative: null keeps the text path unchanged.
+    [Fact]
+    public void Decimal_CommaText_WithNative_Conformant()
+        => Eval("9,1", "Decimal", "Between", "0", "100", sourceNative: 9.1d)
+            .Should().Be(DvConformanceResult.Conformant);
+
+    [Fact]
+    public void Decimal_CommaText_WithoutNative_NotConformant()
+        => Eval("9,1", "Decimal", "Between", "0", "100", sourceNative: null)
+            .Should().Be(DvConformanceResult.NotConformant);
+
+    [Fact]
+    public void WholeNumber_NonIntegralNative_NotConformant()
+        => Eval("3,5", "WholeNumber", "EqualOrGreaterThan", "0", sourceNative: 3.5d)
+            .Should().Be(DvConformanceResult.NotConformant);
+
+    [Fact]
+    public void WholeNumber_IntegralNative_OperatorApplied()
+        => Eval("3,0", "WholeNumber", "EqualOrGreaterThan", "0", sourceNative: 3.0d)
+            .Should().Be(DvConformanceResult.Conformant);
 }

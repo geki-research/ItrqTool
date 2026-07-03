@@ -232,6 +232,22 @@ public sealed class GdInjectMapperTests
         messages[0].Text.Should().Contain("does not conform");
     }
 
+    // ── 5c. H→G comma-rendered decimal source, native in bound → injects (BL-058) ──
+
+    [Fact]
+    public void Hg_CommaDecimalSource_NativeInBound_Injects()
+    {
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("Decimal", 9.1, "9,1") };
+        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "Decimal", "Between", "0", "100", null) };
+
+        var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
+
+        var g = Cell(cells, 10, "G");
+        g.Should().NotBeNull();
+        g!.TypedValue.Should().Be(9.1);
+        messages.Should().BeEmpty();
+    }
+
     // ── 6. K→J position-aligned → one write per overlapping row ───────────────
 
     [Fact]

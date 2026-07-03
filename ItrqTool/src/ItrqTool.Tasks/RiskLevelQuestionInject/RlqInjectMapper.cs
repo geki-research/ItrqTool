@@ -116,7 +116,8 @@ public static class RlqInjectMapper
             targetDvOperator: targetHolder?.Operator,
             targetDvFormula: targetHolder?.Formula,
             targetDvFormula2: targetHolder?.Formula2,
-            targetResolvedListValues: targetHolder?.ListValues);
+            targetResolvedListValues: targetHolder?.ListValues,
+            sourceNative: src.Native);
 
         if (decision.Decision == InjectionDecision.Inject)
         {

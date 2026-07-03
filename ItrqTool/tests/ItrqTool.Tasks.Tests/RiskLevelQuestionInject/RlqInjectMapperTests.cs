@@ -238,6 +238,25 @@ public sealed class RlqInjectMapperTests
         messages[0].Text.Should().Contain("does not conform");
     }
 
+    // ── 5d. H→G comma-rendered decimal source, native in bound → injects (BL-058) ──
+
+    [Fact]
+    public void Hg_CommaDecimalSource_NativeInBound_Injects()
+    {
+        var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("Decimal", 9.1, "9,1") };
+        var tgt = new Dictionary<int, RlqTargetDvHolder>
+        {
+            [10] = new(10, "Decimal", Operator: "Between", Formula: "0", Formula2: "100", ListValues: null)
+        };
+
+        var (cells, messages) = MapOne(Agree(Cur(), Prev(answer: "9,1")), Config(), src, tgt);
+
+        var g = Cell(cells, 10, "G");
+        g.Should().NotBeNull();
+        g!.TypedValue.Should().Be(9.1);
+        messages.Should().BeEmpty();
+    }
+
     // ── 6. K→J position-aligned → one write per overlapping row ───────────────
 
     [Fact]

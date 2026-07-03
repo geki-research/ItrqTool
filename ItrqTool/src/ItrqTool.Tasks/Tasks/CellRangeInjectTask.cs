@@ -215,7 +215,8 @@ public sealed class CellRangeInjectTask : IWorkflowTask
                     targetDvOperator: tgtDv?.DvOperator,
                     targetDvFormula: tgtDv?.DvFormula,
                     targetDvFormula2: tgtDv?.DvFormula2,
-                    targetResolvedListValues: tgtDv?.ListValues);
+                    targetResolvedListValues: tgtDv?.ListValues,
+                    sourceNative: src?.NativeValue);
 
                 if (decision.Decision == InjectionDecision.Inject)
                 {

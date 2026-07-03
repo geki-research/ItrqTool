@@ -13,10 +13,11 @@ public sealed class InjectionValueGuardTests
     private static InjectionCheckResult Eval(
         string sourceText, string? sourceDvType,
         string? targetDvType, string? targetDvOperator = null, string? targetDvFormula = null,
-        string? targetDvFormula2 = null, IReadOnlyList<string>? targetResolvedListValues = null)
+        string? targetDvFormula2 = null, IReadOnlyList<string>? targetResolvedListValues = null,
+        object? sourceNative = null)
         => InjectionValueGuard.Evaluate(
             sourceText, sourceDvType, targetDvType, targetDvOperator, targetDvFormula, targetDvFormula2,
-            targetResolvedListValues);
+            targetResolvedListValues, sourceNative);
 
     // ── No constraint on the target ──
     [Fact]
@@ -163,6 +164,12 @@ public sealed class InjectionValueGuardTests
     [Fact]
     public void PreGate_DoesNotFire_WhenSourceDvTypeNull()
         => Eval("45000", null, "Date")
+            .Decision.Should().Be(InjectionDecision.Inject);
+
+    // ── sourceNative (BL-058): comma-decimal source now injects via native-numeric compare ──
+    [Fact]
+    public void CommaDecimalSource_WithNative_Inject()
+        => Eval("9,1", "Decimal", "Decimal", "Between", "0", "100", sourceNative: 9.1d)
             .Decision.Should().Be(InjectionDecision.Inject);
 
     // ── SkipReason is location-free — callers own address idiom ──

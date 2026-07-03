@@ -44,13 +44,21 @@ public static class DvConformanceEvaluator
     /// resolved in the patch phase). Non-null ⇒ membership is checked. Null ⇒ unresolved ⇒
     /// <see cref="DvConformanceResult.UnresolvableList"/> (a real gap to surface — BL-025).
     /// </param>
+    /// <param name="sourceNative">
+    /// Optional native CLR value of the source cell (a boxed <c>double</c> for numeric cells). When
+    /// present for a WholeNumber/Decimal DV, it is compared directly — no text parse, so no locale
+    /// assumption — bypassing the comma-decimal false-reject a rendered <paramref name="value"/>
+    /// string can hit under an invariant parse. Null (the default, and every validation caller)
+    /// preserves the existing invariant text-parse path byte-for-byte.
+    /// </param>
     public static DvConformanceResult Evaluate(
         string value,
         string? dvType,
         string? dvOperator,
         string? dvFormula,
         string? dvFormula2,
-        IReadOnlyList<string>? resolvedListValues)
+        IReadOnlyList<string>? resolvedListValues,
+        object? sourceNative = null)
     {
         // No type ⇒ no constraint (mirrors AnyValue).
         if (string.IsNullOrEmpty(dvType)) return DvConformanceResult.Conformant;
@@ -70,6 +78,12 @@ public static class DvConformanceEvaluator
 
         if (TypeIs(dvType, "WholeNumber"))
         {
+            if (sourceNative is double nwn && double.IsFinite(nwn))
+            {
+                if (nwn != Math.Floor(nwn))
+                    return DvConformanceResult.NotConformant;   // type violation (non-integral)
+                return ApplyNumericOperator(nwn, dvOperator, dvFormula, dvFormula2);
+            }
             if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
                 return DvConformanceResult.NotConformant;   // type violation
             return ApplyNumericOperator(n, dvOperator, dvFormula, dvFormula2);
@@ -77,6 +91,8 @@ public static class DvConformanceEvaluator
 
         if (TypeIs(dvType, "Decimal"))
         {
+            if (sourceNative is double ndec && double.IsFinite(ndec))
+                return ApplyNumericOperator(ndec, dvOperator, dvFormula, dvFormula2);
             if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
                 return DvConformanceResult.NotConformant;   // type violation
             return ApplyNumericOperator(d, dvOperator, dvFormula, dvFormula2);
