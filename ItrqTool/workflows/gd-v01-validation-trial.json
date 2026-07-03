@@ -1,4 +1,4 @@
-{ "id": "gd-v01-validation-trial", "name": "GD v01 — Validation Trial", "tasks": [
+{ "hierarchicalPath": "gd-v01-validation-trial", "name": "GD v01 — Validation Trial", "tasks": [
   { "id":"load-current-response","type":"StaticFileSource","inputs":{},
     "outputs":{"output":"gd_current_response.xlsx"},
     "parameters":{"sourcePath":"trial-workbooks/gd-v01/gd_current_response.xlsx"} },

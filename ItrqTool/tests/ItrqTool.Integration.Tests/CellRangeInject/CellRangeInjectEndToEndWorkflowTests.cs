@@ -74,7 +74,7 @@ public sealed class CellRangeInjectEndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("cell-range-inject-trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == "cell-range-inject-trial");
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == "cell-range-inject-trial");
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);
@@ -166,7 +166,7 @@ public sealed class CellRangeInjectEndToEndWorkflowTests
         const string mismatchWorkflowId = "cell-range-inject-trial-mm";
         const string mismatchJson = """
             {
-              "id": "cell-range-inject-trial-mm",
+              "hierarchicalPath": "cell-range-inject-trial-mm",
               "name": "CellRangeInject Mismatch Trial",
               "tasks": [
                 {
@@ -219,7 +219,7 @@ public sealed class CellRangeInjectEndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("mismatch workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == mismatchWorkflowId);
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == mismatchWorkflowId);
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);
@@ -290,7 +290,7 @@ public sealed class CellRangeInjectEndToEndWorkflowTests
         const string dvWorkflowId = "cell-range-inject-trial-dv";
         const string dvJson = """
             {
-              "id": "cell-range-inject-trial-dv",
+              "hierarchicalPath": "cell-range-inject-trial-dv",
               "name": "CellRangeInject DV-Gated Trial",
               "tasks": [
                 {
@@ -343,7 +343,7 @@ public sealed class CellRangeInjectEndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("DV-gated trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == dvWorkflowId);
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == dvWorkflowId);
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);
@@ -429,7 +429,7 @@ public sealed class CellRangeInjectEndToEndWorkflowTests
         const string dvWorkflowId = "cell-range-inject-trial-dv-unresolvable";
         const string dvJson = """
             {
-              "id": "cell-range-inject-trial-dv-unresolvable",
+              "hierarchicalPath": "cell-range-inject-trial-dv-unresolvable",
               "name": "CellRangeInject DV-Gated UnresolvableList Trial",
               "tasks": [
                 {
@@ -482,7 +482,7 @@ public sealed class CellRangeInjectEndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("DV-gated UnresolvableList trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == dvWorkflowId);
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == dvWorkflowId);
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);

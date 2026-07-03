@@ -13,7 +13,7 @@ public sealed class WorkflowSessionFactoryTests
         new(root, Substitute.For<ITaskRegistry>(), NullLogger<WorkflowSession>.Instance);
 
     [Fact]
-    public void Create_FlatId_WorkingDirectoryIsRootPlusId()
+    public void Create_FlatId_WorkingDirectoryIsRootPlusIdPlusName()
     {
         var root = Path.Combine(Path.GetTempPath(), "ItrqTool-factory-tests");
         var factory = MakeFactory(root);
@@ -21,11 +21,11 @@ public sealed class WorkflowSessionFactoryTests
 
         var session = factory.Create(def);
 
-        session.WorkingDirectory.Should().Be(Path.Combine(root, "myworkflow"));
+        session.WorkingDirectory.Should().Be(Path.Combine(root, "myworkflow", "My Workflow"));
     }
 
     [Fact]
-    public void Create_HierarchicalId_WorkingDirectoryHasNestedPath()
+    public void Create_HierarchicalId_WorkingDirectoryHasNestedPathPlusNameLeaf()
     {
         var root = Path.Combine(Path.GetTempPath(), "ItrqTool-factory-tests");
         var factory = MakeFactory(root);
@@ -33,11 +33,11 @@ public sealed class WorkflowSessionFactoryTests
 
         var session = factory.Create(def);
 
-        session.WorkingDirectory.Should().Be(Path.Combine(root, "A", "B", "task"));
+        session.WorkingDirectory.Should().Be(Path.Combine(root, "A", "B", "task", "Task"));
     }
 
     [Fact]
-    public void Create_TwoSegmentId_WorkingDirectoryHasOneNestingLevel()
+    public void Create_TwoSegmentId_WorkingDirectoryHasOneNestingLevelPlusNameLeaf()
     {
         var root = Path.Combine(Path.GetTempPath(), "ItrqTool-factory-tests");
         var factory = MakeFactory(root);
@@ -45,6 +45,6 @@ public sealed class WorkflowSessionFactoryTests
 
         var session = factory.Create(def);
 
-        session.WorkingDirectory.Should().Be(Path.Combine(root, "Audit", "checklist"));
+        session.WorkingDirectory.Should().Be(Path.Combine(root, "Audit", "checklist", "Checklist"));
     }
 }

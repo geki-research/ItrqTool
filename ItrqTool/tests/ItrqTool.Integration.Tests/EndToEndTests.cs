@@ -20,7 +20,7 @@ public sealed class EndToEndTests
     private static void WriteSmokestestJson(string dir) =>
         File.WriteAllText(Path.Combine(dir, "smoketest.json"), """
             {
-                "id": "smoketest",
+                "hierarchicalPath": "smoketest",
                 "name": "Smoke Test Workflow",
                 "tasks": [
                     {
@@ -63,7 +63,7 @@ public sealed class EndToEndTests
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(loadResult.Workflows[0]);
 
-            session.WorkingDirectory.Should().Be(Path.Combine(workflowDataRoot, "smoketest"));
+            session.WorkingDirectory.Should().Be(Path.Combine(workflowDataRoot, "smoketest", "Smoke Test Workflow"));
 
             while (session.Status != WorkflowSessionStatus.Completed)
             {
@@ -185,7 +185,7 @@ public sealed class EndToEndTests
             // First session: run to completion.
             var firstSession = factory.Create(definition);
             var workingDir = firstSession.WorkingDirectory;
-            workingDir.Should().Be(Path.Combine(workflowDataRoot, "smoketest"));
+            workingDir.Should().Be(Path.Combine(workflowDataRoot, "smoketest", "Smoke Test Workflow"));
 
             while (firstSession.Status != WorkflowSessionStatus.Completed)
                 await firstSession.RunCurrentTaskAsync();

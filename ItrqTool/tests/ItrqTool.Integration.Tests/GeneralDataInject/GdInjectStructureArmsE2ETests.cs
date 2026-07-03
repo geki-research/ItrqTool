@@ -154,7 +154,7 @@ public sealed class GdInjectStructureArmsE2ETests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("gd-inject-trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == "gd-inject-trial");
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == "gd-inject-trial");
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);

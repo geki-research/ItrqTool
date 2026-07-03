@@ -74,7 +74,7 @@ public sealed class GdV01EndToEndWorkflowTests
         var loader     = sp.GetRequiredService<IWorkflowLoader>();
         var loadResult = loader.LoadAll();
         loadResult.Failures.Should().BeEmpty("trial workflow JSON must load without errors");
-        var workflow = loadResult.Workflows.Single(w => w.Id == "gd-v01-validation-trial");
+        var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == "gd-v01-validation-trial");
 
         var factory = sp.GetRequiredService<WorkflowSessionFactory>();
         return await Task.FromResult(factory.Create(workflow));

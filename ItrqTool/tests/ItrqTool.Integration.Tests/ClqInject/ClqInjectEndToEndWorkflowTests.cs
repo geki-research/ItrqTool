@@ -161,7 +161,7 @@ public sealed class ClqInjectEndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("inject trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == "clq-inject-trial");
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == "clq-inject-trial");
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);
@@ -339,7 +339,7 @@ public sealed class ClqInjectEndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("inject trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == "clq-inject-trial");
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == "clq-inject-trial");
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);

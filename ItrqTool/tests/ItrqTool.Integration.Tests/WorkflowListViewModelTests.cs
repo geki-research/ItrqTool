@@ -175,17 +175,42 @@ public sealed class WorkflowListViewModelTests
         var vm = MakeVm(loader);
         vm.Load();
         var leaves = vm.WorkflowGroups[0].Children.OfType<WorkflowListItem>().ToList();
-        var firstLeaf = leaves.Single(l => l.Id == "wf1");
-        var thirdLeaf = leaves.Single(l => l.Id == "wf3");
+        var firstLeaf = leaves.Single(l => l.IdentityKey == wf1.IdentityKey);
+        var thirdLeaf = leaves.Single(l => l.IdentityKey == wf3.IdentityKey);
 
         WorkflowDefinition? selected = null;
         vm.WorkflowSelected += def => selected = def;
 
         vm.SelectCurrentCommand.Execute(firstLeaf);
-        selected!.Id.Should().Be("wf1");
+        selected!.HierarchicalPath.Should().Be("wf1");
 
         vm.SelectCurrentCommand.Execute(thirdLeaf);
-        selected!.Id.Should().Be("wf3");
+        selected!.HierarchicalPath.Should().Be("wf3");
+    }
+
+    [Fact]
+    public void SelectCurrentCommand_SameHierarchicalPathDifferentName_OpensDistinctDefinitions()
+    {
+        // BL-060 regression: two workflows sharing a HierarchicalPath but with different names
+        // must not collapse onto one dict entry — each tree leaf must open its own definition.
+        var wfA = new WorkflowDefinition("shared:path", "Workflow A", "G", []);
+        var wfB = new WorkflowDefinition("shared:path", "Workflow B", "G", []);
+        var loader = LoaderWith([wfA, wfB], []);
+        var vm = MakeVm(loader);
+        vm.Load();
+        var leaves = vm.WorkflowGroups[0].Children.OfType<WorkflowListItem>().ToList();
+        leaves.Should().HaveCount(2);
+        var leafA = leaves.Single(l => l.IdentityKey == wfA.IdentityKey);
+        var leafB = leaves.Single(l => l.IdentityKey == wfB.IdentityKey);
+
+        WorkflowDefinition? selected = null;
+        vm.WorkflowSelected += def => selected = def;
+
+        vm.SelectCurrentCommand.Execute(leafA);
+        selected!.Name.Should().Be("Workflow A");
+
+        vm.SelectCurrentCommand.Execute(leafB);
+        selected!.Name.Should().Be("Workflow B");
     }
 
     // ── Hierarchical grouping ──────────────────────────────────────────────────

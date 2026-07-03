@@ -66,12 +66,12 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "wf.json"),
-                """{"id": "wf1", "name": "WF One", "tasks": []}""");
+                """{"hierarchicalPath": "wf1", "name": "WF One", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
             result.Workflows.Should().HaveCount(1);
-            result.Workflows[0].Id.Should().Be("wf1");
+            result.Workflows[0].HierarchicalPath.Should().Be("wf1");
             result.Workflows[0].Name.Should().Be("WF One");
             result.Workflows[0].Nodes.Should().BeEmpty();
             result.Failures.Should().BeEmpty();
@@ -88,7 +88,7 @@ public sealed class JsonWorkflowLoaderTests
         {
             File.WriteAllText(Path.Combine(dir, "smoketest.json"), """
                 {
-                    "id": "smoketest",
+                    "hierarchicalPath": "smoketest",
                     "name": "Smoke Test",
                     "tasks": [
                         {
@@ -112,7 +112,7 @@ public sealed class JsonWorkflowLoaderTests
             result.Failures.Should().BeEmpty();
             result.Workflows.Should().HaveCount(1);
             var wf = result.Workflows[0];
-            wf.Id.Should().Be("smoketest");
+            wf.HierarchicalPath.Should().Be("smoketest");
             wf.Nodes.Should().HaveCount(2);
             wf.Nodes[0].Id.Should().Be("first");
             wf.Nodes[0].Inputs.Should().BeEmpty();
@@ -150,7 +150,7 @@ public sealed class JsonWorkflowLoaderTests
         Directory.CreateDirectory(dir);
         try
         {
-            // Missing top-level "id"
+            // Missing top-level "hierarchicalPath"
             var file = Path.Combine(dir, "missing.json");
             File.WriteAllText(file, """{"name": "NoId", "tasks": []}""");
 
@@ -173,7 +173,7 @@ public sealed class JsonWorkflowLoaderTests
             var file = Path.Combine(dir, "cycle.json");
             File.WriteAllText(file, """
                 {
-                    "id": "cyclic",
+                    "hierarchicalPath": "cyclic",
                     "name": "Cyclic",
                     "tasks": [
                         {"id": "a", "type": "T", "inputs": {"in": "b.out"}, "outputs": {"out": "a.txt"}},
@@ -202,7 +202,7 @@ public sealed class JsonWorkflowLoaderTests
             var file = Path.Combine(dir, "missing-ref.json");
             File.WriteAllText(file, """
                 {
-                    "id": "missing-ref",
+                    "hierarchicalPath": "missing-ref",
                     "name": "Missing Ref",
                     "tasks": [
                         {"id": "a", "type": "T", "inputs": {"in": "ghost.out"}, "outputs": {}}
@@ -231,7 +231,7 @@ public sealed class JsonWorkflowLoaderTests
             var file = Path.Combine(dir, "malformed-ref.json");
             File.WriteAllText(file, """
                 {
-                    "id": "malformed",
+                    "hierarchicalPath": "malformed",
                     "name": "Malformed",
                     "tasks": [
                         {"id": "a", "type": "T", "inputs": {"in": "nodot"}, "outputs": {}}
@@ -261,11 +261,11 @@ public sealed class JsonWorkflowLoaderTests
             var badFile = Path.Combine(dir, "b_malformed.json");
             var cycleFile = Path.Combine(dir, "c_cycle.json");
 
-            File.WriteAllText(validFile, """{"id": "valid", "name": "Valid", "tasks": []}""");
+            File.WriteAllText(validFile, """{"hierarchicalPath": "valid", "name": "Valid", "tasks": []}""");
             File.WriteAllText(badFile, "{ not valid json");
             File.WriteAllText(cycleFile, """
                 {
-                    "id": "cyclic",
+                    "hierarchicalPath": "cyclic",
                     "name": "Cyclic",
                     "tasks": [
                         {"id": "a", "type": "T", "inputs": {"in": "b.out"}, "outputs": {"out": "a.txt"}},
@@ -277,7 +277,7 @@ public sealed class JsonWorkflowLoaderTests
             var result = Loader(dir).LoadAll();
 
             result.Workflows.Should().HaveCount(1);
-            result.Workflows[0].Id.Should().Be("valid");
+            result.Workflows[0].HierarchicalPath.Should().Be("valid");
             result.Failures.Should().HaveCount(2);
             result.Failures.Select(f => f.FilePath)
                 .Should().Contain(badFile)
@@ -296,7 +296,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "workflow.json"),
-                """{"id": "wf1", "name": "WF1", "tasks": []}""");
+                """{"hierarchicalPath": "wf1", "name": "WF1", "tasks": []}""");
             File.WriteAllText(Path.Combine(dir, "readme.txt"), "this is not JSON");
 
             var result = Loader(dir).LoadAll();
@@ -315,17 +315,17 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "root.json"),
-                """{"id": "root-wf", "name": "Root", "tasks": []}""");
+                """{"hierarchicalPath": "root-wf", "name": "Root", "tasks": []}""");
 
             var sub = Path.Combine(dir, "sub");
             Directory.CreateDirectory(sub);
             File.WriteAllText(Path.Combine(sub, "sub.json"),
-                """{"id": "sub-wf", "name": "Sub", "tasks": []}""");
+                """{"hierarchicalPath": "sub-wf", "name": "Sub", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
             result.Workflows.Should().HaveCount(1);
-            result.Workflows[0].Id.Should().Be("root-wf");
+            result.Workflows[0].HierarchicalPath.Should().Be("root-wf");
             result.Failures.Should().BeEmpty();
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
@@ -341,16 +341,16 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             // Created in non-alphabetical order; result must be sorted by filename.
-            File.WriteAllText(Path.Combine(dir, "c.json"), """{"id": "cid", "name": "C", "tasks": []}""");
-            File.WriteAllText(Path.Combine(dir, "a.json"), """{"id": "aid", "name": "A", "tasks": []}""");
-            File.WriteAllText(Path.Combine(dir, "b.json"), """{"id": "bid", "name": "B", "tasks": []}""");
+            File.WriteAllText(Path.Combine(dir, "c.json"), """{"hierarchicalPath": "cid", "name": "C", "tasks": []}""");
+            File.WriteAllText(Path.Combine(dir, "a.json"), """{"hierarchicalPath": "aid", "name": "A", "tasks": []}""");
+            File.WriteAllText(Path.Combine(dir, "b.json"), """{"hierarchicalPath": "bid", "name": "B", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
             result.Workflows.Should().HaveCount(3);
-            result.Workflows[0].Id.Should().Be("aid");
-            result.Workflows[1].Id.Should().Be("bid");
-            result.Workflows[2].Id.Should().Be("cid");
+            result.Workflows[0].HierarchicalPath.Should().Be("aid");
+            result.Workflows[1].HierarchicalPath.Should().Be("bid");
+            result.Workflows[2].HierarchicalPath.Should().Be("cid");
             result.Failures.Should().BeEmpty();
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
@@ -367,7 +367,7 @@ public sealed class JsonWorkflowLoaderTests
         {
             File.WriteAllText(Path.Combine(dir, "params.json"), """
                 {
-                    "id": "wf1",
+                    "hierarchicalPath": "wf1",
                     "name": "WF One",
                     "tasks": [
                         {
@@ -399,7 +399,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "grouped.json"),
-                """{"id": "wf1", "name": "WF One", "group": "2025 Audit", "tasks": []}""");
+                """{"hierarchicalPath": "wf1", "name": "WF One", "group": "2025 Audit", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
@@ -417,7 +417,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "nogroup.json"),
-                """{"id": "wf1", "name": "WF One", "tasks": []}""");
+                """{"hierarchicalPath": "wf1", "name": "WF One", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
@@ -435,7 +435,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "nullgroup.json"),
-                """{"id": "wf1", "name": "WF One", "group": null, "tasks": []}""");
+                """{"hierarchicalPath": "wf1", "name": "WF One", "group": null, "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
@@ -454,7 +454,7 @@ public sealed class JsonWorkflowLoaderTests
         {
             File.WriteAllText(Path.Combine(dir, "noparams.json"), """
                 {
-                    "id": "wf1",
+                    "hierarchicalPath": "wf1",
                     "name": "WF One",
                     "tasks": [
                         {
@@ -488,7 +488,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, file),
-                $$"""{ "id": "{{id}}", "name": "WF", "tasks": [] }""");
+                $$"""{ "hierarchicalPath": "{{id}}", "name": "WF", "tasks": [] }""");
 
             var result = Loader(dir).LoadAll();
 
@@ -509,7 +509,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "slash.json"),
-                $$"""{ "id": "{{id}}", "name": "WF", "tasks": [] }""");
+                $$"""{ "hierarchicalPath": "{{id}}", "name": "WF", "tasks": [] }""");
 
             var result = Loader(dir).LoadAll();
 
@@ -528,13 +528,13 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "hier.json"),
-                """{"id": "A:B:task", "name": "Hierarchical", "tasks": []}""");
+                """{"hierarchicalPath": "A:B:task", "name": "Hierarchical", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
             result.Failures.Should().BeEmpty();
             result.Workflows.Should().HaveCount(1);
-            result.Workflows[0].Id.Should().Be("A:B:task");
+            result.Workflows[0].HierarchicalPath.Should().Be("A:B:task");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
@@ -549,7 +549,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "derive.json"),
-                """{"id": "A:B:task", "name": "WF", "tasks": []}""");
+                """{"hierarchicalPath": "A:B:task", "name": "WF", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
@@ -567,7 +567,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "two.json"),
-                """{"id": "Audit:task", "name": "WF", "tasks": []}""");
+                """{"hierarchicalPath": "Audit:task", "name": "WF", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
@@ -585,7 +585,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "spaces.json"),
-                """{"id": "RefYear2025:Phase 0", "name": "WF", "tasks": []}""");
+                """{"hierarchicalPath": "RefYear2025:Phase 0", "name": "WF", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
@@ -603,7 +603,7 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "explicit.json"),
-                """{"id": "A:B:task", "name": "WF", "group": "Custom", "tasks": []}""");
+                """{"hierarchicalPath": "A:B:task", "name": "WF", "group": "Custom", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
@@ -621,12 +621,59 @@ public sealed class JsonWorkflowLoaderTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "flat.json"),
-                """{"id": "simple", "name": "WF", "tasks": []}""");
+                """{"hierarchicalPath": "simple", "name": "WF", "tasks": []}""");
 
             var result = Loader(dir).LoadAll();
 
             result.Failures.Should().BeEmpty();
             result.Workflows[0].Group.Should().BeNull();
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Name field — validation (BL-060) ───────────────────────────────────────
+
+    [Fact]
+    public void LoadAll_MissingName_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "noname.json");
+            File.WriteAllText(file, """{"hierarchicalPath": "wf1", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].FilePath.Should().Be(file);
+            result.Failures[0].ErrorMessage.Should().Contain("name");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Duplicate identity — validation (BL-060) ───────────────────────────────
+
+    [Fact]
+    public void LoadAll_DuplicateHierarchicalPathAndName_SecondFileReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "a_first.json"),
+                """{"hierarchicalPath": "shared:path", "name": "Same Name", "tasks": []}""");
+            var secondFile = Path.Combine(dir, "b_second.json");
+            File.WriteAllText(secondFile,
+                """{"hierarchicalPath": "shared:path", "name": "Same Name", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().HaveCount(1);
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].FilePath.Should().Be(secondFile);
+            result.Failures[0].ErrorMessage.Should().Contain("Duplicate workflow identity");
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }

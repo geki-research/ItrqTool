@@ -34,6 +34,7 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
 
         var workflows = new List<WorkflowDefinition>();
         var failures = new List<WorkflowLoadFailure>();
+        var seenIdentities = new HashSet<string>(StringComparer.Ordinal);
 
         var files = Directory
             .GetFiles(_workflowsDirectoryPath, "*.json", SearchOption.TopDirectoryOnly)
@@ -46,6 +47,16 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
             {
                 var definition = ParseFile(filePath);
                 _ = new WorkflowGraph(definition);
+
+                if (!seenIdentities.Add(definition.IdentityKey))
+                {
+                    failures.Add(new WorkflowLoadFailure(
+                        filePath,
+                        $"Duplicate workflow identity '{definition.HierarchicalPath}' / '{definition.Name}' " +
+                        "(already defined by an earlier file); each (hierarchicalPath, name) must be unique."));
+                    continue;
+                }
+
                 workflows.Add(definition);
             }
             catch (Exception ex)
@@ -64,11 +75,17 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
         var dto = JsonSerializer.Deserialize<WorkflowDto>(json, JsonOptions)
             ?? throw new ArgumentException("JSON deserialized to null.");
 
-        if (string.IsNullOrEmpty(dto.Id))
-            throw new ArgumentException("Workflow 'id' is required.");
-        ValidateIdSegments(dto.Id);
+        if (string.IsNullOrEmpty(dto.HierarchicalPath))
+        {
+            if (!string.IsNullOrEmpty(dto.Id))
+                throw new ArgumentException(
+                    "Workflow field 'id' was renamed to 'hierarchicalPath'; please update this file.");
+            throw new ArgumentException("Workflow 'hierarchicalPath' is required.");
+        }
+        ValidateIdSegments(dto.HierarchicalPath);
         if (string.IsNullOrEmpty(dto.Name))
             throw new ArgumentException("Workflow 'name' is required.");
+        ValidateNameSegment(dto.Name);
         if (dto.Tasks is null)
             throw new ArgumentException("Workflow 'tasks' is required.");
 
@@ -112,8 +129,8 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
             });
         }
 
-        var effectiveGroup = dto.Group ?? DeriveGroup(dto.Id);
-        return new WorkflowDefinition(dto.Id, dto.Name, effectiveGroup, nodes);
+        var effectiveGroup = dto.Group ?? DeriveGroup(dto.HierarchicalPath);
+        return new WorkflowDefinition(dto.HierarchicalPath, dto.Name, effectiveGroup, nodes);
     }
 
     private static void ValidateIdSegments(string id)
@@ -130,6 +147,13 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
         }
     }
 
+    private static void ValidateNameSegment(string name)
+    {
+        if (name.Contains('/') || name.Contains('\\') || name.Contains(':'))
+            throw new ArgumentException(
+                $"Workflow name '{name}' contains an illegal path character ('/', '\\', and ':' are not allowed).");
+    }
+
     private static string? DeriveGroup(string id)
         => id.Contains(':') ? id : null;
 
@@ -140,6 +164,10 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
     private sealed class WorkflowDto
     {
         public WorkflowDto() { }
+        public string? HierarchicalPath { get; set; }
+
+        // Legacy field name, retained only to detect un-migrated files and
+        // surface a targeted rename message instead of a generic "required" error.
         public string? Id { get; set; }
         public string? Name { get; set; }
         public string? Group { get; set; }

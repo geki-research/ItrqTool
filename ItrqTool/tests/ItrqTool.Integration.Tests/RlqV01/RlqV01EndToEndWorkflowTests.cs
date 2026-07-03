@@ -83,7 +83,7 @@ public sealed class RlqV01EndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == "rlq-v01-validation-trial");
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == "rlq-v01-validation-trial");
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);

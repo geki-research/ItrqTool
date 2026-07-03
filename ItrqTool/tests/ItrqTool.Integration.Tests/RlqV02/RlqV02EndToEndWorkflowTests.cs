@@ -42,7 +42,7 @@ public sealed class RlqV02EndToEndWorkflowTests
     // committed production workflow; only the config filename differs.
     private const string TrialWorkflowJson = """
         {
-          "id": "rlq-v02-validation-trial",
+          "hierarchicalPath": "rlq-v02-validation-trial",
           "name": "RLQ v02 — Validation Trial",
           "tasks": [
             {
@@ -165,7 +165,7 @@ public sealed class RlqV02EndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == "rlq-v02-validation-trial");
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == "rlq-v02-validation-trial");
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);

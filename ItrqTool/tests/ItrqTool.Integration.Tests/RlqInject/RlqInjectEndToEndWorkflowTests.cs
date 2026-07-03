@@ -103,7 +103,7 @@ public sealed class RlqInjectEndToEndWorkflowTests
             var loader     = sp.GetRequiredService<IWorkflowLoader>();
             var loadResult = loader.LoadAll();
             loadResult.Failures.Should().BeEmpty("rlq-inject-trial workflow JSON must load without errors");
-            var workflow = loadResult.Workflows.Single(w => w.Id == "rlq-inject-trial");
+            var workflow = loadResult.Workflows.Single(w => w.HierarchicalPath == "rlq-inject-trial");
 
             var factory = sp.GetRequiredService<WorkflowSessionFactory>();
             var session = factory.Create(workflow);

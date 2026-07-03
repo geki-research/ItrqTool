@@ -10,7 +10,7 @@ namespace ItrqTool.Presentation.ViewModels;
 public partial class WorkflowListViewModel : ObservableObject
 {
     private readonly IWorkflowLoader _loader;
-    private readonly Dictionary<string, WorkflowDefinition> _definitionsById = new();
+    private readonly Dictionary<string, WorkflowDefinition> _definitionsByIdentity = new();
 
     [ObservableProperty]
     private ObservableCollection<WorkflowGroupItem> _workflowGroups = [];
@@ -36,15 +36,15 @@ public partial class WorkflowListViewModel : ObservableObject
 
     public void Load()
     {
-        _definitionsById.Clear();
+        _definitionsByIdentity.Clear();
         var result = _loader.LoadAll();
         foreach (var wf in result.Workflows)
-            _definitionsById[wf.Id] = wf;
+            _definitionsByIdentity[wf.IdentityKey] = wf;
 
         var items = result.Workflows
             .Select(wf => new WorkflowListItem(
-                wf.Id,
-                string.IsNullOrWhiteSpace(wf.Name) ? wf.Id.Split(':').Last() : wf.Name,
+                wf.IdentityKey,
+                string.IsNullOrWhiteSpace(wf.Name) ? wf.HierarchicalPath.Split(':').Last() : wf.Name,
                 wf.Group))
             .ToList();
 
@@ -73,7 +73,7 @@ public partial class WorkflowListViewModel : ObservableObject
     {
         var target = item ?? SelectedWorkflow;
         if (target is null) return;
-        if (_definitionsById.TryGetValue(target.Id, out var def))
+        if (_definitionsByIdentity.TryGetValue(target.IdentityKey, out var def))
             WorkflowSelected?.Invoke(def);
     }
 
