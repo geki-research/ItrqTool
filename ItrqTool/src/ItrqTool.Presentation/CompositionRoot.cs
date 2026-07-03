@@ -53,6 +53,7 @@ public static class CompositionRoot
         services.AddSingleton<IWorkflowLoader>(sp =>
             new JsonWorkflowLoader(
                 workflowsDirectoryPath,
+                workflowDataRoot,
                 sp.GetRequiredService<ILogger<JsonWorkflowLoader>>()));
 
         services.Scan(scan => scan

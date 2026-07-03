@@ -6,7 +6,14 @@ namespace ItrqTool.Infrastructure;
 
 public sealed class JsonWorkflowLoader : IWorkflowLoader
 {
+    // Deepest session artifact under a workflow's working directory is a flat
+    // file; longest in-repo output name is "control-level-question-diff.html"
+    // (32 chars), so 60 is safe headroom for a child file name plus separator.
+    private const int MaxPath = 259;
+    private const int ChildBudget = 60;
+
     private readonly string _workflowsDirectoryPath;
+    private readonly string _workflowDataRoot;
     private readonly ILogger<JsonWorkflowLoader> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -14,15 +21,23 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
         PropertyNameCaseInsensitive = true
     };
 
-    public JsonWorkflowLoader(string workflowsDirectoryPath, ILogger<JsonWorkflowLoader> logger)
+    public JsonWorkflowLoader(
+        string workflowsDirectoryPath,
+        string workflowDataRoot,
+        ILogger<JsonWorkflowLoader> logger)
     {
         ArgumentNullException.ThrowIfNull(workflowsDirectoryPath);
+        ArgumentNullException.ThrowIfNull(workflowDataRoot);
         ArgumentNullException.ThrowIfNull(logger);
         if (string.IsNullOrWhiteSpace(workflowsDirectoryPath))
             throw new ArgumentException(
                 "Path cannot be empty or whitespace.", nameof(workflowsDirectoryPath));
+        if (string.IsNullOrWhiteSpace(workflowDataRoot))
+            throw new ArgumentException(
+                "Path cannot be empty or whitespace.", nameof(workflowDataRoot));
 
         _workflowsDirectoryPath = workflowsDirectoryPath;
+        _workflowDataRoot = workflowDataRoot;
         _logger = logger;
     }
 
@@ -47,6 +62,7 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
             {
                 var definition = ParseFile(filePath);
                 _ = new WorkflowGraph(definition);
+                ValidateResolvedPathLength(definition, _workflowDataRoot);
 
                 if (!seenIdentities.Add(definition.IdentityKey))
                 {
@@ -133,25 +149,67 @@ public sealed class JsonWorkflowLoader : IWorkflowLoader
         return new WorkflowDefinition(dto.HierarchicalPath, dto.Name, effectiveGroup, nodes);
     }
 
+    // Windows-illegal filename characters (superset of the original '/','\','.' check).
+    private static readonly char[] IllegalPathChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
+
+    private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
+
+    // Returns null when the segment is filesystem-legal; otherwise a human-readable reason.
+    private static string? DescribeSegmentViolation(string segment)
+    {
+        if (string.IsNullOrWhiteSpace(segment))
+            return "is an empty segment";
+
+        foreach (var c in segment)
+        {
+            if (c < ' ')
+                return "contains a control character";
+            if (Array.IndexOf(IllegalPathChars, c) >= 0)
+                return $"contains an illegal path character ('{c}')";
+        }
+
+        if (segment[^1] is '.' or ' ')
+            return "ends with a trailing '.' or space";
+
+        var dotIndex = segment.IndexOf('.');
+        var baseName = dotIndex >= 0 ? segment[..dotIndex] : segment;
+        if (ReservedDeviceNames.Contains(baseName))
+            return $"is a reserved device name ('{baseName}')";
+
+        return null;
+    }
+
     private static void ValidateIdSegments(string id)
     {
-        var segments = id.Split(':');
-        foreach (var segment in segments)
+        foreach (var segment in id.Split(':'))
         {
-            if (segment.Length == 0)
+            var violation = DescribeSegmentViolation(segment);
+            if (violation is not null)
                 throw new ArgumentException(
-                    $"Workflow id '{id}' contains an empty segment between ':' separators.");
-            if (segment.Contains('/') || segment.Contains('\\'))
-                throw new ArgumentException(
-                    $"Workflow id segment '{segment}' contains an illegal path character ('/' and '\\' are not allowed).");
+                    $"Workflow hierarchicalPath '{id}' segment '{segment}' {violation}.");
         }
     }
 
     private static void ValidateNameSegment(string name)
     {
-        if (name.Contains('/') || name.Contains('\\') || name.Contains(':'))
+        var violation = DescribeSegmentViolation(name);
+        if (violation is not null)
+            throw new ArgumentException($"Workflow name '{name}' {violation}.");
+    }
+
+    private static void ValidateResolvedPathLength(WorkflowDefinition definition, string workflowDataRoot)
+    {
+        var joined = string.Join('\\', definition.IdentitySegments);
+        var workingDirectoryPathLength = workflowDataRoot.Length + 1 + joined.Length + 1;
+        if (workingDirectoryPathLength + ChildBudget > MaxPath)
             throw new ArgumentException(
-                $"Workflow name '{name}' contains an illegal path character ('/', '\\', and ':' are not allowed).");
+                $"Resolved working-directory path is too long ({workingDirectoryPathLength} chars, " +
+                $"limit {MaxPath - ChildBudget}); shorten the hierarchicalPath/name.");
     }
 
     private static string? DeriveGroup(string id)

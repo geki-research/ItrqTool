@@ -11,15 +11,17 @@ public sealed class JsonWorkflowLoaderTests
     private static string TestWorkDir() =>
         Path.Combine(Path.GetTempPath(), "ItrqTool-infra-tests", Guid.NewGuid().ToString("N"));
 
-    private static JsonWorkflowLoader Loader(string path) =>
-        new(path, NullLogger<JsonWorkflowLoader>.Instance);
+    private const string DefaultWorkflowDataRoot = @"C:\ItrqToolTestRoot";
+
+    private static JsonWorkflowLoader Loader(string path, string? workflowDataRoot = null) =>
+        new(path, workflowDataRoot ?? DefaultWorkflowDataRoot, NullLogger<JsonWorkflowLoader>.Instance);
 
     // ── Constructor validation ─────────────────────────────────────────────────
 
     [Fact]
     public void Constructor_NullPath_Throws()
     {
-        var act = () => new JsonWorkflowLoader(null!, NullLogger<JsonWorkflowLoader>.Instance);
+        var act = () => new JsonWorkflowLoader(null!, DefaultWorkflowDataRoot, NullLogger<JsonWorkflowLoader>.Instance);
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("workflowsDirectoryPath");
     }
@@ -27,9 +29,25 @@ public sealed class JsonWorkflowLoaderTests
     [Fact]
     public void Constructor_WhitespacePath_Throws()
     {
-        var act = () => new JsonWorkflowLoader("   ", NullLogger<JsonWorkflowLoader>.Instance);
+        var act = () => new JsonWorkflowLoader("   ", DefaultWorkflowDataRoot, NullLogger<JsonWorkflowLoader>.Instance);
         act.Should().Throw<ArgumentException>()
             .WithParameterName("workflowsDirectoryPath");
+    }
+
+    [Fact]
+    public void Constructor_NullWorkflowDataRoot_Throws()
+    {
+        var act = () => new JsonWorkflowLoader(TestWorkDir(), null!, NullLogger<JsonWorkflowLoader>.Instance);
+        act.Should().Throw<ArgumentNullException>()
+            .WithParameterName("workflowDataRoot");
+    }
+
+    [Fact]
+    public void Constructor_WhitespaceWorkflowDataRoot_Throws()
+    {
+        var act = () => new JsonWorkflowLoader(TestWorkDir(), "   ", NullLogger<JsonWorkflowLoader>.Instance);
+        act.Should().Throw<ArgumentException>()
+            .WithParameterName("workflowDataRoot");
     }
 
     // ── Directory existence ────────────────────────────────────────────────────
@@ -674,6 +692,215 @@ public sealed class JsonWorkflowLoaderTests
             result.Failures.Should().HaveCount(1);
             result.Failures[0].FilePath.Should().Be(secondFile);
             result.Failures[0].ErrorMessage.Should().Contain("Duplicate workflow identity");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Filesystem hardening — segment legality (BL-061) ───────────────────────
+
+    [Fact]
+    public void LoadAll_IdSegmentContainsAsterisk_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "star.json"),
+                """{"hierarchicalPath": "A:B*C", "name": "WF", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("illegal");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_NameContainsIllegalChar_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "namestar.json"),
+                """{"hierarchicalPath": "wf1", "name": "Bad*Name", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("illegal");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_NameContainsControlChar_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // The "\\u0001" below is a literal JSON string escape (6 source chars,
+            // one backslash), decoded by the JSON parser into an actual U+0001
+            // character in the deserialized name string.
+            File.WriteAllText(Path.Combine(dir, "control.json"),
+                "{\"hierarchicalPath\": \"wf1\", \"name\": \"Bad\\u0001Name\", \"tasks\": []}");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("control character");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_NameEndsWithTrailingDot_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "trailingdot.json"),
+                """{"hierarchicalPath": "wf1", "name": "Trailing Dot.", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("trailing");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_NameEndsWithTrailingSpace_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "trailingspace.json"),
+                """{"hierarchicalPath": "wf1", "name": "Trailing Space ", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("trailing");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_HierarchicalPathIsBareReservedDeviceName_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // File name is deliberately NOT "nul.json": Windows redirects writes to
+            // a file whose base name is a reserved device name to the device itself,
+            // so such a file is never actually created for the loader to find.
+            File.WriteAllText(Path.Combine(dir, "bare-reserved-name.json"),
+                """{"hierarchicalPath": "NUL", "name": "WF", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("reserved device name");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_HierarchicalPathIsReservedDeviceNameWithExtension_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "contxt.json"),
+                """{"hierarchicalPath": "con.txt", "name": "WF", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("reserved device name");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_NormalWorkflow_StillLoadsUnderHardenedValidator()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "normal.json"),
+                """{"hierarchicalPath": "ITRQ RefYear2025:Stage 0", "name": "Normal Workflow", "tasks": []}""");
+
+            var result = Loader(dir).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows.Should().HaveCount(1);
+            result.Workflows[0].Name.Should().Be("Normal Workflow");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    // ── Filesystem hardening — resolved working-directory path length (BL-061) ─
+
+    [Fact]
+    public void LoadAll_ResolvedPathJustOverLimit_ReturnsAsFailure()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // root(100) + '\' + path(50) + '\' + name(47) -> workingDirPathLength = 200
+            // 200 + ChildBudget(60) = 260 > MaxPath(259) -> rejected
+            var root = new string('R', 100);
+            var hierarchicalPath = new string('A', 50);
+            var name = new string('B', 47);
+            File.WriteAllText(Path.Combine(dir, "toolong.json"),
+                $$"""{"hierarchicalPath": "{{hierarchicalPath}}", "name": "{{name}}", "tasks": []}""");
+
+            var result = Loader(dir, root).LoadAll();
+
+            result.Workflows.Should().BeEmpty();
+            result.Failures.Should().HaveCount(1);
+            result.Failures[0].ErrorMessage.Should().Contain("too long");
+        }
+        finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void LoadAll_ResolvedPathJustUnderLimit_LoadsSuccessfully()
+    {
+        var dir = TestWorkDir();
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // root(100) + '\' + path(50) + '\' + name(46) -> workingDirPathLength = 199
+            // 199 + ChildBudget(60) = 259 == MaxPath(259) -> not over, loads
+            var root = new string('R', 100);
+            var hierarchicalPath = new string('A', 50);
+            var name = new string('B', 46);
+            File.WriteAllText(Path.Combine(dir, "justunder.json"),
+                $$"""{"hierarchicalPath": "{{hierarchicalPath}}", "name": "{{name}}", "tasks": []}""");
+
+            var result = Loader(dir, root).LoadAll();
+
+            result.Failures.Should().BeEmpty();
+            result.Workflows.Should().HaveCount(1);
         }
         finally { try { Directory.Delete(dir, recursive: true); } catch (IOException) { } }
     }
