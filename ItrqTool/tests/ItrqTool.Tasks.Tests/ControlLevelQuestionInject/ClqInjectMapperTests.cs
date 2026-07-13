@@ -4,6 +4,7 @@ using ItrqTool.Tasks.ControlLevelQuestionInject;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV01;
 using ItrqTool.Tasks.ControlLevelQuestionValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
+using ItrqTool.Tasks.Shared;
 using Xunit;
 
 namespace ItrqTool.Tasks.Tests.ControlLevelQuestionInject;
@@ -105,13 +106,13 @@ public sealed class ClqInjectMapperTests
         ClqInjectConfig inject,
         ClqV01Config? config = null,
         IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)>? sourceHByRow = null,
-        IReadOnlyDictionary<int, ClqTargetDvHolder>? targetHByRow = null)
+        IReadOnlyDictionary<int, TargetDvInfo>? targetHByRow = null)
     {
         var result = new CrossFormatAlignmentResult<ClqV01Question, ClqV02Question>([match], []);
         return ClqInjectMapper.Map(
             result, inject, config ?? StandardConfig(),
             sourceHByRow: sourceHByRow ?? new Dictionary<int, (string?, object?, string?)>(),
-            targetHByRow: targetHByRow ?? new Dictionary<int, ClqTargetDvHolder>());
+            targetHByRow: targetHByRow ?? new Dictionary<int, TargetDvInfo>());
     }
 
     private static string? Cell(IReadOnlyList<CellWriteEntry> cells, int row, string column)
@@ -320,9 +321,9 @@ public sealed class ClqInjectMapperTests
     {
         var c = Current();
         var p = Previous(answer: "3", stability: "No");
-        var targetHByRow = new Dictionary<int, ClqTargetDvHolder>
+        var targetHByRow = new Dictionary<int, TargetDvInfo>
         {
-            [10] = new ClqTargetDvHolder(10, "List", null, null, null, ["1", "2", "3", "4"]),
+            [10] = new TargetDvInfo("List", null, null, null, ["1", "2", "3", "4"]),
         };
 
         var (cells, messages) = MapOne(
@@ -337,9 +338,9 @@ public sealed class ClqInjectMapperTests
     {
         var c = Current();
         var p = Previous(answer: "9", stability: "No");
-        var targetHByRow = new Dictionary<int, ClqTargetDvHolder>
+        var targetHByRow = new Dictionary<int, TargetDvInfo>
         {
-            [10] = new ClqTargetDvHolder(10, "List", null, null, null, ["1", "2", "3", "4"]),
+            [10] = new TargetDvInfo("List", null, null, null, ["1", "2", "3", "4"]),
         };
 
         var (cells, messages) = MapOne(
@@ -358,9 +359,9 @@ public sealed class ClqInjectMapperTests
     {
         var c = Current();
         var p = Previous(answer: "3", stability: "No");
-        var targetHByRow = new Dictionary<int, ClqTargetDvHolder>
+        var targetHByRow = new Dictionary<int, TargetDvInfo>
         {
-            [10] = new ClqTargetDvHolder(10, "List", null, null, null, null),
+            [10] = new TargetDvInfo("List", null, null, null, null),
         };
 
         var (cells, messages) = MapOne(

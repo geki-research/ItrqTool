@@ -162,29 +162,28 @@ public sealed class CellRangeInjectTask : IWorkflowTask
 
             // Resolve target List DV vocabulary — inline parsed here, range-ref/named-range resolved by
             // reusing the exact validation-path routine (DvRangeRefResolver) against the target workbook.
-            IReadOnlyList<TargetDvHolder> targetDvHolders = targetA1Ranges
+            IReadOnlyList<KeyedTargetDv<string>> targetDvInfos = targetA1Ranges
                 .Select(addr =>
                 {
                     targetCells.TryGetValue(addr, out var cell);
-                    return new TargetDvHolder(
-                        addr,
+                    return new KeyedTargetDv<string>(addr, new TargetDvInfo(
                         cell?.DataValidationType,
                         cell?.DataValidationOperator,
                         cell?.DataValidationFormula,
                         cell?.DataValidationFormula2,
-                        cell is null ? null : InlineListValues(cell));
+                        cell is null ? null : InlineListValues(cell)));
                 })
                 .ToList();
 
-            targetDvHolders = DvRangeRefResolver.Resolve(
-                _reader, targetTemplatePath, targetSheetName, targetDvHolders,
-                dvTypeSelector:            h => h.DvType,
-                dvFormulaSelector:         h => h.DvFormula,
-                currentListValuesSelector: h => h.ListValues,
-                stampListValues:           (h, vals) => h with { ListValues = vals });
+            targetDvInfos = DvRangeRefResolver.Resolve(
+                _reader, targetTemplatePath, targetSheetName, targetDvInfos,
+                dvTypeSelector:            h => h.Info.Type,
+                dvFormulaSelector:         h => h.Info.Formula,
+                currentListValuesSelector: h => h.Info.ListValues,
+                stampListValues:           (h, vals) => h with { Info = h.Info with { ListValues = vals } });
 
-            var targetDvByAddress = targetDvHolders.ToDictionary(
-                h => h.Address, StringComparer.OrdinalIgnoreCase);
+            var targetDvByAddress = targetDvInfos
+                .ToDictionary(h => h.Key, h => h.Info, StringComparer.OrdinalIgnoreCase);
 
             // 7. Build write entries — native value carries via TypedValue so the target number format is
             //    preserved. Each non-blank source value is gated through InjectionValueGuard against the
@@ -211,10 +210,10 @@ public sealed class CellRangeInjectTask : IWorkflowTask
                 var decision = InjectionValueGuard.Evaluate(
                     sourceText: sourceText,
                     sourceDvType: src?.DataValidationType,
-                    targetDvType: tgtDv?.DvType,
-                    targetDvOperator: tgtDv?.DvOperator,
-                    targetDvFormula: tgtDv?.DvFormula,
-                    targetDvFormula2: tgtDv?.DvFormula2,
+                    targetDvType: tgtDv?.Type,
+                    targetDvOperator: tgtDv?.Operator,
+                    targetDvFormula: tgtDv?.Formula,
+                    targetDvFormula2: tgtDv?.Formula2,
                     targetResolvedListValues: tgtDv?.ListValues,
                     sourceNative: src?.NativeValue);
 
@@ -296,13 +295,6 @@ public sealed class CellRangeInjectTask : IWorkflowTask
         value = string.Empty;
         return false;
     }
-
-    // Carries a target cell's DV fields (plus its resolved List vocabulary, once known) keyed by A1
-    // address, so DvRangeRefResolver.Resolve<T> — designed for per-question record collections — can be
-    // reused as-is for CellRangeInject's flat per-address cell collection.
-    private sealed record TargetDvHolder(
-        string Address, string? DvType, string? DvOperator, string? DvFormula, string? DvFormula2,
-        IReadOnlyList<string>? ListValues);
 
     // Mirrors the inline-List idiom frozen in RlqV01Profile / GdDvPatcher: a List-typed cell whose source
     // classifies as Inline → its parsed members; otherwise null (range-ref / named-range resolved next).

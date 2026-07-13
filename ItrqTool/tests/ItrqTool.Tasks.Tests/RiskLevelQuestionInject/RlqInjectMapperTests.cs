@@ -4,6 +4,7 @@ using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
 using ItrqTool.Tasks.RiskLevelQuestionInject;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV01;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV02;
+using ItrqTool.Tasks.Shared;
 using Xunit;
 
 namespace ItrqTool.Tasks.Tests.RiskLevelQuestionInject;
@@ -93,20 +94,20 @@ public sealed class RlqInjectMapperTests
 
     // Builds a target-DV lookup entry with only Type set — the mapper's decision logic (R1)
     // reads Type only, so tests that only need to drive that decision can omit the other fields.
-    private static RlqTargetDvHolder TgtDv(int row, string? type)
-        => new(row, type, Operator: null, Formula: null, Formula2: null, ListValues: null);
+    private static TargetDvInfo TgtDv(string? type)
+        => new(type, Operator: null, Formula: null, Formula2: null, ListValues: null);
 
     private static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) MapOne(
         CrossFormatMatch<RlqV02Question, RlqV01Question> match,
         RlqV02Config config,
         IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)>? sourceH = null,
-        IReadOnlyDictionary<int, RlqTargetDvHolder>? targetH = null)
+        IReadOnlyDictionary<int, TargetDvInfo>? targetH = null)
     {
         var result = new CrossFormatAlignmentResult<RlqV02Question, RlqV01Question>([match], []);
         return RlqInjectMapper.Map(
             result, config,
             sourceH ?? new Dictionary<int, (string?, object?, string?)>(),
-            targetH ?? new Dictionary<int, RlqTargetDvHolder>());
+            targetH ?? new Dictionary<int, TargetDvInfo>());
     }
 
     private static CellWriteEntry? Cell(IReadOnlyList<CellWriteEntry> cells, int row, string column)
@@ -118,7 +119,7 @@ public sealed class RlqInjectMapperTests
     public void Hg_EqualType_WritesNativeNoMessage()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 3.0, "3") };
-        var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "WholeNumber") };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = TgtDv("WholeNumber") };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev()), Config(), src, tgt);
 
@@ -135,7 +136,7 @@ public sealed class RlqInjectMapperTests
     public void Hg_WholeToDecimal_WritesNativePlusInfo()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 3.0, "3") };
-        var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "Decimal") };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = TgtDv("Decimal") };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev()), Config(), src, tgt);
 
@@ -151,7 +152,7 @@ public sealed class RlqInjectMapperTests
     public void Hg_DecimalToWhole_SkipsWithError()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("Decimal", 3.5, "3.5") };
-        var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "WholeNumber") };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = TgtDv("WholeNumber") };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev()), Config(), src, tgt);
 
@@ -167,7 +168,7 @@ public sealed class RlqInjectMapperTests
     public void Hg_IncompatibleTypes_EmitsErrorSkipsCellContinues()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("List", "Yes", "Yes") };
-        var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "WholeNumber") };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = TgtDv("WholeNumber") };
 
         var c = Cur(row: 10, expl: [Expl("expl-A", 11)]);
         var p = Prev(row: 100, answer: "Yes", providedBy: "Bob", expl: [Expl("expl-A", 101)]);
@@ -190,7 +191,7 @@ public sealed class RlqInjectMapperTests
     public void Hg_BlankSource_OmitsCell()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", null, null) };
-        var tgt = new Dictionary<int, RlqTargetDvHolder> { [10] = TgtDv(10, "WholeNumber") };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = TgtDv("WholeNumber") };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev(providedBy: null)), Config(), src, tgt);
 
@@ -205,9 +206,9 @@ public sealed class RlqInjectMapperTests
     public void Hg_ListTargetNonMemberSource_SkipsWithError()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = (null, "Maybe", "Maybe") };
-        var tgt = new Dictionary<int, RlqTargetDvHolder>
+        var tgt = new Dictionary<int, TargetDvInfo>
         {
-            [10] = new(10, "List", Operator: null, Formula: null, Formula2: null, ListValues: ["Yes", "No"])
+            [10] = new("List", Operator: null, Formula: null, Formula2: null, ListValues: ["Yes", "No"])
         };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev(answer: "Maybe")), Config(), src, tgt);
@@ -225,9 +226,9 @@ public sealed class RlqInjectMapperTests
     public void Hg_NumericOperatorBoundViolation_SkipsWithError()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 15.0, "15") };
-        var tgt = new Dictionary<int, RlqTargetDvHolder>
+        var tgt = new Dictionary<int, TargetDvInfo>
         {
-            [10] = new(10, "WholeNumber", Operator: "Between", Formula: "1", Formula2: "10", ListValues: null)
+            [10] = new("WholeNumber", Operator: "Between", Formula: "1", Formula2: "10", ListValues: null)
         };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev(answer: "15")), Config(), src, tgt);
@@ -244,9 +245,9 @@ public sealed class RlqInjectMapperTests
     public void Hg_CommaDecimalSource_NativeInBound_Injects()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("Decimal", 9.1, "9,1") };
-        var tgt = new Dictionary<int, RlqTargetDvHolder>
+        var tgt = new Dictionary<int, TargetDvInfo>
         {
-            [10] = new(10, "Decimal", Operator: "Between", Formula: "0", Formula2: "100", ListValues: null)
+            [10] = new("Decimal", Operator: "Between", Formula: "0", Formula2: "100", ListValues: null)
         };
 
         var (cells, messages) = MapOne(Agree(Cur(), Prev(answer: "9,1")), Config(), src, tgt);
@@ -371,7 +372,7 @@ public sealed class RlqInjectMapperTests
     {
         var cfg = Config(g: "X", j: "Y", p: "Z");
         var src = new Dictionary<int, (string?, object?, string?)> { [200] = ("WholeNumber", 5.0, "5") };
-        var tgt = new Dictionary<int, RlqTargetDvHolder> { [77] = TgtDv(77, "WholeNumber") };
+        var tgt = new Dictionary<int, TargetDvInfo> { [77] = TgtDv("WholeNumber") };
 
         var c = Cur(row: 77, expl: [Expl(null, 78), Expl(null, 79)]);
         var p = Prev(row: 200, providedBy: "PB", expl: [Expl("e1", 201), Expl("e2", 202)]);

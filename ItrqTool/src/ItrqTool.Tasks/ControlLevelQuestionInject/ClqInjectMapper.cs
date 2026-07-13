@@ -42,7 +42,7 @@ public static class ClqInjectMapper
         // BL-053 P4c-C2: keyed by sourceHByRow (v02 previous RowNumber) / targetHByRow (v01
         // current RowNumber). Mirrors RlqInjectMapper.Map's sourceHByRow/targetHByRow parameters.
         IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow,
-        IReadOnlyDictionary<int, ClqTargetDvHolder> targetHByRow)
+        IReadOnlyDictionary<int, TargetDvInfo> targetHByRow)
     {
         var cells = new List<CellWriteEntry>();
         var messages = new List<TaskMessage>();
@@ -132,7 +132,7 @@ public static class ClqInjectMapper
         ClqV02Question p,
         ClqV01Config cfg,
         IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow,
-        IReadOnlyDictionary<int, ClqTargetDvHolder> targetHByRow)
+        IReadOnlyDictionary<int, TargetDvInfo> targetHByRow)
     {
         // 1. blank source — checked FIRST, before any guard logic. Unchanged from before.
         if (string.IsNullOrWhiteSpace(p.Answer))

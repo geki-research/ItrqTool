@@ -39,7 +39,7 @@ public static class RlqInjectMapper
         CrossFormatAlignmentResult<RlqV02Question, RlqV01Question> alignment,
         RlqV02Config currentConfig,
         IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow, // keyed by v01 source RowNumber
-        IReadOnlyDictionary<int, RlqTargetDvHolder> targetHByRow)                // keyed by v02 current RowNumber
+        IReadOnlyDictionary<int, TargetDvInfo> targetHByRow)                // keyed by v02 current RowNumber
     {
         var cells = new List<CellWriteEntry>();
         var messages = new List<TaskMessage>();
@@ -90,7 +90,7 @@ public static class RlqInjectMapper
         RlqV01Question p,
         RlqV02Config cfg,
         IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> sourceHByRow,
-        IReadOnlyDictionary<int, RlqTargetDvHolder> targetHByRow)
+        IReadOnlyDictionary<int, TargetDvInfo> targetHByRow)
     {
         sourceHByRow.TryGetValue(p.RowNumber, out var src); // (null, null, null) when absent
         targetHByRow.TryGetValue(c.RowNumber, out var targetHolder);

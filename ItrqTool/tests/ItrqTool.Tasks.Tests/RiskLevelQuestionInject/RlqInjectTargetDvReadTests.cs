@@ -5,6 +5,7 @@ using Xunit;
 using ItrqTool.Domain;
 using ItrqTool.Tasks.RiskLevelQuestionInject;
 using ItrqTool.Tasks.RiskLevelQuestionValidationV02;
+using ItrqTool.Tasks.Shared;
 using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks.Tests.RiskLevelQuestionInject;
@@ -51,7 +52,7 @@ public sealed class RlqInjectTargetDvReadTests
 
     // Invokes the private BuildTargetHLookup(path, sheetName, config, questions) via reflection —
     // writer/mediator are unused by this method, so dummy substitutes suffice.
-    private static IReadOnlyDictionary<int, RlqTargetDvHolder> InvokeBuildTargetHLookup(
+    private static IReadOnlyDictionary<int, TargetDvInfo> InvokeBuildTargetHLookup(
         IExcelStructureReader reader, string path, string sheetName,
         RlqV02Config config, IReadOnlyList<RlqV02Question> questions)
     {
@@ -63,7 +64,7 @@ public sealed class RlqInjectTargetDvReadTests
         method.Should().NotBeNull("BuildTargetHLookup must still exist as a private instance method");
 
         var result = method!.Invoke(task, [path, sheetName, config, questions]);
-        return (IReadOnlyDictionary<int, RlqTargetDvHolder>)result!;
+        return (IReadOnlyDictionary<int, TargetDvInfo>)result!;
     }
 
     // ── 1. Value-typed target (WholeNumber, bounded) → Type/Operator/Formula/Formula2 captured ──

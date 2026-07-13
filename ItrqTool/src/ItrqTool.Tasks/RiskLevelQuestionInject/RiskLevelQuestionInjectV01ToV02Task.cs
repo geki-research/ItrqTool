@@ -238,40 +238,39 @@ public sealed class RiskLevelQuestionInjectV01ToV02Task : IWorkflowTask
     // resolved via the shared DvRangeRefResolver, reused as-is against this task's own _reader
     // and currentPath). The mapper still derives its decision from Type only (byte-equivalent to
     // today) — the richer fields are populated but unread until R2 wires InjectionValueGuard in.
-    private IReadOnlyDictionary<int, RlqTargetDvHolder> BuildTargetHLookup(
+    private IReadOnlyDictionary<int, TargetDvInfo> BuildTargetHLookup(
         string path, string sheetName, RlqV02Config config,
         IReadOnlyList<RlqV02Question> questions)
     {
         if (questions.Count == 0)
-            return new Dictionary<int, RlqTargetDvHolder>();
+            return new Dictionary<int, TargetDvInfo>();
 
         var col    = config.AnswerColumn;
         var minRow = questions.Min(q => q.RowNumber);
         var maxRow = questions.Max(q => q.RowNumber);
         var cells  = _reader.ReadCells(path, sheetName, [$"{col}{minRow}:{col}{maxRow}"]);
 
-        IReadOnlyList<RlqTargetDvHolder> holders = questions
+        IReadOnlyList<KeyedTargetDv<int>> keyed = questions
             .Select(q =>
             {
                 cells.TryGetValue($"{col}{q.RowNumber}", out var cell);
-                return new RlqTargetDvHolder(
-                    q.RowNumber,
+                return new KeyedTargetDv<int>(q.RowNumber, new TargetDvInfo(
                     cell?.DataValidationType,
                     cell?.DataValidationOperator,
                     cell?.DataValidationFormula,
                     cell?.DataValidationFormula2,
-                    cell is null ? null : InlineListValues(cell));
+                    cell is null ? null : InlineListValues(cell)));
             })
             .ToList();
 
-        holders = DvRangeRefResolver.Resolve(
-            _reader, path, sheetName, holders,
-            dvTypeSelector:            h => h.Type,
-            dvFormulaSelector:         h => h.Formula,
-            currentListValuesSelector: h => h.ListValues,
-            stampListValues:           (h, vals) => h with { ListValues = vals });
+        keyed = DvRangeRefResolver.Resolve(
+            _reader, path, sheetName, keyed,
+            dvTypeSelector:            h => h.Info.Type,
+            dvFormulaSelector:         h => h.Info.Formula,
+            currentListValuesSelector: h => h.Info.ListValues,
+            stampListValues:           (h, vals) => h with { Info = h.Info with { ListValues = vals } });
 
-        return holders.ToDictionary(h => h.RowNumber);
+        return keyed.ToDictionary(h => h.Key, h => h.Info);
     }
 
     // Mirrors the inline-List idiom frozen in RlqV01Profile / GdDvPatcher / CellRangeInjectTask:

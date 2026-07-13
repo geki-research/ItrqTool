@@ -4,6 +4,7 @@ using ItrqTool.Tasks.GeneralDataInject;
 using ItrqTool.Tasks.GeneralDataValidationV01;
 using ItrqTool.Tasks.GeneralDataValidationV02;
 using ItrqTool.Tasks.QuestionnaireValidation.Alignment;
+using ItrqTool.Tasks.Shared;
 using Xunit;
 
 namespace ItrqTool.Tasks.Tests.GeneralDataInject;
@@ -84,7 +85,7 @@ public sealed class GdInjectMapperTests
         GdV01Question p,
         GdV02Config config,
         IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)>? sourceH = null,
-        IReadOnlyDictionary<int, GdTargetDvHolder>? targetH = null)
+        IReadOnlyDictionary<int, TargetDvInfo>? targetH = null)
     {
         var match = new CrossFormatMatch<GdV02Question, GdV01Question>(
             c, CrossYearOutcome.Agree, p, p, p, 0.95);
@@ -93,7 +94,7 @@ public sealed class GdInjectMapperTests
         return GdInjectMapper.Map(
             result, config,
             sourceH ?? new Dictionary<int, (string?, object?, string?)>(),
-            targetH ?? new Dictionary<int, GdTargetDvHolder>());
+            targetH ?? new Dictionary<int, TargetDvInfo>());
     }
 
     private static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) MapOutcome(
@@ -105,7 +106,7 @@ public sealed class GdInjectMapperTests
         return GdInjectMapper.Map(
             result, config,
             new Dictionary<int, (string?, object?, string?)>(),
-            new Dictionary<int, GdTargetDvHolder>());
+            new Dictionary<int, TargetDvInfo>());
     }
 
     private static CellWriteEntry? Cell(IReadOnlyList<CellWriteEntry> cells, int row, string column)
@@ -117,7 +118,7 @@ public sealed class GdInjectMapperTests
     public void Hg_EqualType_WritesNativeNoMessage()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 3.0, "3") };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", null, null, null, null) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = new TargetDvInfo("WholeNumber", null, null, null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
@@ -134,7 +135,7 @@ public sealed class GdInjectMapperTests
     public void Hg_WholeToDecimal_WritesNativePlusInfo()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 3.0, "3") };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "Decimal", null, null, null, null) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = new TargetDvInfo("Decimal", null, null, null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
@@ -150,7 +151,7 @@ public sealed class GdInjectMapperTests
     public void Hg_DecimalToWhole_SkipsWithError()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("Decimal", 3.5, "3.5") };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", null, null, null, null) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = new TargetDvInfo("WholeNumber", null, null, null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
@@ -166,7 +167,7 @@ public sealed class GdInjectMapperTests
     public void Hg_IncompatibleTypes_EmitsErrorSkipsCellContinues()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("List", "Yes", "Yes") };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", null, null, null, null) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = new TargetDvInfo("WholeNumber", null, null, null, null) };
 
         var c = CurQ(answers: new[] { CurAns(anchorRow: 10, expl: new[] { Expl(null, 11) }) });
         var p = PrevQ(answers: new[]
@@ -192,7 +193,7 @@ public sealed class GdInjectMapperTests
     public void Hg_BlankSource_OmitsCell()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", null, null) };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", null, null, null, null) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = new TargetDvInfo("WholeNumber", null, null, null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
@@ -206,7 +207,7 @@ public sealed class GdInjectMapperTests
     public void Hg_ListTargetNonMemberSource_SkipsWithError()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("List", "Maybe", "Maybe") };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "List", null, null, null, ["Yes", "No"]) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = new TargetDvInfo("List", null, null, null, ["Yes", "No"]) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
@@ -222,7 +223,7 @@ public sealed class GdInjectMapperTests
     public void Hg_ValueTypedTargetViolatesBound_SkipsWithError()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("WholeNumber", 20.0, "20") };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "WholeNumber", "LessThan", "10", null, null) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = new TargetDvInfo("WholeNumber", "LessThan", "10", null, null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
@@ -238,7 +239,7 @@ public sealed class GdInjectMapperTests
     public void Hg_CommaDecimalSource_NativeInBound_Injects()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("Decimal", 9.1, "9,1") };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [10] = new GdTargetDvHolder(10, "Decimal", "Between", "0", "100", null) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [10] = new TargetDvInfo("Decimal", "Between", "0", "100", null) };
 
         var (cells, messages) = MapAgree(CurQ(), PrevQ(), Config(), src, tgt);
 
@@ -386,10 +387,10 @@ public sealed class GdInjectMapperTests
             [100] = ("List", "x", "x"),
             [200] = ("List", "y", "y"),
         };
-        var tgt = new Dictionary<int, GdTargetDvHolder>
+        var tgt = new Dictionary<int, TargetDvInfo>
         {
-            [10] = new GdTargetDvHolder(10, "List", null, null, null, ["x", "y"]),
-            [20] = new GdTargetDvHolder(20, "List", null, null, null, ["x", "y"]),
+            [10] = new TargetDvInfo("List", null, null, null, ["x", "y"]),
+            [20] = new TargetDvInfo("List", null, null, null, ["x", "y"]),
         };
 
         var c = CurQ(answers: new[]
@@ -418,10 +419,10 @@ public sealed class GdInjectMapperTests
     public void UnmatchedCurrentAnswer_NoWrites()
     {
         var src = new Dictionary<int, (string?, object?, string?)> { [100] = ("List", "x", "x") };
-        var tgt = new Dictionary<int, GdTargetDvHolder>
+        var tgt = new Dictionary<int, TargetDvInfo>
         {
-            [10] = new GdTargetDvHolder(10, "List", null, null, null, ["x", "y"]),
-            [20] = new GdTargetDvHolder(20, "List", null, null, null, ["x", "y"]),
+            [10] = new TargetDvInfo("List", null, null, null, ["x", "y"]),
+            [20] = new TargetDvInfo("List", null, null, null, ["x", "y"]),
         };
 
         var c = CurQ(answers: new[]
@@ -450,7 +451,7 @@ public sealed class GdInjectMapperTests
     {
         var cfg = Config(g: "X", j: "Y", p: "Z");
         var src = new Dictionary<int, (string?, object?, string?)> { [200] = ("WholeNumber", 5.0, "5") };
-        var tgt = new Dictionary<int, GdTargetDvHolder> { [77] = new GdTargetDvHolder(77, "WholeNumber", null, null, null, null) };
+        var tgt = new Dictionary<int, TargetDvInfo> { [77] = new TargetDvInfo("WholeNumber", null, null, null, null) };
 
         var c = CurQ(answers: new[]
         {

@@ -5,6 +5,7 @@ using Xunit;
 using ItrqTool.Domain;
 using ItrqTool.Tasks.GeneralDataInject;
 using ItrqTool.Tasks.GeneralDataValidationV02;
+using ItrqTool.Tasks.Shared;
 using ItrqTool.Tasks.WorksheetStructure;
 
 namespace ItrqTool.Tasks.Tests.GeneralDataInject;
@@ -48,7 +49,7 @@ public sealed class GdInjectTargetDvReadTests
 
     // Invokes the private BuildTargetHLookup(path, sheetName, config, questions) via reflection —
     // writer/mediator are unused by this method, so dummy substitutes suffice.
-    private static IReadOnlyDictionary<int, GdTargetDvHolder> InvokeBuildTargetHLookup(
+    private static IReadOnlyDictionary<int, TargetDvInfo> InvokeBuildTargetHLookup(
         IExcelStructureReader reader, string path, string sheetName,
         GdV02Config config, IReadOnlyList<GdV02Question> questions)
     {
@@ -60,7 +61,7 @@ public sealed class GdInjectTargetDvReadTests
         method.Should().NotBeNull("BuildTargetHLookup must still exist as a private instance method");
 
         var result = method!.Invoke(task, [path, sheetName, config, questions]);
-        return (IReadOnlyDictionary<int, GdTargetDvHolder>)result!;
+        return (IReadOnlyDictionary<int, TargetDvInfo>)result!;
     }
 
     // ── 1. Value-typed target (WholeNumber, bounded) → Type/Operator/Formula/Formula2 captured ──
