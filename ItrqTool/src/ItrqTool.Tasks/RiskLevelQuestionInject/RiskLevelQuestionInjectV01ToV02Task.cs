@@ -236,8 +236,8 @@ public sealed class RiskLevelQuestionInjectV01ToV02Task : IWorkflowTask
     // validation rule (type, operator, both formulas, resolved List vocabulary), mirroring the
     // CellRangeInject-P3 target-DV read idiom (inline-List parsed here; range-ref / named-range
     // resolved via the shared DvRangeRefResolver, reused as-is against this task's own _reader
-    // and currentPath). The mapper still derives its decision from Type only (byte-equivalent to
-    // today) — the richer fields are populated but unread until R2 wires InjectionValueGuard in.
+    // and currentPath). The full rule is consumed by RlqInjectMapper.MapAnswer via
+    // InjectionValueGuard.Evaluate — not Type alone (wired since BL-053 P4b-R2).
     private IReadOnlyDictionary<int, TargetDvInfo> BuildTargetHLookup(
         string path, string sheetName, RlqV02Config config,
         IReadOnlyList<RlqV02Question> questions)

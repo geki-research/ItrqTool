@@ -258,9 +258,9 @@ public sealed class GeneralDataInjectV01ToV02Task : IWorkflowTask
     // validation rule (type, operator, both formulas, resolved List vocabulary), mirroring the
     // RLQ inject-R1 target-DV read idiom (inline-List parsed here; range-ref / named-range
     // resolved via the shared DvRangeRefResolver, reused as-is against this task's own _reader
-    // and currentPath), adapted to GD's per-ANSWER AnchorRow grain. The mapper still derives its
-    // decision from Type only (byte-equivalent to today) — the richer fields are populated but
-    // unread until a later phase wires the injection value guard in.
+    // and currentPath), adapted to GD's per-ANSWER AnchorRow grain. The full rule is consumed by
+    // GdInjectMapper.MapAnswer via InjectionValueGuard.Evaluate — not Type alone (wired since
+    // BL-053 P4b-G2).
     private IReadOnlyDictionary<int, TargetDvInfo> BuildTargetHLookup(
         string path, string sheetName, GdV02Config config,
         IReadOnlyList<GdV02Question> questions)

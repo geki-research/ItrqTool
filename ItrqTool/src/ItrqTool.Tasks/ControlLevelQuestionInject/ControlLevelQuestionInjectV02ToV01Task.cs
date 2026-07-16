@@ -220,8 +220,9 @@ public sealed class ControlLevelQuestionInjectV02ToV01Task : IWorkflowTask
     }
 
     // BL-053 P4c-C1 (additive, read-phase only): reads the source answer cell's DV category,
-    // native value, and TextValue, mirroring RlqInject's BuildSourceHLookup idiom. Unread by
-    // ClqInjectMapper this phase — dormant plumbing for a later guard-wiring phase.
+    // native value, and TextValue, mirroring RlqInject's BuildSourceHLookup idiom. Consumed by
+    // ClqInjectMapper.MapCarryForwardAnswer via InjectionValueGuard.Evaluate (wired since
+    // BL-053 P4c-C2).
     private IReadOnlyDictionary<int, (string? DvType, object? Native, string? TextValue)> BuildSourceHLookup(
         string path, string sheetName, ControlLevelQuestionValidationV02Config config,
         IReadOnlyList<ClqV02Question> questions)
@@ -247,7 +248,8 @@ public sealed class ControlLevelQuestionInjectV02ToV01Task : IWorkflowTask
     // validation rule (type, operator, both formulas, resolved List vocabulary), mirroring the
     // RlqInject-P4b-R1 idiom (inline-List parsed here; range-ref / named-range resolved via the
     // shared DvRangeRefResolver, reused as-is against this task's own _reader and currentPath).
-    // Unread by ClqInjectMapper this phase — dormant plumbing for a later guard-wiring phase.
+    // Consumed by ClqInjectMapper.MapCarryForwardAnswer via InjectionValueGuard.Evaluate (wired
+    // since BL-053 P4c-C2).
     private IReadOnlyDictionary<int, TargetDvInfo> BuildTargetHLookup(
         string path, string sheetName, ClqV01Config config,
         IReadOnlyList<ClqV01Question> questions)
