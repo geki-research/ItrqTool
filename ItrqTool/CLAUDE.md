@@ -219,9 +219,12 @@ public record TaskExecutionContext(
     IReadOnlyDictionary<string, string> InputPaths,    // logical key → resolved absolute path
     IReadOnlyDictionary<string, string> OutputPaths,   // logical key → resolved absolute path
     ILogger Logger,
-    string WorkingDirectory,
-    IReadOnlyDictionary<string, string> Parameters   // static config from workflow JSON node
-);
+    string WorkingDirectory
+)
+{
+    public IReadOnlyDictionary<string, string> Parameters { get; init; }   // static config from workflow JSON node
+        = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+}
 
 // ── Task result ────────────────────────────────────────────────────────────────
 
@@ -295,9 +298,14 @@ response (cross-year: question identity), emitting a `ValidationReport` consumed
 All validation stacks run on the version-neutral `ItrqTool.Tasks.QuestionnaireValidation` core: a per-version
 record (`: IAlignmentIdentity`), a config (`: IClqBaselineConfig`), a `…Profile.Build` that composes
 `ClqBaselineChecks` (the 18 CLQ findings) plus declarative extension primitives, and a thin task that calls
-either `ValidationPipeline.Run` (single-row validators, e.g. CLQ) or `ValidationPipeline.RunFromParsedGated`
-(multi-row validators such as RLQ-v01/v02 that supply their own bespoke parser and call `RunFromParsedGated` —
-the identity-gate overload, `HaltOnMalformedKeys:true` — after their own read/parse/patch).
+into `ValidationPipeline`, which nests four entry points from full-IO down to pre-aligned:
+`Run` (reads + parses + DV-patches all three workbooks, then calls) → `RunFromParsed` (IO-free,
+thin projection to findings, then calls) → `RunFromParsedGated` (aligns via `AlignmentEngine.Align`,
+then calls) → `RunFromAlignedGated` (the catalogue/gate/baseline/extension chain against an
+already-built `AlignmentResult<T>`). Single-row validators (e.g. CLQ) call `Run`; multi-row
+validators that supply their own bespoke parser (RLQ-v01/v02) call `RunFromParsedGated` directly
+(the identity-gate overload, `HaltOnMalformedKeys:true`) after their own read/parse/patch; GD-v01
+calls `RunFromAlignedGated` directly, owning its own alignment.
 - **`clq-validation` (v01)** — `ClqV01Profile`; column map D/E/F/H/I/J/**M**/**N**, no K stability column.
 - **`clq-validation-v02`** — `ClqV02Profile`; inserts answer-stability at **K** (provided-by → N, xref-id → O).
 - **RLQ-v01/v02** (`RiskLevelQuestionValidation_v01` / `_v02`) — `RlqV01Profile` / `RlqV02Profile`; bespoke
@@ -305,6 +313,13 @@ the identity-gate overload, `HaltOnMalformedKeys:true` — after their own read/
   **`RunFromParsedGated`** (identity gate, `HaltOnMalformedKeys:true`). See the `rlq-validation` skill.
 - **RLQ inject (`RiskLevelQuestionInject_v01_to_v02`)** — reference-only v01→v02 injector (no carry-forward);
   its v01→v02 read/write pair is a VCP-frozen contract. See the `rlq-validation` skill.
+- **GD-v01** (`GeneralDataValidation_v01`, `GeneralDataValidationV01Task`) — mirrors the RLQ task shape
+  (own multi-row parser `GdV01QuestionParser`, own DV patcher `GdDvPatcher`) but owns its own aligner
+  (`GdV01Aligner`) and enters the pipeline at **`RunFromAlignedGated`** directly (not
+  `RunFromParsedGated`) since alignment is already done by the time the task calls in. A GD-local
+  section-header gate (`GdSectionHeaderGate`) runs pre-align; a mismatch halts the pipeline chain but
+  the task still `Succeeds` (a data finding, not a task failure). There is no `gd-validation` skill —
+  this entry is GD-v01's complete documented shape.
 
 The cheap, supported change is **adding, removing, or altering a within-year input column** on the
 core — see "Implementing an auditor-mandated column change" below. A change affecting **cross-year
