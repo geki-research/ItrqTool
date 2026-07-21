@@ -148,7 +148,11 @@ public static class RlqV01Profile
                     providedBySelector:     q => q.ProvidedBy,
                     role:      "answer",
                     column:    config.AnswerColumn,
-                    threshold: config.DeviationThreshold),
+                    threshold: config.DeviationThreshold,
+                    // One selector, both sides: the patcher stamps the native per workbook, so the
+                    // previous record carries its own. Keeps a comma-decimal answer from being
+                    // silently read as a thousands-grouped integer on either side of the compare.
+                    nativeSelector: q => q.AnswerNativeValue),
                 // Per-row explanation completeness (finding 6b): for each explanation row where a
                 // request (I) is present but the current explanation (K) is blank, emit one finding
                 // at K{row}. Input-only (current workbook); one finding per offending row.
