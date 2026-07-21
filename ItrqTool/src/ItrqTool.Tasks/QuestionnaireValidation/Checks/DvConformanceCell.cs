@@ -35,6 +35,7 @@ public sealed class DvConformanceCell<T> : IExtensionCheck<T> where T : class, I
     private readonly Func<T, string?> _dvFormula2;
     private readonly Func<T, IReadOnlyList<string>?> _listValues;
     private readonly Func<T, string?> _providedBy;
+    private readonly Func<T, object?>? _native;
     private readonly string _column;
     private readonly string _notConformantId;
     private readonly string _unresolvableId;
@@ -51,7 +52,8 @@ public sealed class DvConformanceCell<T> : IExtensionCheck<T> where T : class, I
         string role,
         string column,
         FindingEvaluation notConformantDefault = FindingEvaluation.Error,
-        FindingEvaluation unresolvableDefault = FindingEvaluation.Error)
+        FindingEvaluation unresolvableDefault = FindingEvaluation.Error,
+        Func<T, object?>? nativeSelector = null)
     {
         _value = valueSelector ?? throw new ArgumentNullException(nameof(valueSelector));
         _dvType = dvTypeSelector ?? throw new ArgumentNullException(nameof(dvTypeSelector));
@@ -60,6 +62,7 @@ public sealed class DvConformanceCell<T> : IExtensionCheck<T> where T : class, I
         _dvFormula2 = dvFormula2Selector ?? throw new ArgumentNullException(nameof(dvFormula2Selector));
         _listValues = listValuesSelector ?? throw new ArgumentNullException(nameof(listValuesSelector));
         _providedBy = providedBySelector ?? throw new ArgumentNullException(nameof(providedBySelector));
+        _native = nativeSelector;   // optional — null keeps the invariant text-parse path byte-for-byte
         if (string.IsNullOrWhiteSpace(role)) throw new ArgumentException("role must be non-empty.", nameof(role));
         if (string.IsNullOrWhiteSpace(column)) throw new ArgumentException("column must be non-empty.", nameof(column));
         _column = column;
@@ -97,10 +100,14 @@ public sealed class DvConformanceCell<T> : IExtensionCheck<T> where T : class, I
             if (string.IsNullOrWhiteSpace(value))
                 continue;
 
+            // Native (when wired) is read from CURRENT, exactly like the text value — the two are
+            // the same cell rendered two ways. Passed independently as sourceNative; the text
+            // argument is never a re-stringify of it.
             var result = DvConformanceEvaluator.Evaluate(
                 value!,
                 _dvType(tmpl), _dvOp(tmpl), _dvFormula(tmpl), _dvFormula2(tmpl),
-                _listValues(tmpl));
+                _listValues(tmpl),
+                _native?.Invoke(cur));
 
             if (result == DvConformanceResult.NotConformant)
             {

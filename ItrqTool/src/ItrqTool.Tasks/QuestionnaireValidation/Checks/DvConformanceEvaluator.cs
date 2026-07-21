@@ -48,8 +48,10 @@ public static class DvConformanceEvaluator
     /// Optional native CLR value of the source cell (a boxed <c>double</c> for numeric cells). When
     /// present for a WholeNumber/Decimal DV, it is compared directly — no text parse, so no locale
     /// assumption — bypassing the comma-decimal false-reject a rendered <paramref name="value"/>
-    /// string can hit under an invariant parse. Null (the default, and every validation caller)
-    /// preserves the existing invariant text-parse path byte-for-byte.
+    /// string can hit under an invariant parse. Validation callers thread it where a numeric DV is
+    /// in play (the RLQ answer-column conformance sites); callers on List-typed columns leave it
+    /// null, as do callers with no native to hand. Null (the default) preserves the existing
+    /// invariant text-parse path byte-for-byte.
     /// </param>
     public static DvConformanceResult Evaluate(
         string value,

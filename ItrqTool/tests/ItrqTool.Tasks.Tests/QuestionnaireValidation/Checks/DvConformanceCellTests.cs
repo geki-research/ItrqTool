@@ -28,16 +28,20 @@ public sealed class DvConformanceCellTests
         string OriginalText = "orig",
         string QuestionText = "What?",
         string SectionName = "Section",
-        string? QuestionNumber = "1") : IAlignmentIdentity;
+        string? QuestionNumber = "1",
+        object? Native = null) : IAlignmentIdentity;
 
     private const string Role = "answer";
     private const string Column = "H";
 
+    // nativeSelector is wired here so every existing assert also proves the default path is
+    // unchanged when the record carries no native (Native == null → today's text parse).
     private static DvConformanceCell<DvTestQuestion> Primitive(
         FindingEvaluation def = FindingEvaluation.Error) =>
         new(q => q.Value,
             q => q.DvType, q => q.DvOp, q => q.DvFormula, q => q.DvFormula2,
-            q => q.ListValues, q => q.ProvidedBy, Role, Column, def);
+            q => q.ListValues, q => q.ProvidedBy, Role, Column, def,
+            nativeSelector: q => q.Native);
 
     private static AlignedQuestion<DvTestQuestion> Aq(
         DvTestQuestion cur,
@@ -61,8 +65,10 @@ public sealed class DvConformanceCellTests
         string? f2 = null, IReadOnlyList<string>? list = null) =>
         new(row, Value: null, type, op, f1, f2, list);
 
-    private static DvTestQuestion Cur(int row, string? value, string? providedBy = null) =>
-        new(row, value, DvType: null, DvOp: null, DvFormula: null, DvFormula2: null, ProvidedBy: providedBy);
+    private static DvTestQuestion Cur(int row, string? value, string? providedBy = null,
+        object? native = null) =>
+        new(row, value, DvType: null, DvOp: null, DvFormula: null, DvFormula2: null,
+            ProvidedBy: providedBy, Native: native);
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
@@ -161,5 +167,38 @@ public sealed class DvConformanceCellTests
         };
         p.Run(Result(Aq(cur, tmpl: tmpl)), Emitter(p, overrides))
             .Should().ContainSingle().Which.Evaluation.Should().Be(FindingEvaluation.Warning);
+    }
+
+    // ── Native-value threading (BLG-0022/decimal-conformance) ────────────────────
+    //
+    // These two use DV type Decimal DELIBERATELY: the Decimal branch has no non-integral guard, so
+    // the native path and the invariant text path diverge cleanly and the plumbing is visible. This
+    // proves the CELL-level threading only — it does NOT claim RLQ answers are Decimal in
+    // production (they are WholeNumber); the end-to-end Decimal fixture proof lives in chunk 5.
+
+    [Fact]
+    public void CommaDecimalInRange_WithNative_IsConformant_NoFinding()
+    {
+        // A European-locale comma-decimal answer: the invariant text parse of "9,1" fails, which
+        // used to produce a FALSE NotConformant. With the native threaded, 9.1 ∈ [0,100] → clean.
+        var tmpl = Tmpl(6, "Decimal", "Between", "0", "100");
+        var cur = Cur(6, value: "9,1", native: 9.1d);
+        var p = Primitive();
+
+        p.Run(Result(Aq(cur, tmpl: tmpl)), Emitter(p)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CommaDecimalOutOfRange_WithNative_StillSurfacesFinding()
+    {
+        // CNV-0029 companion: the fix must not convert a genuinely out-of-range value into a pass.
+        // Only the false locale rejection disappears — 150.5 ∉ [0,100] still surfaces at H6.
+        var tmpl = Tmpl(6, "Decimal", "Between", "0", "100");
+        var cur = Cur(6, value: "150,5", native: 150.5d);
+        var p = Primitive();
+
+        var f = p.Run(Result(Aq(cur, tmpl: tmpl)), Emitter(p)).Should().ContainSingle().Subject;
+        f.CellAddresses.Should().Be("H6");
+        f.Check.Should().Be(ValidationCheck.InputConformance);
     }
 }

@@ -45,5 +45,12 @@ public sealed record RlqV02Question(
     // the conformance evaluator treats the List as NotCheckable rather than false-positiving.
     // Trailing-optional with defaults so no existing construction site changes.
     IReadOnlyList<string>? AnswerDvListValues = null,
-    IReadOnlyList<string>? MaterialChangeDvListValues = null
+    IReadOnlyList<string>? MaterialChangeDvListValues = null,
+    // Locale-safe native CLR value of the ANSWER cell (H) — a boxed double for numeric cells.
+    // Null at parse time; stamped in the patch phase from ExcelCellStructure.NativeValue by the
+    // answer DV-role, alongside the four answer-DV strings. Threaded to DvConformanceEvaluator as
+    // sourceNative so a comma-decimal answer is compared numerically instead of being parsed as
+    // invariant text (a false NotConformant). NEVER re-stringified back into the text value.
+    // Trailing-optional with a default so no existing construction site changes.
+    object? AnswerNativeValue = null
 ) : IAlignmentIdentity;

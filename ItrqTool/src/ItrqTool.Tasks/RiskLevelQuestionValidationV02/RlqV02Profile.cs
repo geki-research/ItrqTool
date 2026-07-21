@@ -42,6 +42,11 @@ public static class RlqV02Profile
                      AnswerDvFormula  = cell.DataValidationFormula,
                      AnswerDvOperator = cell.DataValidationOperator,
                      AnswerDvFormula2 = cell.DataValidationFormula2,
+                     // Locale-safe native for DV-conformance (read from the SAME cell as the text
+                     // value; never a re-stringify of it). The patcher runs per workbook, so this
+                     // lands the native on the CURRENT record — which is what DvConformanceCell's
+                     // value-from-cur / DV-from-tmpl split requires.
+                     AnswerNativeValue = cell.NativeValue,
                      AnswerDvListValues =
                          string.Equals(cell.DataValidationType, "List", StringComparison.OrdinalIgnoreCase)
                          && DvListParser.ClassifySource(cell.DataValidationFormula ?? "") == DvListSourceKind.Inline
@@ -104,7 +109,10 @@ public static class RlqV02Profile
                     listValuesSelector: q => q.AnswerDvListValues,
                     providedBySelector: q => q.ProvidedBy,
                     role:   "answer",
-                    column: config.AnswerColumn),
+                    column: config.AnswerColumn,
+                    nativeSelector: q => q.AnswerNativeValue),
+                // No nativeSelector here — L is a List DV, and the evaluator's native compare only
+                // fires for WholeNumber/Decimal. The asymmetry with the answer site is intentional.
                 new DvConformanceCell<RlqV02Question>(
                     valueSelector:      q => q.MaterialChange,
                     dvTypeSelector:     q => q.MaterialChangeDvType,
