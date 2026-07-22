@@ -108,7 +108,11 @@ public static class GdV01Profile
                     dvTypeSelector:        a => a.AnswerDvType,
                     providedBySelector:    a => a.ProvidedBy,
                     column:                config.AnswerColumn,
-                    threshold:             config.DeviationThreshold),
+                    threshold:             config.DeviationThreshold,
+                    // Native (H) preferred per side → a comma-decimal answer compares numerically,
+                    // not consumed as a thousands separator (BLG-0022/decimal-deviation).
+                    currentNativeSelector:  a => a.AnswerNativeValue,
+                    previousNativeSelector: a => a.AnswerNativeValue),
 
                 // ── explanation completeness (per explanation row, flattened across answers) ──
                 new ExplanationCompletenessCell<GdV01Question>(
