@@ -88,6 +88,11 @@ public static class GdDvPatcher
                 AnswerDvOperator   = h.DataValidationOperator,
                 AnswerDvFormula2   = h.DataValidationFormula2,
                 AnswerDvListValues = InlineListValues(h),
+                // Native answer value stamped per-answer off the H cell (mirrors the DV strings
+                // above; same cell, native rendering). Threaded into DV conformance as sourceNative
+                // (BLG-0022/decimal-conformance). L (material-change) is a List DV → native never
+                // fires there, so only H carries it.
+                AnswerNativeValue  = h.NativeValue,
             };
 
         if (lCells.TryGetValue($"{matChgCol}{answer.AnchorRow}", out var l))

@@ -32,4 +32,11 @@ public sealed record GdAnswer(
     // Resolved DV List allowed-values (inline / range-ref / named-range), populated in the
     // patch phase for List-typed answer / material-change cells. Null ⇒ unresolved.
     IReadOnlyList<string>? AnswerDvListValues = null,
-    IReadOnlyList<string>? MaterialChangeDvListValues = null);
+    IReadOnlyList<string>? MaterialChangeDvListValues = null,
+    // Native CLR value of the answer cell H (a boxed double for numeric cells), stamped alongside
+    // the answer DV fields by GdDvPatcher.StampInline. Threaded into DV conformance as sourceNative
+    // so a comma-decimal numeric answer is compared numerically, not text-parsed under an invariant
+    // locale (BLG-0022/decimal-conformance — the GD twin of the RLQ AnswerNativeValue). Trailing-
+    // optional; null (the default) keeps the invariant text-parse path byte-for-byte. Only the H
+    // (answer) role carries it — material-change L is a List DV, where native never fires.
+    object? AnswerNativeValue = null);

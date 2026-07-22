@@ -73,7 +73,11 @@ public static class GdV01Profile
                     listValuesSelector:  a => a.AnswerDvListValues,
                     providedBySelector:  a => a.ProvidedBy,
                     role:                "answer",
-                    column:              config.AnswerColumn),
+                    column:              config.AnswerColumn,
+                    // Numeric answer (H) native → compared directly, no invariant text-parse locale
+                    // reject (BLG-0022/decimal-conformance). Material-change L below stays native-free
+                    // (List DV → native never fires).
+                    nativeSelector:      a => a.AnswerNativeValue),
                 new GdAnswerConformanceCell(
                     valueSelector:       a => a.MaterialChange,
                     dvTypeSelector:      a => a.MaterialChangeDvType,

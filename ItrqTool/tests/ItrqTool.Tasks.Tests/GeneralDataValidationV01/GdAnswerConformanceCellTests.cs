@@ -17,7 +17,7 @@ public sealed class GdAnswerConformanceCellTests
         string? value, int anchorRow,
         string? dvType = null, string? dvOp = null, string? dvFormula = null,
         string? dvFormula2 = null, IReadOnlyList<string>? listValues = null,
-        string? provided = null) =>
+        string? provided = null, object? native = null) =>
         new(AnswerId: "A-01", AnchorRow: anchorRow,
             PreviousAnswer: null, Answer: value, MaterialChange: value,
             ProvidedBy: provided, Explanations: [],
@@ -26,7 +26,8 @@ public sealed class GdAnswerConformanceCellTests
             AnswerDvListValues: listValues,
             MaterialChangeDvType: dvType, MaterialChangeDvFormula: dvFormula,
             MaterialChangeDvOperator: dvOp, MaterialChangeDvFormula2: dvFormula2,
-            MaterialChangeDvListValues: listValues);
+            MaterialChangeDvListValues: listValues,
+            AnswerNativeValue: native);
 
     private static GdV01Question Question(IReadOnlyList<GdAnswer> answers, int row = 10) =>
         new(RowNumber: row, XrefId: "Q1", OriginalText: "orig", QuestionText: "What?",
@@ -41,11 +42,14 @@ public sealed class GdAnswerConformanceCellTests
     private static AlignmentResult<GdV01Question> Result(params AlignedQuestion<GdV01Question>[] rows) =>
         new(rows.ToList(), Array.Empty<GdV01Question>(), Array.Empty<MalformedKey>());
 
+    // nativeSelector is wired here so every existing assert also proves the default path is
+    // unchanged when the answer carries no native (AnswerNativeValue == null → today's text parse).
     private static GdAnswerConformanceCell HCheck() =>
         new(a => a.Answer,
             a => a.AnswerDvType, a => a.AnswerDvOperator, a => a.AnswerDvFormula, a => a.AnswerDvFormula2,
             a => a.AnswerDvListValues, a => a.ProvidedBy,
-            role: "answer", column: "H");
+            role: "answer", column: "H",
+            nativeSelector: a => a.AnswerNativeValue);
 
     private static GdAnswerConformanceCell LCheck() =>
         new(a => a.MaterialChange,
@@ -152,5 +156,37 @@ public sealed class GdAnswerConformanceCellTests
                                   listValues: ["Y", "N"])]);
         var check = LCheck();
         check.Run(Result(Aq(cur)), Emitter(check)).Should().BeEmpty();
+    }
+
+    // ── Native-value threading (BLG-0022/decimal-conformance — GD leg) ────────────
+    //
+    // These two use DV type Decimal DELIBERATELY: the Decimal branch has no non-integral guard, so
+    // the native path and the invariant text path diverge cleanly and the plumbing is visible. This
+    // proves the CELL-level threading only — it does NOT claim GD answers are Decimal in production
+    // (they are WholeNumber); the end-to-end Decimal fixture proof lives in chunk 5.
+
+    [Fact]
+    public void H_CommaDecimalInRange_WithNative_IsConformant_NoFinding()
+    {
+        // Assert A — fix direction. A European-locale comma-decimal answer: the invariant text parse
+        // of "9,1" fails, which used to produce a FALSE NotConformant. With the native threaded off
+        // the answer's AnswerNativeValue, 9.1 ∈ [0,100] → clean, no finding.
+        var cur = Question([Answer("9,1", 10, dvType: "Decimal", dvOp: "Between",
+                                  dvFormula: "0", dvFormula2: "100", native: 9.1d)]);
+        var check = HCheck();
+        check.Run(Result(Aq(cur)), Emitter(check)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void H_CommaDecimalOutOfRange_WithNative_StillSurfacesFinding()
+    {
+        // Assert B — CNV-0029. The fix must not convert a genuinely out-of-range value into a pass.
+        // Only the false locale rejection disappears — 150.5 ∉ [0,100] still surfaces at H10.
+        var cur = Question([Answer("150,5", 10, dvType: "Decimal", dvOp: "Between",
+                                  dvFormula: "0", dvFormula2: "100", native: 150.5d)]);
+        var check = HCheck();
+        var f = check.Run(Result(Aq(cur)), Emitter(check)).Should().ContainSingle().Subject;
+        f.CellAddresses.Should().Be("H10");
+        f.Check.Should().Be(ValidationCheck.InputConformance);
     }
 }
