@@ -642,8 +642,8 @@ Per-sheet diff-task test specifics are documented in the relevant sheet skill
 (`.claude/skills/{clq-diff,rlq-diff,gd-diff}/`).
 
 **Current test counts (baseline — the always-on verification anchor):**
-Architecture 14, Domain 13, Application 12, Tasks 1188, Infrastructure 154, Integration 161
-— **1542 total**.
+Architecture 14, Domain 13, Application 12, Tasks 1188, Infrastructure 154, Integration 169
+— **1550 total**.
 
 ### Integration tests (`ItrqTool.Integration.Tests`)
 - Full end-to-end execution: writes `smoketest.json` into a temp workflows
