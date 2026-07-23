@@ -458,4 +458,130 @@ public static class RlqV01BaselineFactory
         ApplyMaterialChangeDvNamedRange(ws);
         wb.SaveAs(outputPath);
     }
+
+    // ── Decimal-DV comma-decimal variant (BLG-0022 native-integration proof) ──────────────────
+    // A Decimal answer-DV (H) trio whose answer values, when the reader runs under a comma-decimal
+    // culture (de-DE), render COMMA-FORM text ("9,1") on GENUINELY-NUMERIC cells (NativeValue is a
+    // real double). This defeats the FIXTURE VACUITY TRAP: the old invariant text-parse misreads the
+    // comma (Float rejects it → false NotConformant; Float|AllowThousands eats it → corrupt operand),
+    // while the landed native path reads the double directly. The comma-form rendering is NOT baked
+    // into the file (the xlsx stores a plain number); it is produced at READ time by executing the
+    // task under de-DE — the technique the callers own. See the perturbation tests for the scope.
+    //
+    // ONE trio serves four scenarios, one per row (all clean except the intended finding on its row):
+    //   H6  (x1): conformance in-range      cur 9.1   / prev 9.1   → conformant native; false-reject text
+    //   H7  (x2): conformance out-of-range  cur 150.5 / prev 150.5 → NotConformant native (a real finding)
+    //   H8  (x3): deviation D10             cur 3.75  / prev 2.5    → native 50% / text 1400% (both emit)
+    //   H13 (x4): deviation flip            cur 1.55  / prev 1.5    → native 3% (absent) / text 933% (fab.)
+    // Answer DV is Decimal Between(0,100) on every anchor row of all three workbooks (frozen-constraint
+    // stays silent). Material-change (L) reuses the inline "Yes,No" list. The inline / range-ref /
+    // named-range variants above are UNTOUCHED (additive-only guardrail).
+
+    public const int    DecX1Row = 6, DecX2Row = 7, DecX3Row = Q3AnchorRow, DecX4Row = 13;
+    public const double DecCurX1 = 9.1,   DecPrevX1 = 9.1;   // conformance in-range
+    public const double DecCurX2 = 150.5, DecPrevX2 = 150.5; // conformance out-of-range
+    public const double DecCurX3 = 3.75,  DecPrevX3 = 2.5;   // deviation D10 (native 50% vs text 1400%)
+    public const double DecCurX4 = 1.55,  DecPrevX4 = 1.5;   // deviation flip (native 3% absent vs text 933%)
+
+    /// <summary>Answer DV (H) = Decimal Between(0,100) on each question anchor row.</summary>
+    private static void ApplyAnswerDvDecimal(IXLWorksheet ws)
+    {
+        foreach (var (row, _) in SingleRowQuestions)
+            ws.Cell(row, AnsCol).CreateDataValidation().Decimal.Between(0, 100);
+        ws.Cell(Q3AnchorRow, AnsCol).CreateDataValidation().Decimal.Between(0, 100);
+    }
+
+    /// <summary>Once-per-question writer whose H answer is a numeric <c>double</c> (Decimal variant).</summary>
+    private static void WriteOncePerQuestionDecimal(
+        IXLWorksheet ws, int row, string number, string text, string suffix, double answer)
+    {
+        ws.Cell(row, QNumberCol).Value  = number;
+        ws.Cell(row, TextCol).Value     = text;
+        ws.Cell(row, GuidanceCol).Value = $"Guidance {suffix}.";
+        ws.Cell(row, ReqTypeCol).Value  = $"Document{suffix}";
+        ws.Cell(row, PrevAnsCol).Value  = $"prev_{suffix}";
+        ws.Cell(row, AnsCol).Value      = answer;   // numeric → NativeValue double; comma-form text under de-DE
+        ws.Cell(row, MatChgCol).Value   = "No";
+        ws.Cell(row, PrvdByCol).Value   = "TestOU";
+    }
+
+    /// <summary>
+    /// Writes the Decimal-variant body (shared by current + previous — same XrefIds and question text
+    /// so every question is cross-year Agree). <paramref name="expPrefix"/> distinguishes the
+    /// explanation text between the two workbooks; the four H answers are supplied per row.
+    /// </summary>
+    private static void WriteDecimalBody(
+        IXLWorksheet ws, double hX1, double hX2, double hX3, double hX4, string expPrefix)
+    {
+        WriteSectionHeaders(ws);
+
+        double HFor(string xref) => xref switch { "x1" => hX1, "x2" => hX2, "x4" => hX4, _ => 0 };
+
+        foreach (var (row, xref) in SingleRowQuestions)
+        {
+            WriteOncePerQuestionDecimal(ws, row, number: xref, text: $"Question {xref} text",
+                suffix: xref, answer: HFor(xref));
+            ws.Cell(row, XrefIdCol).Value = xref;
+            ws.Cell(row, CurExpCol).Value = $"{expPrefix} explanation for {xref}.";
+        }
+
+        // Q3 (x3) multi-row: H on anchor row 8; I/J/K per row so explanation-completeness stays silent.
+        WriteOncePerQuestionDecimal(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text",
+            suffix: Q3XrefId, answer: hX3);
+        foreach (var row in Q3Rows)
+        {
+            ws.Cell(row, XrefIdCol).Value  = Q3XrefId;
+            ws.Cell(row, ReqExpCol).Value  = $"{expPrefix}_req3_{row}";
+            ws.Cell(row, PrevExpCol).Value = $"{expPrefix}_prev3_{row}";
+            ws.Cell(row, CurExpCol).Value  = $"{expPrefix}_cur3_{row}";
+        }
+        ApplyQ3Merges(ws);
+    }
+
+    /// <summary>Writes the current-response workbook, Decimal-DV variant (cur H = 9.1/150.5/3.75/1.55).</summary>
+    public static void WriteCurrentDecimal(string outputPath, bool stampHeader = true)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
+        WriteDecimalBody(ws, DecCurX1, DecCurX2, DecCurX3, DecCurX4, expPrefix: "cur");
+        ApplyAnswerDvDecimal(ws);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    /// <summary>Writes the empty-template workbook, Decimal-DV variant (H blank; Decimal Between(0,100) DV).</summary>
+    public static void WriteTemplateDecimal(string outputPath, bool stampHeader = true)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
+
+        WriteSectionHeaders(ws);
+        foreach (var (row, xref) in SingleRowQuestions)
+        {
+            WriteOncePerQuestionTemplate(ws, row, number: xref, text: $"Question {xref} text");
+            ws.Cell(row, XrefIdCol).Value = xref;
+        }
+        WriteOncePerQuestionTemplate(ws, Q3AnchorRow, number: Q3XrefId, text: "Question x3 text");
+        foreach (var row in Q3Rows)
+            ws.Cell(row, XrefIdCol).Value = Q3XrefId;
+        ApplyQ3Merges(ws);
+
+        ApplyAnswerDvDecimal(ws);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    /// <summary>Writes the previous-response workbook, Decimal-DV variant (prev H = 9.1/150.5/2.5/1.5).</summary>
+    public static void WritePreviousDecimal(string outputPath, bool stampHeader = true)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(RlqV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "rlq", "v01");
+        WriteDecimalBody(ws, DecPrevX1, DecPrevX2, DecPrevX3, DecPrevX4, expPrefix: "prev");
+        ApplyAnswerDvDecimal(ws);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
 }

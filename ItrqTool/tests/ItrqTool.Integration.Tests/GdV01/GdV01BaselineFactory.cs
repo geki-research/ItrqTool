@@ -354,4 +354,146 @@ public static class GdV01BaselineFactory
         ApplyMaterialChangeDv(ws);
         wb.SaveAs(outputPath);
     }
+
+    // ── Decimal-DV comma-decimal variant (BLG-0022 native-integration proof — GD twin of RLQ 5a) ──
+    // Additive Decimal answer-DV (H) trios whose answer values, when the reader runs under a
+    // comma-decimal culture (de-DE), render COMMA-FORM text ("9,1") on GENUINELY-NUMERIC cells
+    // (NativeValue is a real double). Same read-time-culture technique Chunk 5a established for RLQ:
+    // the comma-form is produced at READ time (the xlsx stores a plain number); the evaluator/deviation
+    // parse invariantly, so the OLD text path misreads the comma (Decimal Float rejects it → false
+    // NotConformant; deviation Float|AllowThousands eats it → corrupt operand) while the landed native
+    // path (stamped per-answer as GdAnswer.AnswerNativeValue in GdDvPatcher) reads the double directly.
+    //
+    // GD has only THREE answer cells (H4/Q1 · H11/Q2:A-01 · H12/Q2:A-02) vs RLQ's four questions, so
+    // the four scenarios split across TWO minimal trios (mirroring the value choices of RLQ 5a so the
+    // two stacks' proofs line up). Answer DV is Decimal Between(0,100) on H4/H11/H12 of all three
+    // workbooks (frozen-constraint silent); L reuses the inline "Yes,No" list on the G-ST rows.
+    //
+    //   Conformance trio (prev == cur ⇒ zero cross-year deviation):
+    //     H4  = 9.1   in-range      → conformant native; false-reject text  (Conformance A)
+    //     H11 = 150.5 out-of-range  → NotConformant native (a real finding)  (Conformance B)
+    //     H12 = 9.1   in-range clean
+    //   Deviation trio (all in-range ⇒ zero conformance findings):
+    //     H4  = 9.1  / 9.1  clean
+    //     H11 = 3.75 / 2.5  → native 50 % / text 1,400 % (both emit)          (D10)
+    //     H12 = 1.55 / 1.5  → native 3 % (absent) / text 933 % (fabricated)   (flip)
+    //
+    // The inline / range-ref / named-range variants above are UNTOUCHED (additive-only guardrail).
+
+    public const int    DecQ1Row = Q1Row, DecQ2A01Row = Q2A01Row, DecQ2A02Row = Q2A02Row; // H4, H11, H12
+    public const double DecInRange = 9.1, DecOutOfRange = 150.5;   // conformance
+    public const double DecD10Cur  = 3.75, DecD10Prev = 2.5;       // deviation D10 (50 % native / 1,400 % text)
+    public const double DecFlipCur = 1.55, DecFlipPrev = 1.5;      // deviation flip (3 % native / 933 % text)
+
+    /// <summary>Writes the Decimal-variant CONFORMANCE trio (H4 in-range, H11 out-of-range; prev == cur).</summary>
+    public static void WriteConformanceTrio(string currentPath, string templatePath, string previousPath)
+    {
+        WriteCurrentDecimal(currentPath,  DecInRange, DecOutOfRange, DecInRange);
+        WriteTemplateDecimal(templatePath);
+        WritePreviousDecimal(previousPath, DecInRange, DecOutOfRange, DecInRange);
+    }
+
+    /// <summary>Writes the Decimal-variant DEVIATION trio (H11 = D10 3.75/2.5, H12 = flip 1.55/1.5).</summary>
+    public static void WriteDeviationTrio(string currentPath, string templatePath, string previousPath)
+    {
+        WriteCurrentDecimal(currentPath,  DecInRange, DecD10Cur,  DecFlipCur);
+        WriteTemplateDecimal(templatePath);
+        WritePreviousDecimal(previousPath, DecInRange, DecD10Prev, DecFlipPrev);
+    }
+
+    /// <summary>Answer DV (H) = Decimal Between(0,100) on each answer anchor row (H4/H11/H12).</summary>
+    private static void ApplyAnswerDvDecimal(IXLWorksheet ws)
+    {
+        foreach (var row in new[] { Q1Row, Q2A01Row, Q2A02Row })
+            ws.Cell(row, AnsCol).CreateDataValidation().Decimal.Between(0, 100);
+    }
+
+    private static void WriteCurrentDecimal(string outputPath, double h4, double h11, double h12, bool stampHeader = true)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
+        WriteDecimalBody(ws, h4, h11, h12, expPrefix: "cur");
+        ApplyAnswerDvDecimal(ws);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    private static void WriteTemplateDecimal(string outputPath, bool stampHeader = true)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
+        WriteSectionHeaders(ws);
+        WriteQ1Template(ws);
+        WriteQ2A01Template(ws);
+        WriteQ2A02Template(ws);
+        ApplyAnswerDvDecimal(ws);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    private static void WritePreviousDecimal(string outputPath, double h4, double h11, double h12, bool stampHeader = true)
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add(GdV01WorkbookWriter.SheetName);
+        if (stampHeader) StructureHeaderStamper.Stamp(ws, "gd", "v01");
+        WriteDecimalBody(ws, h4, h11, h12, expPrefix: "prev");
+        ApplyAnswerDvDecimal(ws);
+        ApplyMaterialChangeDv(ws);
+        wb.SaveAs(outputPath);
+    }
+
+    /// <summary>
+    /// Decimal-variant body: same 2-section / 3-answer geometry with numeric (double) H answers.
+    /// Question text matches across current/previous (SameXrefIdTextDiverged silent); L = "No" on both
+    /// G-ST rows (present + conformant); K filled where I present (explanation-completeness silent).
+    /// </summary>
+    private static void WriteDecimalBody(IXLWorksheet ws, double h4, double h11, double h12, string expPrefix)
+    {
+        WriteSectionHeaders(ws);
+        WriteQ1Decimal(ws, h4, curExp: $"{expPrefix}1");
+        WriteQ2A01Decimal(ws, h11, materialChange: "No", curExp: $"{expPrefix}2a");
+        WriteQ2A02Decimal(ws, h12, materialChange: "No");
+    }
+
+    private static void WriteQ1Decimal(IXLWorksheet ws, double answer, string curExp)
+    {
+        ws.Cell(Q1Row, QNumberCol).Value  = "1";
+        ws.Cell(Q1Row, TextCol).Value     = "Q1 text";
+        ws.Cell(Q1Row, GuidanceCol).Value = "Guidance 1.";
+        ws.Cell(Q1Row, ReqTypeCol).Value  = "Type1";
+        ws.Cell(Q1Row, PrevAnsCol).Value  = "prev_ans";
+        ws.Cell(Q1Row, AnsCol).Value      = answer;   // numeric double → NativeValue double; comma-form text under de-DE
+        ws.Cell(Q1Row, ReqExpCol).Value   = "req1";
+        ws.Cell(Q1Row, CurExpCol).Value   = curExp;
+        // L blank — Q1 in G-CO, material-change not required.
+        ws.Cell(Q1Row, PrvdByCol).Value   = "TestOU";
+        ws.Cell(Q1Row, XrefIdCol).Value   = "Q1";
+    }
+
+    private static void WriteQ2A01Decimal(IXLWorksheet ws, double answer, string materialChange, string curExp)
+    {
+        ws.Cell(Q2A01Row, QNumberCol).Value  = "2";
+        ws.Cell(Q2A01Row, TextCol).Value     = "Q2 text";
+        ws.Cell(Q2A01Row, GuidanceCol).Value = "Guidance 2a.";
+        ws.Cell(Q2A01Row, ReqTypeCol).Value  = "Type2a";
+        ws.Cell(Q2A01Row, PrevAnsCol).Value  = "prev_ans";
+        ws.Cell(Q2A01Row, AnsCol).Value      = answer;
+        ws.Cell(Q2A01Row, ReqExpCol).Value   = "req2a";
+        ws.Cell(Q2A01Row, CurExpCol).Value   = curExp;
+        ws.Cell(Q2A01Row, MatChgCol).Value   = materialChange;
+        ws.Cell(Q2A01Row, PrvdByCol).Value   = "TestOU";
+        ws.Cell(Q2A01Row, XrefIdCol).Value   = "Q2:A-01";
+    }
+
+    private static void WriteQ2A02Decimal(IXLWorksheet ws, double answer, string materialChange)
+    {
+        ws.Cell(Q2A02Row, PrevAnsCol).Value = "prev_ans";
+        ws.Cell(Q2A02Row, AnsCol).Value     = answer;
+        ws.Cell(Q2A02Row, MatChgCol).Value  = materialChange;
+        ws.Cell(Q2A02Row, PrvdByCol).Value  = "TestOU";
+        ws.Cell(Q2A02Row, XrefIdCol).Value  = "Q2:A-02";
+        // I/J/K blank — no explanation requested for A-02.
+    }
 }
