@@ -36,11 +36,20 @@ public sealed class GdInjectConfigTests
         config.Validate().Should().BeEmpty();
     }
 
-    // The production asset deliberately omits the key, so it exercises the default path.
+    // RENAMED by BLG-0077 (assertion unchanged, intent unchanged): the shipped config now declares
+    // the threshold EXPLICITLY rather than relying on the code default, so the old name
+    // ("…OmitsThreshold…") had become untrue. Now that the knob is live, an operator reading the
+    // config file must be able to see it and its value; a silently-absent key that means something
+    // is a failure mode this project already has elsewhere. The absent-key safety net is still
+    // covered, by QidJoinSimilarityThreshold_AbsentFromJson_DefaultsToHalf below.
     [Fact]
-    public void ProductionAsset_OmitsThreshold_TakesDefaultOfHalf()
+    public void ProductionAsset_DeclaresThresholdExplicitly_AtHalf()
     {
-        var json = File.ReadAllText(Path.Combine(SolutionRoot(), "configs", "gd-inject-config.json"));
+        var path = Path.Combine(SolutionRoot(), "configs", "gd-inject-config.json");
+        var json = File.ReadAllText(path);
+
+        json.Should().Contain("QidJoinSimilarityThreshold",
+            "the shipped config must show the operator that this knob exists");
 
         var config = ConfigLoader.Load<GdInjectConfig>(json, c => c.Validate());
 

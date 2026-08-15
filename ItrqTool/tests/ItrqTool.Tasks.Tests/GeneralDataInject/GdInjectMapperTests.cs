@@ -97,6 +97,43 @@ public sealed class GdInjectMapperTests
             targetH ?? new Dictionary<int, TargetDvInfo>());
     }
 
+    // Agree over a CHANGED text: same shape as MapAgree, but the caller supplies both texts and the
+    // score the aligner would have computed, so the Warning's content can be asserted exactly.
+    private static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) MapAgreeWithTexts(
+        string currentText,
+        string previousText,
+        double? score,
+        GdV02Config config,
+        int currentRow = 10)
+    {
+        var c = CurQ(rowNumber: currentRow) with { OriginalText = currentText, QuestionText = currentText };
+        var p = PrevQ() with { OriginalText = previousText, QuestionText = previousText };
+
+        var match = new CrossFormatMatch<GdV02Question, GdV01Question>(
+            c, CrossYearOutcome.Agree, p, p, p, score);
+        var result = new CrossFormatAlignmentResult<GdV02Question, GdV01Question>(
+            new[] { match }, Array.Empty<MalformedKey>());
+        return GdInjectMapper.Map(
+            result, config,
+            new Dictionary<int, (string?, object?, string?)>(),
+            new Dictionary<int, TargetDvInfo>());
+    }
+
+    private static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) MapDiverged(
+        GdV02Question c, GdV01Question counterpart, double? score, GdV02Config config)
+    {
+        // Previous is null on this arm (no injection source); the counterpart is carried for
+        // messaging only — exactly what the aligner emits below the threshold.
+        var match = new CrossFormatMatch<GdV02Question, GdV01Question>(
+            c, CrossYearOutcome.SameXrefIdTextDiverged, null, counterpart, counterpart, score);
+        var result = new CrossFormatAlignmentResult<GdV02Question, GdV01Question>(
+            new[] { match }, Array.Empty<MalformedKey>());
+        return GdInjectMapper.Map(
+            result, config,
+            new Dictionary<int, (string?, object?, string?)>(),
+            new Dictionary<int, TargetDvInfo>());
+    }
+
     private static (IReadOnlyList<CellWriteEntry> cells, IReadOnlyList<TaskMessage> messages) MapOutcome(
         GdV02Question c, CrossYearOutcome outcome, GdV02Config config)
     {
@@ -336,6 +373,12 @@ public sealed class GdInjectMapperTests
 
     // ── 10. Ambiguous outcomes → one Warning, no cells ────────────────────────
 
+    // WORDING-ONLY update by BLG-0077 (§1.2 "ordinary in-intent update", not an inversion): the
+    // three outcomes used to share one arm and one message. The arm was split, so the two genuinely
+    // ambiguous outcomes are asserted here — with their message text UNCHANGED, character for
+    // character — and the text-diverged outcome moved to its own test below. The intent is
+    // identical on both: exactly one Warning, zero cells.
+
     [Fact]
     public void Ambiguous_EmitsOneWarningNoCells()
     {
@@ -345,7 +388,6 @@ public sealed class GdInjectMapperTests
                  {
                      CrossYearOutcome.XrefIdConflict,
                      CrossYearOutcome.NewXrefIdWithLookalike,
-                     CrossYearOutcome.SameXrefIdTextDiverged,
                  })
         {
             var (cells, messages) = MapOutcome(c, outcome, Config());
@@ -358,6 +400,167 @@ public sealed class GdInjectMapperTests
             messages[0].Text.Should().Contain("ambiguous previous match");
             messages[0].Text.Should().Contain("left untouched");
         }
+    }
+
+    // Pins the exact legacy sentence for the two unchanged arms, so a future edit to the diverged
+    // wording cannot drift into them unnoticed.
+    [Theory]
+    [InlineData(CrossYearOutcome.XrefIdConflict)]
+    [InlineData(CrossYearOutcome.NewXrefIdWithLookalike)]
+    public void AmbiguousArms_MessageText_IsUnchangedByTheSimilarityJoin(CrossYearOutcome outcome)
+    {
+        var c = CurQ(xref: "GD-3", rowNumber: 42);
+
+        var (_, messages) = MapOutcome(c, outcome, Config());
+
+        messages.Should().ContainSingle().Which.Text.Should().Be(
+            $"Question GD-3 (row 42): ambiguous previous match ({outcome}) — left untouched.");
+        messages[0].Text.Should().NotContain("similarity");
+    }
+
+    // ── 10b. Text below the threshold → its own Warning, still no cells ───────
+
+    [Fact]
+    public void TextDiverged_EmitsOneWarningNoCells_WithScoreAndBothTexts()
+    {
+        var c = CurQ(xref: "GD-3", rowNumber: 42);
+        var p = PrevQ(xref: "GD-3");
+
+        var (cells, messages) = MapDiverged(c, p, score: 0.3125, Config());
+
+        cells.Should().BeEmpty("a below-threshold pair writes nothing, exactly as before");
+        messages.Should().ContainSingle();
+        messages[0].Severity.Should().Be(MessageSeverity.Warning);
+
+        var text = messages[0].Text;
+        text.Should().Contain("GD-3");
+        text.Should().Contain("42");                     // current row
+        text.Should().Contain("100");                    // previous row
+        text.Should().Contain("0.3125");                 // the raw score, invariant-formatted
+        text.Should().Contain("below the similarity threshold");
+        text.Should().Contain("left untouched");
+        text.Should().NotContain("ambiguous previous match");
+    }
+
+    // ── 10c. Agree over a CHANGED text → exactly one Warning, cells STILL written ─
+
+    [Fact]
+    public void Agree_IdenticalText_EmitsNoWarning()
+    {
+        var (_, messages) = MapAgreeWithTexts("Same text", "Same text", score: 1.0, Config());
+
+        messages.Should().BeEmpty("an unchanged question is the ordinary case and says nothing");
+    }
+
+    [Fact]
+    public void Agree_ChangedText_EmitsExactlyOneWarning_WithBothTextsBothRowsAndScore()
+    {
+        var (_, messages) = MapAgreeWithTexts(
+            "Number of staff at year end 2025", "Number of staff at year end 2024",
+            score: 0.9688, Config(), currentRow: 42);
+
+        messages.Should().ContainSingle();
+        messages[0].Severity.Should().Be(MessageSeverity.Warning);
+
+        var text = messages[0].Text;
+        text.Should().Contain("GD-1");                                  // question identifier
+        text.Should().Contain("42");                                    // current row
+        text.Should().Contain("100");                                   // previous row
+        text.Should().Contain("0.9688");                                // raw score
+        text.Should().Contain("Number of staff at year end 2025");      // current text
+        text.Should().Contain("Number of staff at year end 2024");      // previous text
+        text.Should().Contain("question text changed");
+        text.Should().Contain("carried forward");
+    }
+
+    [Fact]
+    public void Agree_ChangedText_StillWritesTheCells()
+    {
+        // The Warning is an annunciation, not a veto: an above-threshold match still injects.
+        var c = CurQ(rowNumber: 10) with { OriginalText = "New wording", QuestionText = "New wording" };
+        var p = PrevQ(answers: new[] { PrevAns(anchorRow: 100, providedBy: "OU5") })
+            with { OriginalText = "Old wording", QuestionText = "Old wording" };
+        var match = new CrossFormatMatch<GdV02Question, GdV01Question>(
+            c, CrossYearOutcome.Agree, p, p, p, 0.72);
+        var result = new CrossFormatAlignmentResult<GdV02Question, GdV01Question>(
+            new[] { match }, Array.Empty<MalformedKey>());
+
+        var (cells, messages) = GdInjectMapper.Map(
+            result, Config(),
+            new Dictionary<int, (string?, object?, string?)>(),
+            new Dictionary<int, TargetDvInfo>());
+
+        messages.Should().ContainSingle().Which.Severity.Should().Be(MessageSeverity.Warning);
+        Cell(cells, 10, "P").Should().NotBeNull("provided-by is still carried forward");
+    }
+
+    // Case-only drift scores 1.0 (TextSimilarity lowercases) but is a real change to the workbook,
+    // so it must still be announced. This is why identity is ordinal and not "score == 1.0".
+    [Fact]
+    public void Agree_TextCaseOnlyDrift_StillWarns()
+    {
+        var (_, messages) = MapAgreeWithTexts("SAME TEXT", "same text", score: 1.0, Config());
+
+        messages.Should().ContainSingle().Which.Severity.Should().Be(MessageSeverity.Warning);
+    }
+
+    // Exactly ONE Warning per question — not one per answer, not one per cell.
+    [Fact]
+    public void Agree_ChangedText_MultiAnswerQuestion_StillEmitsExactlyOneWarning()
+    {
+        var c = CurQ(rowNumber: 10, answers: new[]
+        {
+            CurAns(answerId: "a1", anchorRow: 10),
+            CurAns(answerId: "a2", anchorRow: 11),
+            CurAns(answerId: "a3", anchorRow: 12),
+        }) with { OriginalText = "New wording", QuestionText = "New wording" };
+
+        var p = PrevQ(answers: new[]
+        {
+            PrevAns(answerId: "a1", anchorRow: 100, providedBy: "OU"),
+            PrevAns(answerId: "a2", anchorRow: 101, providedBy: "OU"),
+            PrevAns(answerId: "a3", anchorRow: 102, providedBy: "OU"),
+        }) with { OriginalText = "Old wording", QuestionText = "Old wording" };
+
+        var match = new CrossFormatMatch<GdV02Question, GdV01Question>(
+            c, CrossYearOutcome.Agree, p, p, p, 0.72);
+        var result = new CrossFormatAlignmentResult<GdV02Question, GdV01Question>(
+            new[] { match }, Array.Empty<MalformedKey>());
+
+        var (_, messages) = GdInjectMapper.Map(
+            result, Config(),
+            new Dictionary<int, (string?, object?, string?)>(),
+            new Dictionary<int, TargetDvInfo>());
+
+        messages.Where(m => m.Text.Contains("question text changed"))
+            .Should().HaveCount(1, "the Warning is per question, not per answer");
+    }
+
+    // Long questions are whitespace-collapsed and length-bounded so the Warning stays one readable
+    // line; the untruncated text remains in the workbook.
+    [Fact]
+    public void Agree_ChangedText_LongTextIsFlattenedAndBounded()
+    {
+        var longCurrent  = "A" + new string('x', 400) + "\n\tembedded newline and tab";
+        var longPrevious = "B" + new string('y', 400);
+
+        var (_, messages) = MapAgreeWithTexts(longCurrent, longPrevious, score: 0.10, Config());
+
+        var text = messages.Should().ContainSingle().Subject.Text;
+        text.Should().NotContain("\n").And.NotContain("\t");
+        text.Should().Contain("…", "the excerpt is elided rather than dumped in full");
+        text.Length.Should().BeLessThan(600, "two bounded excerpts plus a fixed preamble");
+    }
+
+    // A null score must not throw or read as "completely dissimilar".
+    [Fact]
+    public void Agree_ChangedText_NullScore_RendersUnknownNotZero()
+    {
+        var (_, messages) = MapAgreeWithTexts("New wording", "Old wording", score: null, Config());
+
+        var text = messages.Should().ContainSingle().Subject.Text;
+        text.Should().Contain("unknown");
+        text.Should().NotContain("0.0000");
     }
 
     // ── 11. New / structural → nothing ────────────────────────────────────────

@@ -181,7 +181,8 @@ public sealed class GeneralDataInjectV01ToV02Task : IWorkflowTask
             var targetHByAnchorRow = BuildTargetHLookup(currentPath,  currentConfig.SheetName,  currentConfig,  current.Questions);
 
             // ── Align → Map → Write ──
-            var alignment = GdInjectAligner.Align(current.Questions, previous.Questions);
+            var alignment = GdInjectAligner.Align(
+                current.Questions, previous.Questions, injectConfig.QidJoinSimilarityThreshold);
 
             var (cells, mapMessages) = GdInjectMapper.Map(
                 alignment, currentConfig, sourceHByAnchorRow, targetHByAnchorRow);
@@ -192,18 +193,27 @@ public sealed class GeneralDataInjectV01ToV02Task : IWorkflowTask
 
             messages.AddRange(mapMessages);
 
-            int agreeCount     = alignment.Matches.Count(m => m.Outcome == CrossYearOutcome.Agree);
-            int ambiguousCount = alignment.Matches.Count(m =>
-                m.Outcome is CrossYearOutcome.XrefIdConflict
-                          or CrossYearOutcome.NewXrefIdWithLookalike
-                          or CrossYearOutcome.SameXrefIdTextDiverged);
+            // BLG-0077: the old wording called every Agree a "confident match" and lumped the
+            // text-diverged case in with the genuinely ambiguous ones. Both became misleading once
+            // a match can be reached over a CHANGED text, so the counts now say what happened:
+            // how many matched, how many of those needed the similarity threshold to get there,
+            // and how many were left untouched for any reason.
+            int agreeCount = alignment.Matches.Count(m => m.Outcome == CrossYearOutcome.Agree);
+            int textChangedCount = alignment.Matches.Count(m =>
+                m.Outcome == CrossYearOutcome.Agree &&
+                !GdInjectTextComparison.AreIdentical(m.Current.OriginalText, m.Previous!.OriginalText));
+            int leftUntouchedCount = alignment.Matches.Count(m =>
+                m.Outcome is CrossYearOutcome.SameXrefIdTextDiverged
+                          or CrossYearOutcome.XrefIdConflict
+                          or CrossYearOutcome.NewXrefIdWithLookalike);
             int unmatchedCount = alignment.Matches.Count(m =>
                 m.Outcome is CrossYearOutcome.Neither
                           or CrossYearOutcome.NotEvaluatedMalformedKey);
 
             messages.Add(new(MessageSeverity.Info,
-                $"Inject complete: {agreeCount} confident match(es) injected, " +
-                $"{ambiguousCount} ambiguous (left untouched), " +
+                $"Inject complete: {agreeCount} match(es) injected " +
+                $"({textChangedCount} with changed question text), " +
+                $"{leftUntouchedCount} left untouched (text below similarity threshold or ambiguous), " +
                 $"{unmatchedCount} unmatched. Wrote {cells.Count} cell(s) to {Path.GetFileName(outputPath)}.",
                 DateTimeOffset.Now));
 

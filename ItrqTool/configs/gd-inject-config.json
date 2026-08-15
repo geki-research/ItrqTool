@@ -1,4 +1,5 @@
 {
   "CurrentConfigFilename": "gd-v02-validation-config.json",
-  "PreviousConfigFilename": "gd-v01-validation-config.json"
+  "PreviousConfigFilename": "gd-v01-validation-config.json",
+  "QidJoinSimilarityThreshold": 0.50
 }

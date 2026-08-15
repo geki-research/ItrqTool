@@ -26,8 +26,9 @@ namespace ItrqTool.Integration.Tests.GeneralDataInject;
 ///             → J4 = v01 K@row1, J5 = v01 K@row2 (both written in order); NO message.
 ///   • Arm 2 — section 2 (rows 11–43): Agree q2, one answer, v01 2 rows / v02 1 row
 ///             → overlap (1) written to J11; surplus dropped (J12 empty); EXACTLY ONE Warning.
-///   • Arm 3 — section 3 (rows 45–64): q3 same qid, DIVERGED OriginalText (v01≠v02)
-///             → SameXrefIdTextDiverged: G/J/P at its answer row ALL EMPTY; EXACTLY ONE Warning.
+///   • Arm 3 — section 3 (rows 45–64): q3 same qid, CHANGED OriginalText (v01≠v02) scoring 0.9091,
+///             i.e. ABOVE the 0.50 threshold → Agree: G/J/P WRITTEN, plus EXACTLY ONE
+///             "question text changed" Warning. (REWRITTEN by BLG-0077 — see below.)
 ///   • Arm 4 — section 4 (rows 66–91): q4 present in v02 ONLY (qid absent from v01)
 ///             → Neither: G/J/P EMPTY; NO message.
 ///   • Arm 5 — section 5 (rows 93–120): Agree q5, TWO answers — d1 matched on both sides, d2 in v02 only
@@ -35,7 +36,21 @@ namespace ItrqTool.Integration.Tests.GeneralDataInject;
 ///
 /// Whole-run invariants: M (how-explanation) is NEVER written (all M anchors empty), and the inject
 /// task SUCCEEDS (policy Warnings are not task failures). The message set is asserted EXACTLY:
-/// { one "row count mismatch" Warning (arm 2), one "left untouched" Warning (arm 3) }, zero Errors.
+/// { one "row count mismatch" Warning (arm 2), one "question text changed" Warning (arm 3) },
+/// zero Errors. The completion-summary counts are pinned too (BLG-0077 §3.5).
+///
+/// <para>
+/// BLG-0077 REWRITE. Arm 3 previously asserted the DEFECT: its two texts differ only in a trailing
+/// "v01"/"v02", scoring 0.9091, yet exact-equality classification called them different questions,
+/// left G/J/P empty and warned "left untouched" — silently failing to carry the previous year's
+/// values into a question that had merely been re-worded. It now Agrees and injects, and the
+/// Warning says the text changed rather than that nothing happened. Arms 1, 2, 4 and 5 are
+/// unavoidable collateral of rewriting a single five-arm [Fact]: their BEHAVIOUR is unchanged and
+/// their assertions are re-asserted verbatim below. Only arm 3's expectations and the exact
+/// message-set assertion moved. Below-threshold divergence — which still writes nothing — is
+/// covered by GdInjectAlignerTests and GdInjectMapperTests rather than by a second ~18-minute
+/// end-to-end run.
+/// </para>
 /// </summary>
 public sealed class GdInjectStructureArmsE2ETests
 {
@@ -66,7 +81,7 @@ public sealed class GdInjectStructureArmsE2ETests
         SectionHeaderRow: Sec2Header, SectionName: Sec2Name, FirstDataRow: Sec2First,
         Answers: [new("a1", "WholeNumber", 8.0, "WholeNumber", "OU2", ["m2a", "m2b"], V02ExplanationCount: 1)]);
 
-    // ── Arm 3: same qid, divergent OriginalText (→ SameXrefIdTextDiverged → left untouched). ──
+    // ── Arm 3: same qid, CHANGED OriginalText scoring 0.9091 — above threshold → Agree + Warning. ──
     private static readonly GdInjectQuestionSpec Q3 = new(
         Qid: "q3", V01Text: "Q3 text v01", V02Text: "Q3 text v02", InV01: true, InV02: true,
         SectionHeaderRow: Sec3Header, SectionName: Sec3Name, FirstDataRow: Sec3First,
@@ -214,13 +229,30 @@ public sealed class GdInjectStructureArmsE2ETests
             msgs.Where(m => m.Severity == MessageSeverity.Warning && m.Text.Contains("row count mismatch"))
                 .Should().HaveCount(1, "arm2 emits EXACTLY ONE explanation row-count-mismatch Warning");
 
-            // ── Arm 3: SameXrefIdTextDiverged — G/J/P all EMPTY (untouched), ONE "left untouched" Warning ──
+            // ── Arm 3 (REWRITTEN, BLG-0077): changed text ABOVE threshold → Agree, G/J/P WRITTEN,
+            //    ONE "question text changed" Warning. Previously this arm asserted the defect:
+            //    G/J/P empty and a "left untouched" Warning, for a pair scoring 0.9091. ──
             int q3Anchor = GdInjectWorkbookWriter.V02AnchorRows(Q3)[0]; // 45
-            ws.Cell($"{G}{q3Anchor}").IsEmpty().Should().BeTrue("arm3 diverged-text question: G untouched");
-            ws.Cell($"{J}{q3Anchor}").IsEmpty().Should().BeTrue("arm3 diverged-text question: J untouched");
-            ws.Cell($"{P}{q3Anchor}").IsEmpty().Should().BeTrue("arm3 diverged-text question: P untouched");
-            msgs.Where(m => m.Severity == MessageSeverity.Warning && m.Text.Contains("left untouched"))
-                .Should().HaveCount(1, "arm3 emits EXACTLY ONE 'left untouched' Warning (SameXrefIdTextDiverged)");
+            ws.Cell($"{G}{q3Anchor}").GetValue<double>().Should().Be(4.0,
+                "arm3 changed-text question now agrees, so the previous answer IS carried forward");
+            ws.Cell($"{J}{q3Anchor}").GetString().Should().Be("m3a", "arm3 K→J now written");
+            ws.Cell($"{P}{q3Anchor}").GetString().Should().Be("OU3", "arm3 O→P now written");
+
+            var q3Warnings = msgs.Where(m => m.Severity == MessageSeverity.Warning &&
+                                             m.Text.Contains("question text changed")).ToList();
+            q3Warnings.Should().HaveCount(1,
+                "arm3 emits EXACTLY ONE 'question text changed' Warning — one per question, not per cell");
+            q3Warnings[0].Text.Should().Contain("q3");
+            q3Warnings[0].Text.Should().Contain("Q3 text v01", "the previous text is shown");
+            q3Warnings[0].Text.Should().Contain("Q3 text v02", "the current text is shown");
+            q3Warnings[0].Text.Should().Contain("0.9091", "the raw similarity is shown, invariant-formatted");
+            q3Warnings[0].Text.Should().Contain("carried forward");
+
+            // Scoped to Warnings deliberately: the Info completion summary carries "0 left
+            // untouched" as a count label, which is not an arm being left untouched.
+            msgs.Where(m => m.Severity == MessageSeverity.Warning)
+                .Should().NotContain(m => m.Text.Contains("left untouched"),
+                    "no arm in this run is left untouched any more — arm3 was the only one");
 
             // ── Arm 4: Neither (v02-only question) — G/J/P EMPTY, NO message ──
             int q4Anchor = GdInjectWorkbookWriter.V02AnchorRows(Q4)[0]; // 66
@@ -247,11 +279,24 @@ public sealed class GdInjectStructureArmsE2ETests
                     $"M (how-explanation) at row {row} is not an inject target and must stay empty");
 
             // ── EXACT message set: exactly two Warnings (arm2 + arm3), zero Errors ──
+            // Still two, but arm3's is now "question text changed" instead of "left untouched".
             var warnings = msgs.Where(m => m.Severity == MessageSeverity.Warning).ToList();
             var errors   = msgs.Where(m => m.Severity == MessageSeverity.Error).ToList();
             warnings.Should().HaveCount(2,
-                "exactly two structure-arm Warnings — arm2 row-count-mismatch + arm3 left-untouched");
+                "exactly two structure-arm Warnings — arm2 row-count-mismatch + arm3 text-changed");
             errors.Should().BeEmpty("no structure arm produces an Error");
+
+            // ── Completion-summary counts (BLG-0077 §3.5) ──
+            // Previously NOTHING pinned these — only an "Inject complete" substring — so a
+            // re-classification could silently move them. This run is a precise oracle:
+            // q1/q2/q3/q5 agree (4), of which only q3's text changed (1); q4's qid is absent
+            // from v01 so it is unmatched (1); nothing is left untouched.
+            var summary = msgs.Should().ContainSingle(m => m.Text.Contains("Inject complete")).Subject;
+            summary.Severity.Should().Be(MessageSeverity.Info);
+            summary.Text.Should().Contain("4 match(es) injected");
+            summary.Text.Should().Contain("(1 with changed question text)");
+            summary.Text.Should().Contain("0 left untouched");
+            summary.Text.Should().Contain("1 unmatched");
         }
         finally
         {
