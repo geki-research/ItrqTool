@@ -113,6 +113,124 @@ public sealed class RlqInjectMapperTests
     private static CellWriteEntry? Cell(IReadOnlyList<CellWriteEntry> cells, int row, string column)
         => cells.SingleOrDefault(e => e.Row == row && e.Column == column);
 
+    // ── BLG-0079: non-identical Agree → exactly one Warning ───────────────────
+    //
+    // Note the default Cur()/Prev() builders share OriginalText ("How is risk assessed?"), so every
+    // pre-existing test in this file drives an IDENTICAL-text Agree and stays silent, untouched.
+    // These tests supply a drifted text explicitly.
+
+    private static CrossFormatMatch<RlqV02Question, RlqV01Question> AgreeWithTexts(
+        string currentText, string previousText, double? score, int currentRow = 10)
+    {
+        var c = Cur(row: currentRow) with { OriginalText = currentText, QuestionText = currentText };
+        var p = Prev() with { OriginalText = previousText, QuestionText = previousText };
+        return new(c, CrossYearOutcome.Agree, p, p, p, score);
+    }
+
+    [Fact]
+    public void Agree_IdenticalText_EmitsNoWarning()
+    {
+        var (_, messages) = MapOne(Agree(Cur(), Prev()), Config());
+
+        messages.Should().BeEmpty("an unchanged question is the ordinary case and stays silent");
+    }
+
+    [Fact]
+    public void Agree_ChangedText_EmitsExactlyOneWarning_WithBothTextsBothRowsAndScore()
+    {
+        var (_, messages) = MapOne(
+            AgreeWithTexts("How is risk assessed in 2025?", "How is risk assessed in 2024?",
+                           score: 0.9655, currentRow: 42),
+            Config());
+
+        messages.Should().ContainSingle();
+        messages[0].Severity.Should().Be(MessageSeverity.Warning);
+
+        var text = messages[0].Text;
+        text.Should().StartWith("Row 42 (xref RLQ-1.1)", "RLQ keeps its own Row-first addressing");
+        text.Should().Contain("100", "the previous row is named");
+        text.Should().Contain("0.9655", "the raw score, invariant-formatted");
+        text.Should().Contain("How is risk assessed in 2025?");
+        text.Should().Contain("How is risk assessed in 2024?");
+        text.Should().Contain("question text changed");
+        text.Should().Contain("carried forward");
+    }
+
+    // Pins the COMPLETE sentence, so the shared formatter cannot silently reshape RLQ's message
+    // and so the report's example rendering is a verified string rather than a reconstruction.
+    [Fact]
+    public void Agree_ChangedText_ExactMessageFormat()
+    {
+        var (_, messages) = MapOne(
+            AgreeWithTexts("How is risk assessed in 2025?", "How is risk assessed in 2024?",
+                           score: 0.9655, currentRow: 42),
+            Config());
+
+        messages.Should().ContainSingle().Which.Text.Should().Be(
+            "Row 42 (xref RLQ-1.1): question text changed since the previous year " +
+            "(similarity 0.9655) — treated as the same question; previous values carried forward. " +
+            "Previous (row 100): \"How is risk assessed in 2024?\". " +
+            "Current: \"How is risk assessed in 2025?\".");
+    }
+
+    // Case-only drift scores 1.0 but is a real change, so it must still warn.
+    [Fact]
+    public void Agree_CaseOnlyDrift_StillWarns()
+    {
+        var (_, messages) = MapOne(
+            AgreeWithTexts("HOW IS RISK ASSESSED?", "how is risk assessed?", score: 1.0),
+            Config());
+
+        messages.Should().ContainSingle().Which.Severity.Should().Be(MessageSeverity.Warning);
+    }
+
+    [Fact]
+    public void Agree_ChangedText_NullScore_RendersUnknownNotZero()
+    {
+        var (_, messages) = MapOne(
+            AgreeWithTexts("New wording", "Old wording", score: null), Config());
+
+        var text = messages.Should().ContainSingle().Subject.Text;
+        text.Should().Contain("unknown");
+        text.Should().NotContain("0.0000");
+    }
+
+    // The Warning is an annunciation, not a veto: the same cells are still written.
+    [Fact]
+    public void Agree_ChangedText_StillWritesTheSameCells()
+    {
+        var identical = MapOne(Agree(Cur(), Prev(providedBy: "OU1")), Config());
+        var drifted   = MapOne(
+            new CrossFormatMatch<RlqV02Question, RlqV01Question>(
+                Cur() with { OriginalText = "New wording", QuestionText = "New wording" },
+                CrossYearOutcome.Agree,
+                Prev(providedBy: "OU1") with { OriginalText = "Old wording", QuestionText = "Old wording" },
+                null, null, 0.72),
+            Config());
+
+        drifted.cells.Should().BeEquivalentTo(identical.cells,
+            "the drift Warning changes messages only — never which cells are written");
+        drifted.messages.Should().ContainSingle().Which.Severity.Should().Be(MessageSeverity.Warning);
+    }
+
+    // Exactly ONE per question, even when the question spans several explanation rows.
+    [Fact]
+    public void Agree_ChangedText_MultiRowQuestion_StillEmitsExactlyOneWarning()
+    {
+        var c = Cur(expl: [Expl(null, 10), Expl(null, 11), Expl(null, 12)])
+            with { OriginalText = "New wording", QuestionText = "New wording" };
+        var p = Prev(expl: [Expl("a", 100), Expl("b", 101), Expl("c", 102)])
+            with { OriginalText = "Old wording", QuestionText = "Old wording" };
+
+        var (_, messages) = MapOne(
+            new CrossFormatMatch<RlqV02Question, RlqV01Question>(
+                c, CrossYearOutcome.Agree, p, p, p, 0.72),
+            Config());
+
+        messages.Where(m => m.Text.Contains("question text changed"))
+            .Should().HaveCount(1, "the Warning is per question, not per row");
+    }
+
     // ── 1. H→G equal category → native, no message ────────────────────────────
 
     [Fact]

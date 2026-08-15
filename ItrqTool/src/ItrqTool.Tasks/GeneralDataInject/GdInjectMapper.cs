@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text.RegularExpressions;
 using ItrqTool.Domain;
 using ItrqTool.Tasks.GeneralDataValidationV01;
 using ItrqTool.Tasks.GeneralDataValidationV02;
@@ -69,13 +67,21 @@ public static class GdInjectMapper
                     // Carrying a previous year's values into a re-worded question without saying so
                     // is precisely the silent acceptance this tool exists to prevent.
                     if (!GdInjectTextComparison.AreIdentical(cq.OriginalText, pq.OriginalText))
+                    {
+                        // BLG-0079: excerpts are windowed around the drift, computed from BOTH
+                        // texts together, so a late-in-the-string change is visible rather than
+                        // truncated away identically on both sides.
+                        var (curEx, prevEx) =
+                            DriftMessageFormatter.Excerpts(cq.OriginalText, pq.OriginalText);
+
                         messages.Add(new(MessageSeverity.Warning,
                             $"Question {Xref(cq)} (row {cq.RowNumber}): question text changed since " +
                             $"the previous year (similarity {Score(match.MatcherBaseScore)}) — treated " +
                             $"as the same question; previous values carried forward. " +
-                            $"Previous (row {pq.RowNumber}): \"{Excerpt(pq.OriginalText)}\". " +
-                            $"Current: \"{Excerpt(cq.OriginalText)}\".",
+                            $"Previous (row {pq.RowNumber}): \"{prevEx}\". " +
+                            $"Current: \"{curEx}\".",
                             DateTimeOffset.Now));
+                    }
 
                     foreach (var (ca, pa) in PairByAnswerId(cq.Answers, pq.Answers))
                     {
@@ -97,15 +103,17 @@ public static class GdInjectMapper
                 case CrossYearOutcome.SameXrefIdTextDiverged:
                 {
                     var xq = match.XrefIdCounterpart;
+                    var (curEx, prevEx) =
+                        DriftMessageFormatter.Excerpts(cq.OriginalText, xq?.OriginalText);
                     var prevPart = xq is null
                         ? ""
-                        : $" Previous (row {xq.RowNumber}): \"{Excerpt(xq.OriginalText)}\".";
+                        : $" Previous (row {xq.RowNumber}): \"{prevEx}\".";
 
                     messages.Add(new(MessageSeverity.Warning,
                         $"Question {Xref(cq)} (row {cq.RowNumber}): question text changed since the " +
                         $"previous year and fell below the similarity threshold " +
                         $"(similarity {Score(match.MatcherBaseScore)}) — left untouched." +
-                        $"{prevPart} Current: \"{Excerpt(cq.OriginalText)}\".",
+                        $"{prevPart} Current: \"{curEx}\".",
                         DateTimeOffset.Now));
                     break;
                 }
@@ -259,36 +267,10 @@ public static class GdInjectMapper
     private static string Xref(GdV02Question c) => c.XrefId ?? "<none>";
     private static string Aid(GdV02Answer a) => a.AnswerId ?? "<bare>";
 
-    // ── message formatting (BLG-0077) ─────────────────────────────────────────
-
-    private static readonly Regex WhitespaceRuns = new(@"\s+", RegexOptions.Compiled);
-
-    /// <summary>Longest question excerpt embedded in a Warning, in characters.</summary>
-    private const int MaxTextInMessage = 160;
-
-    /// <summary>
-    /// Renders a similarity for a message. FOUR decimals and INVARIANT culture, both deliberate:
-    /// four so a near-boundary score stays distinguishable from the threshold it was tested against
-    /// (a rounded "50%" next to a 0.50 threshold tells the reader nothing about which way it went),
-    /// and invariant so the decimal separator is a point on every machine — this project's own
-    /// workbooks are read under comma-decimal locales, and a "0,63" in a log line invites exactly
-    /// the misreading the deviation work has been unpicking elsewhere.
-    /// Null renders as "unknown" rather than throwing or printing 0, which would read as
-    /// "completely dissimilar" — a materially wrong statement.
-    /// </summary>
-    private static string Score(double? score)
-        => score?.ToString("0.0000", CultureInfo.InvariantCulture) ?? "unknown";
-
-    /// <summary>
-    /// Whitespace-collapsed, trimmed and length-bounded question text for embedding in a Warning.
-    /// Collapsing matters because a workbook cell may contain newlines and tabs, which would break
-    /// the message across log lines; bounding matters because real audit questions run to several
-    /// hundred characters and two of them appear in one message. The bound is generous enough that
-    /// most drifts are visible in place, and the untruncated text is always in the workbook.
-    /// </summary>
-    private static string Excerpt(string? text)
-    {
-        var flat = WhitespaceRuns.Replace(text ?? "", " ").Trim();
-        return flat.Length <= MaxTextInMessage ? flat : flat[..MaxTextInMessage] + "…";
-    }
+    // ── message formatting ────────────────────────────────────────────────────
+    // BLG-0079 moved these to the shared DriftMessageFormatter (ItrqTool.Tasks.Shared), so all
+    // three inject mappers render a drifted question identically, and lifted the excerpt from
+    // head-truncation to a window centred on the drift. Score() is kept as a one-line local alias
+    // so the call sites below read unchanged.
+    private static string Score(double? score) => DriftMessageFormatter.FormatScore(score);
 }

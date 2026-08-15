@@ -538,18 +538,29 @@ public sealed class GdInjectMapperTests
 
     // Long questions are whitespace-collapsed and length-bounded so the Warning stays one readable
     // line; the untruncated text remains in the workbook.
+    //
+    // BLG-0079 IN-INTENT UPDATE (authorized by §1.2 / §3.3): the old intent was "bounded"; it is
+    // now "bounded AROUND THE DRIFT". The old assertions are all retained verbatim — flattening,
+    // ellipsis, overall length — and the drift-visibility assertion is added. The old fixture
+    // happened to differ at character 0, so it passed either way and proved nothing about
+    // windowing; the drift now sits at the END, which is precisely the case head-truncation lost.
     [Fact]
-    public void Agree_ChangedText_LongTextIsFlattenedAndBounded()
+    public void Agree_ChangedText_LongTextIsFlattenedAndBoundedAroundTheDrift()
     {
-        var longCurrent  = "A" + new string('x', 400) + "\n\tembedded newline and tab";
-        var longPrevious = "B" + new string('y', 400);
+        var common       = new string('x', 400);
+        var longCurrent  = common + "\n\tas of 2025";
+        var longPrevious = common + " as of 2024";
 
-        var (_, messages) = MapAgreeWithTexts(longCurrent, longPrevious, score: 0.10, Config());
+        var (_, messages) = MapAgreeWithTexts(longCurrent, longPrevious, score: 0.98, Config());
 
         var text = messages.Should().ContainSingle().Subject.Text;
         text.Should().NotContain("\n").And.NotContain("\t");
         text.Should().Contain("…", "the excerpt is elided rather than dumped in full");
         text.Length.Should().BeLessThan(600, "two bounded excerpts plus a fixed preamble");
+
+        // The point of the window: both years' differing tails survive into the message.
+        text.Should().Contain("as of 2025", "the current drift must be visible");
+        text.Should().Contain("as of 2024", "the previous drift must be visible");
     }
 
     // A null score must not throw or read as "completely dissimilar".

@@ -115,6 +115,120 @@ public sealed class ClqInjectMapperTests
             targetHByRow: targetHByRow ?? new Dictionary<int, TargetDvInfo>());
     }
 
+    // ── BLG-0079: non-identical Agree → exactly one Warning ───────────────────
+    //
+    // The default Current()/Previous() builders share OriginalText ("1.1 How is access
+    // controlled?"), so every pre-existing test in this file drives an IDENTICAL-text Agree and
+    // stays silent, untouched. These tests supply a drifted text explicitly.
+
+    private static CrossFormatMatch<ClqV01Question, ClqV02Question> AgreeWithTexts(
+        string currentText, string previousText, double? score, int currentRow = 10)
+    {
+        var c = Current(row: currentRow) with { OriginalText = currentText, QuestionText = currentText };
+        var p = Previous() with { OriginalText = previousText, QuestionText = previousText };
+        return new(c, CrossYearOutcome.Agree, p, p, p, score);
+    }
+
+    [Fact]
+    public void Agree_IdenticalText_EmitsNoWarning()
+    {
+        var (_, messages) = MapOne(AgreeMatch(Current(), Previous()), Inject(carryForward: false));
+
+        messages.Should().BeEmpty("an unchanged question is the ordinary case and stays silent");
+    }
+
+    [Fact]
+    public void Agree_ChangedText_EmitsExactlyOneWarning_WithBothTextsBothRowsAndScore()
+    {
+        var (_, messages) = MapOne(
+            AgreeWithTexts("1.1 How is access controlled in 2025?",
+                           "1.1 How is access controlled in 2024?",
+                           score: 0.9730, currentRow: 42),
+            Inject(carryForward: false));
+
+        messages.Should().ContainSingle();
+        messages[0].Severity.Should().Be(MessageSeverity.Warning);
+
+        var text = messages[0].Text;
+        text.Should().StartWith("Row 42 (xref CLQ-1.1)", "CLQ keeps its own Row-first addressing");
+        text.Should().Contain("99", "the previous row is named");
+        text.Should().Contain("0.9730", "the raw score, invariant-formatted");
+        text.Should().Contain("1.1 How is access controlled in 2025?");
+        text.Should().Contain("1.1 How is access controlled in 2024?");
+        text.Should().Contain("question text changed");
+        text.Should().Contain("carried forward");
+    }
+
+    // Pins the COMPLETE sentence, so the shared formatter cannot silently reshape CLQ's message
+    // and so the report's example rendering is a verified string rather than a reconstruction.
+    [Fact]
+    public void Agree_ChangedText_ExactMessageFormat()
+    {
+        var (_, messages) = MapOne(
+            AgreeWithTexts("1.1 How is access controlled in 2025?",
+                           "1.1 How is access controlled in 2024?",
+                           score: 0.9730, currentRow: 42),
+            Inject(carryForward: false));
+
+        messages.Should().ContainSingle().Which.Text.Should().Be(
+            "Row 42 (xref CLQ-1.1): question text changed since the previous year " +
+            "(similarity 0.9730) — treated as the same question; previous values carried forward. " +
+            "Previous (row 99): \"1.1 How is access controlled in 2024?\". " +
+            "Current: \"1.1 How is access controlled in 2025?\".");
+    }
+
+    [Fact]
+    public void Agree_CaseOnlyDrift_StillWarns()
+    {
+        var (_, messages) = MapOne(
+            AgreeWithTexts("1.1 HOW IS ACCESS CONTROLLED?", "1.1 how is access controlled?",
+                           score: 1.0),
+            Inject(carryForward: false));
+
+        messages.Should().ContainSingle().Which.Severity.Should().Be(MessageSeverity.Warning);
+    }
+
+    [Fact]
+    public void Agree_ChangedText_NullScore_RendersUnknownNotZero()
+    {
+        var (_, messages) = MapOne(
+            AgreeWithTexts("New wording", "Old wording", score: null), Inject(carryForward: false));
+
+        var text = messages.Should().ContainSingle().Subject.Text;
+        text.Should().Contain("unknown");
+        text.Should().NotContain("0.0000");
+    }
+
+    // The Warning is an annunciation, not a veto: the same cells are still written.
+    [Fact]
+    public void Agree_ChangedText_StillWritesTheSameCells()
+    {
+        var identical = MapOne(AgreeMatch(Current(), Previous()), Inject(carryForward: false));
+        var drifted   = MapOne(
+            AgreeWithTexts("New wording", "Old wording", score: 0.72),
+            Inject(carryForward: false));
+
+        drifted.cells.Should().BeEquivalentTo(identical.cells,
+            "the drift Warning changes messages only — never which cells are written");
+        drifted.messages.Should().ContainSingle().Which.Severity.Should().Be(MessageSeverity.Warning);
+    }
+
+    // Carry-forward is the CLQ-specific risk: a drifted question having last year's ANSWER,
+    // strengths and weaknesses copied in. It must still trigger identically, and warn exactly once.
+    [Fact]
+    public void Agree_ChangedText_WithCarryForward_StillCarriesAndWarnsExactlyOnce()
+    {
+        var identical = MapOne(AgreeMatch(Current(), Previous()), Inject(carryForward: true));
+        var drifted   = MapOne(
+            AgreeWithTexts("New wording", "Old wording", score: 0.72),
+            Inject(carryForward: true));
+
+        drifted.cells.Should().BeEquivalentTo(identical.cells,
+            "carry-forward triggers on exactly the same condition as before");
+        drifted.messages.Where(m => m.Text.Contains("question text changed"))
+            .Should().HaveCount(1, "one Warning per question, not one per carried-forward cell");
+    }
+
     private static string? Cell(IReadOnlyList<CellWriteEntry> cells, int row, string column)
         => cells.SingleOrDefault(e => e.Row == row && e.Column == column)?.Value;
 

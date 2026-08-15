@@ -54,6 +54,8 @@ public static class RlqInjectMapper
                 {
                     var p = match.Previous!;
 
+                    WarnIfTextDrifted(messages, c, p, match.MatcherBaseScore);
+
                     MapAnswer(cells, messages, c, p, currentConfig, sourceHByRow, targetHByRow);
                     MapExplanations(cells, messages, c, p, currentConfig);
                     MapProvidedBy(cells, c, p, currentConfig);
@@ -180,6 +182,40 @@ public static class RlqInjectMapper
 
     private static bool IsWhole(string? cat) => cat == "WholeNumber";
     private static bool IsDecimal(string? cat) => cat == "Decimal";
+
+    // ── non-identical Agree → exactly one Warning (BLG-0079) ──────────────────────────────────
+    //
+    // RLQ inject aligns through CrossFormatAligner, which already accepts a pair whose texts merely
+    // RESEMBLE each other (its own scored match, threshold 0.50) — and until now said nothing when
+    // it did. So a re-worded risk-level question had last year's answer carried into it silently.
+    // This announces it. NOTHING about the classification changes: the same pairs match, the same
+    // cells are written, the run still succeeds. Message only.
+    //
+    // Identity is ORDINAL, not "score == 1.0": the scorer normalises (trim / collapse whitespace /
+    // lowercase), so a case-only or spacing-only drift scores 1.0 while still being a real change
+    // to the workbook, and must still be surfaced. Mirrors what BLG-0077 established for GD.
+    //
+    // Emitted once per QUESTION, before any cell work, so it cannot multiply per row or per cell.
+    // MatcherBaseScore is read rather than recomputed — CrossFormatAligner already populated it
+    // with the raw, un-inflated similarity of this very pair.
+    private static void WarnIfTextDrifted(
+        List<TaskMessage> messages,
+        RlqV02Question c,
+        RlqV01Question p,
+        double? baseScore)
+    {
+        if (DriftMessageFormatter.AreIdentical(c.OriginalText, p.OriginalText))
+            return;   // unchanged wording — the ordinary case stays silent, exactly as before
+
+        var (curEx, prevEx) = DriftMessageFormatter.Excerpts(c.OriginalText, p.OriginalText);
+
+        messages.Add(new(MessageSeverity.Warning,
+            $"Row {c.RowNumber} (xref {Xref(c)}): question text changed since the previous year " +
+            $"(similarity {DriftMessageFormatter.FormatScore(baseScore)}) — treated as the same " +
+            $"question; previous values carried forward. " +
+            $"Previous (row {p.RowNumber}): \"{prevEx}\". Current: \"{curEx}\".",
+            DateTimeOffset.Now));
+    }
 
     private static string Xref(RlqV02Question c) => c.XrefId ?? "<none>";
 }

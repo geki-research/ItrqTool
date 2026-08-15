@@ -34,7 +34,7 @@ internal static class GdInjectTextComparison
     /// </para>
     /// </summary>
     public static bool AreIdentical(string? current, string? previous)
-        => string.Equals(current, previous, StringComparison.Ordinal);
+        => Shared.DriftMessageFormatter.AreIdentical(current, previous);
 
     /// <summary>
     /// Base similarity of the two question texts, in [0.0, 1.0]. This is the RAW

@@ -57,6 +57,8 @@ public static class ClqInjectMapper
                 {
                     var p = match.Previous!;
 
+                    WarnIfTextDrifted(messages, c, p, match.MatcherBaseScore);
+
                     // ── Reference-injection — ALWAYS on Agree ──
                     AddIfPresent(cells, c.RowNumber, currentConfig.PreviousAnswerColumn, p.Answer);
 
@@ -103,6 +105,41 @@ public static class ClqInjectMapper
     /// and separator is translated to a real newline. Returns the empty string when both
     /// strengths and weaknesses are blank (caller then omits the G cell).
     /// </summary>
+    // ── non-identical Agree → exactly one Warning (BLG-0079) ──────────────────────────────────
+    //
+    // CLQ inject aligns through CrossFormatAligner, which already accepts a pair whose texts merely
+    // RESEMBLE each other (its own scored match, threshold 0.50) — and until now said nothing when
+    // it did. So a re-worded control-level question had last year's answer, strengths and
+    // weaknesses carried into it silently, INCLUDING under carry-forward. This announces it.
+    // NOTHING about the classification changes: the same pairs match, the same cells are written,
+    // carry-forward still triggers on exactly the same condition, the run still succeeds.
+    //
+    // Identity is ORDINAL, not "score == 1.0": the scorer normalises (trim / collapse whitespace /
+    // lowercase), so a case-only or spacing-only drift scores 1.0 while still being a real change
+    // to the workbook, and must still be surfaced. Mirrors what BLG-0077 established for GD.
+    //
+    // Emitted once per QUESTION, before any cell work, so it cannot multiply per cell and fires
+    // once whether or not carry-forward runs. MatcherBaseScore is read rather than recomputed —
+    // CrossFormatAligner already populated it with the raw, un-inflated similarity of this pair.
+    private static void WarnIfTextDrifted(
+        List<TaskMessage> messages,
+        ClqV01Question c,
+        ClqV02Question p,
+        double? baseScore)
+    {
+        if (DriftMessageFormatter.AreIdentical(c.OriginalText, p.OriginalText))
+            return;   // unchanged wording — the ordinary case stays silent, exactly as before
+
+        var (curEx, prevEx) = DriftMessageFormatter.Excerpts(c.OriginalText, p.OriginalText);
+
+        messages.Add(new(MessageSeverity.Warning,
+            $"Row {c.RowNumber} (xref {c.XrefId ?? "<none>"}): question text changed since the " +
+            $"previous year (similarity {DriftMessageFormatter.FormatScore(baseScore)}) — treated " +
+            $"as the same question; previous values carried forward. " +
+            $"Previous (row {p.RowNumber}): \"{prevEx}\". Current: \"{curEx}\".",
+            DateTimeOffset.Now));
+    }
+
     private static string BuildExplanation(string? strengths, string? weaknesses, ClqInjectConfig cfg)
     {
         static string Nl(string s) => s.Replace("{nl}", "\n");
