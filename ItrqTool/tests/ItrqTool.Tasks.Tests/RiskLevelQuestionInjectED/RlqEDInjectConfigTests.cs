@@ -19,6 +19,8 @@ public sealed class RlqEDInjectConfigTests
         SourceEBOeAnswerColumn = "L",
         TargetHoldingAnswerColumn = "H",
         TargetEBOeAnswerColumn = "I",
+        TargetHoldingDvColumn = "K",
+        TargetEBOeDvColumn = "L",
     };
 
     // ValidConfig() with exactly one property replaced (by name).
@@ -33,6 +35,8 @@ public sealed class RlqEDInjectConfigTests
             SourceEBOeAnswerColumn = property == nameof(RlqEDInjectConfig.SourceEBOeAnswerColumn) ? value : v.SourceEBOeAnswerColumn,
             TargetHoldingAnswerColumn = property == nameof(RlqEDInjectConfig.TargetHoldingAnswerColumn) ? value : v.TargetHoldingAnswerColumn,
             TargetEBOeAnswerColumn = property == nameof(RlqEDInjectConfig.TargetEBOeAnswerColumn) ? value : v.TargetEBOeAnswerColumn,
+            TargetHoldingDvColumn = property == nameof(RlqEDInjectConfig.TargetHoldingDvColumn) ? value : v.TargetHoldingDvColumn,
+            TargetEBOeDvColumn = property == nameof(RlqEDInjectConfig.TargetEBOeDvColumn) ? value : v.TargetEBOeDvColumn,
         };
     }
 
@@ -88,6 +92,8 @@ public sealed class RlqEDInjectConfigTests
     [InlineData(nameof(RlqEDInjectConfig.SourceEBOeAnswerColumn))]
     [InlineData(nameof(RlqEDInjectConfig.TargetHoldingAnswerColumn))]
     [InlineData(nameof(RlqEDInjectConfig.TargetEBOeAnswerColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetHoldingDvColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetEBOeDvColumn))]
     public void Validate_EmptyKey_ReturnsExactlyTheMirroredMessage(string property)
     {
         With(property, "").Validate().Should().Equal($"{property} must not be empty.");
@@ -102,7 +108,8 @@ public sealed class RlqEDInjectConfigTests
             "\"CurrentConfigFilename\": \"rlq-ed-v02-validation-config.json\", " +
             "\"PreviousConfigFilename\": \"rlq-ed-v01-validation-config.json\", " +
             "\"SourceHoldingAnswerColumn\": \"K\", \"SourceEBOeAnswerColumn\": \"L\", " +
-            "\"TargetHoldingAnswerColumn\": \"H\", \"TargetEBOeAnswerColumn\": \"I\"";
+            "\"TargetHoldingAnswerColumn\": \"H\", \"TargetEBOeAnswerColumn\": \"I\", " +
+            "\"TargetHoldingDvColumn\": \"K\", \"TargetEBOeDvColumn\": \"L\"";
 
         var path = Path.GetTempFileName();
         try
@@ -137,6 +144,8 @@ public sealed class RlqEDInjectConfigTests
             SourceEBOeAnswerColumn = "k",
             TargetHoldingAnswerColumn = "H",
             TargetEBOeAnswerColumn = "I",
+            TargetHoldingDvColumn = "K",
+            TargetEBOeDvColumn = "L",
         };
 
         c.Validate().Should().Equal("SourceHoldingAnswerColumn and SourceEBOeAnswerColumn must be distinct.");
@@ -153,6 +162,8 @@ public sealed class RlqEDInjectConfigTests
             SourceEBOeAnswerColumn = "L",
             TargetHoldingAnswerColumn = "H",
             TargetEBOeAnswerColumn = "h",
+            TargetHoldingDvColumn = "K",
+            TargetEBOeDvColumn = "L",
         };
 
         c.Validate().Should().Equal("TargetHoldingAnswerColumn and TargetEBOeAnswerColumn must be distinct.");
@@ -227,6 +238,8 @@ public sealed class RlqEDInjectConfigTests
     [InlineData(nameof(RlqEDInjectConfig.SourceEBOeAnswerColumn))]
     [InlineData(nameof(RlqEDInjectConfig.TargetHoldingAnswerColumn))]
     [InlineData(nameof(RlqEDInjectConfig.TargetEBOeAnswerColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetHoldingDvColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetEBOeDvColumn))]
     public void Validate_NonLetterColumn_ReturnsSyntaxMessage(string property)
     {
         With(property, "1A").Validate().Should().Equal(
@@ -246,6 +259,8 @@ public sealed class RlqEDInjectConfigTests
             SourceEBOeAnswerColumn = "L",
             TargetHoldingAnswerColumn = "H",
             TargetEBOeAnswerColumn = "I",
+            TargetHoldingDvColumn = "K",
+            TargetEBOeDvColumn = "L",
         };
 
         c.Validate().Should().Equal(
@@ -254,7 +269,7 @@ public sealed class RlqEDInjectConfigTests
     }
 
     [Fact]
-    public void Validate_AllSixMissing_CollectsSixErrorsInOrder()
+    public void Validate_AllEightMissing_CollectsEightErrorsInOrder()
     {
         var errors = new RlqEDInjectConfig
         {
@@ -264,6 +279,8 @@ public sealed class RlqEDInjectConfigTests
             SourceEBOeAnswerColumn = "",
             TargetHoldingAnswerColumn = "",
             TargetEBOeAnswerColumn = "",
+            TargetHoldingDvColumn = "",
+            TargetEBOeDvColumn = "",
         }.Validate();
 
         errors.Should().Equal(
@@ -272,7 +289,9 @@ public sealed class RlqEDInjectConfigTests
             "SourceHoldingAnswerColumn must not be empty.",
             "SourceEBOeAnswerColumn must not be empty.",
             "TargetHoldingAnswerColumn must not be empty.",
-            "TargetEBOeAnswerColumn must not be empty.");
+            "TargetEBOeAnswerColumn must not be empty.",
+            "TargetHoldingDvColumn must not be empty.",
+            "TargetEBOeDvColumn must not be empty.");
         errors.Should().NotContain(e => e.Contains("must be distinct"));
     }
 
@@ -291,6 +310,8 @@ public sealed class RlqEDInjectConfigTests
             SourceEBOeAnswerColumn = sourcePair ? "" : "L",
             TargetHoldingAnswerColumn = sourcePair ? "H" : "",
             TargetEBOeAnswerColumn = sourcePair ? "I" : "",
+            TargetHoldingDvColumn = "K",
+            TargetEBOeDvColumn = "L",
         };
 
         var errors = c.Validate();
@@ -355,5 +376,70 @@ public sealed class RlqEDInjectConfigTests
         };
 
         c.CollisionsWith(previous, current).Should().BeEmpty();
+    }
+
+    // ── A3-1. four-way target distinctness: each of the 6 pairs, one message ──
+    // propA takes propB's valid letter, so exactly that one pair collides. The
+    // (TargetHoldingAnswerColumn, TargetHoldingDvColumn) row is the review2 F-3 guard: H mis-set to K.
+
+    [Theory]
+    [InlineData(nameof(RlqEDInjectConfig.TargetHoldingAnswerColumn), nameof(RlqEDInjectConfig.TargetEBOeAnswerColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetHoldingAnswerColumn), nameof(RlqEDInjectConfig.TargetHoldingDvColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetHoldingAnswerColumn), nameof(RlqEDInjectConfig.TargetEBOeDvColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetEBOeAnswerColumn), nameof(RlqEDInjectConfig.TargetHoldingDvColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetEBOeAnswerColumn), nameof(RlqEDInjectConfig.TargetEBOeDvColumn))]
+    [InlineData(nameof(RlqEDInjectConfig.TargetHoldingDvColumn), nameof(RlqEDInjectConfig.TargetEBOeDvColumn))]
+    public void Validate_TargetPairEqual_ReturnsExactlyThatPairMessage(string propA, string propB)
+    {
+        var v = ValidConfig();
+        var letterOfB = propB switch
+        {
+            nameof(RlqEDInjectConfig.TargetEBOeAnswerColumn) => v.TargetEBOeAnswerColumn,
+            nameof(RlqEDInjectConfig.TargetHoldingDvColumn) => v.TargetHoldingDvColumn,
+            nameof(RlqEDInjectConfig.TargetEBOeDvColumn) => v.TargetEBOeDvColumn,
+            _ => throw new ArgumentOutOfRangeException(nameof(propB), propB, null),
+        };
+
+        With(propA, letterOfB).Validate().Should().Equal($"{propA} and {propB} must be distinct.");
+    }
+
+    // ── A3-2. CollisionsWith covers the two DV-source letters ─────────────────
+
+    [Fact]
+    public void CollisionsWith_DvColumns_ReportExactText()
+    {
+        var c = new RlqEDInjectConfig
+        {
+            CurrentConfigFilename = "a.json",
+            PreviousConfigFilename = "b.json",
+            SourceHoldingAnswerColumn = "K",
+            SourceEBOeAnswerColumn = "L",
+            TargetHoldingAnswerColumn = "H",
+            TargetEBOeAnswerColumn = "I",
+            TargetHoldingDvColumn = "J",   // v02 AnswerColumn
+            TargetEBOeDvColumn = "T",      // v02 ProvidedByColumn
+        };
+
+        c.CollisionsWith(EdV01(), EdV02()).Should().Equal(
+            "Column letter collision: RlqEDInjectConfig.TargetHoldingDvColumn 'J' equals RlqV02Config.AnswerColumn.",
+            "Column letter collision: RlqEDInjectConfig.TargetEBOeDvColumn 'T' equals RlqV02Config.ProvidedByColumn.");
+    }
+
+    // ── A3-3. the real ED letters: clean Validate and no collisions ───────────
+
+    [Fact]
+    public void RealEdLetters_ValidateClean_AndCollideWithNothing()
+    {
+        var c = ValidConfig();
+
+        c.SourceHoldingAnswerColumn.Should().Be("K");
+        c.SourceEBOeAnswerColumn.Should().Be("L");
+        c.TargetHoldingAnswerColumn.Should().Be("H");
+        c.TargetEBOeAnswerColumn.Should().Be("I");
+        c.TargetHoldingDvColumn.Should().Be("K");
+        c.TargetEBOeDvColumn.Should().Be("L");
+
+        c.Validate().Should().BeEmpty();
+        c.CollisionsWith(EdV01(), EdV02()).Should().BeEmpty();
     }
 }

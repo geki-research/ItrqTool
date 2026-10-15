@@ -10,8 +10,11 @@ namespace ItrqTool.Tasks.RiskLevelQuestionInjectED;
 /// run time from the referenced standard-shape <see cref="RlqV01Config"/> / <see cref="RlqV02Config"/>
 /// assets), plus the four ED-only answer columns those shared shapes cannot carry — the v01
 /// CURRENT Holding / EBOe answers (the injection sources) and the v02 PREVIOUS Holding / EBOe
-/// answers (the injection targets). The v01 previous and v02 current Holding / EBOe columns are
-/// never read or written, so they have no keys here.
+/// answers (the injection targets). Amendment A3 adds the v02 CURRENT Holding / EBOe columns
+/// (<see cref="TargetHoldingDvColumn"/> / <see cref="TargetEBOeDvColumn"/>): their data-validation
+/// rule governs the corresponding write, mirroring the standard task, which judges the G write
+/// against H's DV. They are DV-read only — never written. The v01 previous Holding / EBOe columns
+/// are never read or written, so they have no keys here.
 /// </summary>
 public sealed class RlqEDInjectConfig
 {
@@ -22,6 +25,8 @@ public sealed class RlqEDInjectConfig
     public string SourceEBOeAnswerColumn { get; init; } = "";      // ED v01 current EBOe answer
     public string TargetHoldingAnswerColumn { get; init; } = "";   // ED v02 previous Holding answer
     public string TargetEBOeAnswerColumn { get; init; } = "";      // ED v02 previous EBOe answer
+    public string TargetHoldingDvColumn { get; init; } = "";       // ED v02 current Holding answer (DV source)
+    public string TargetEBOeDvColumn { get; init; } = "";          // ED v02 current EBOe answer (DV source)
 
     public IReadOnlyList<string> Validate()
     {
@@ -37,14 +42,26 @@ public sealed class RlqEDInjectConfig
         ValidateColumnLetter(nameof(SourceEBOeAnswerColumn), SourceEBOeAnswerColumn, errors);
         ValidateColumnLetter(nameof(TargetHoldingAnswerColumn), TargetHoldingAnswerColumn, errors);
         ValidateColumnLetter(nameof(TargetEBOeAnswerColumn), TargetEBOeAnswerColumn, errors);
+        ValidateColumnLetter(nameof(TargetHoldingDvColumn), TargetHoldingDvColumn, errors);
+        ValidateColumnLetter(nameof(TargetEBOeDvColumn), TargetEBOeDvColumn, errors);
 
         // Same comparer as RlqV02Config's distinctness check: blank values excluded, then
         // ToUpperInvariant + ordinal equality.
         if (SameLetter(SourceHoldingAnswerColumn, SourceEBOeAnswerColumn))
             errors.Add($"{nameof(SourceHoldingAnswerColumn)} and {nameof(SourceEBOeAnswerColumn)} must be distinct.");
 
-        if (SameLetter(TargetHoldingAnswerColumn, TargetEBOeAnswerColumn))
-            errors.Add($"{nameof(TargetHoldingAnswerColumn)} and {nameof(TargetEBOeAnswerColumn)} must be distinct.");
+        // Every pair of the four v02 target letters, in declaration order.
+        var targets = new (string Name, string Value)[]
+        {
+            (nameof(TargetHoldingAnswerColumn), TargetHoldingAnswerColumn),
+            (nameof(TargetEBOeAnswerColumn), TargetEBOeAnswerColumn),
+            (nameof(TargetHoldingDvColumn), TargetHoldingDvColumn),
+            (nameof(TargetEBOeDvColumn), TargetEBOeDvColumn),
+        };
+        for (var i = 0; i < targets.Length; i++)
+            for (var j = i + 1; j < targets.Length; j++)
+                if (SameLetter(targets[i].Value, targets[j].Value))
+                    errors.Add($"{targets[i].Name} and {targets[j].Name} must be distinct.");
 
         return errors;
     }
@@ -95,6 +112,8 @@ public sealed class RlqEDInjectConfig
         AddCollisions(nameof(SourceEBOeAnswerColumn), SourceEBOeAnswerColumn, nameof(RlqV01Config), previousColumns, collisions);
         AddCollisions(nameof(TargetHoldingAnswerColumn), TargetHoldingAnswerColumn, nameof(RlqV02Config), currentColumns, collisions);
         AddCollisions(nameof(TargetEBOeAnswerColumn), TargetEBOeAnswerColumn, nameof(RlqV02Config), currentColumns, collisions);
+        AddCollisions(nameof(TargetHoldingDvColumn), TargetHoldingDvColumn, nameof(RlqV02Config), currentColumns, collisions);
+        AddCollisions(nameof(TargetEBOeDvColumn), TargetEBOeDvColumn, nameof(RlqV02Config), currentColumns, collisions);
 
         return collisions;
     }
