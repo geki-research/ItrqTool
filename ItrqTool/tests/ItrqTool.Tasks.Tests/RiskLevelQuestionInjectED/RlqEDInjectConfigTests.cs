@@ -232,4 +232,128 @@ public sealed class RlqEDInjectConfigTests
         With(property, "1A").Validate().Should().Equal(
             $"{property} must be a valid column letter (e.g. 'A', 'AA').");
     }
+
+    // ── F2/F3 (review N2a). Validate() collects every error, in declaration order ─
+
+    [Fact]
+    public void Validate_BothFilenamesMissing_CollectsBothErrors()
+    {
+        var c = new RlqEDInjectConfig
+        {
+            CurrentConfigFilename = "",
+            PreviousConfigFilename = "",
+            SourceHoldingAnswerColumn = "K",
+            SourceEBOeAnswerColumn = "L",
+            TargetHoldingAnswerColumn = "H",
+            TargetEBOeAnswerColumn = "I",
+        };
+
+        c.Validate().Should().Equal(
+            "CurrentConfigFilename must not be empty.",
+            "PreviousConfigFilename must not be empty.");
+    }
+
+    [Fact]
+    public void Validate_AllSixMissing_CollectsSixErrorsInOrder()
+    {
+        var errors = new RlqEDInjectConfig
+        {
+            CurrentConfigFilename = "",
+            PreviousConfigFilename = "",
+            SourceHoldingAnswerColumn = "",
+            SourceEBOeAnswerColumn = "",
+            TargetHoldingAnswerColumn = "",
+            TargetEBOeAnswerColumn = "",
+        }.Validate();
+
+        errors.Should().Equal(
+            "CurrentConfigFilename must not be empty.",
+            "PreviousConfigFilename must not be empty.",
+            "SourceHoldingAnswerColumn must not be empty.",
+            "SourceEBOeAnswerColumn must not be empty.",
+            "TargetHoldingAnswerColumn must not be empty.",
+            "TargetEBOeAnswerColumn must not be empty.");
+        errors.Should().NotContain(e => e.Contains("must be distinct"));
+    }
+
+    // ── F4 (review N2b). a blank pair is not reported as a duplicate ──────────
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Validate_BlankPair_IsNotReportedAsDuplicate(bool sourcePair)
+    {
+        var c = new RlqEDInjectConfig
+        {
+            CurrentConfigFilename = "a.json",
+            PreviousConfigFilename = "b.json",
+            SourceHoldingAnswerColumn = sourcePair ? "" : "K",
+            SourceEBOeAnswerColumn = sourcePair ? "" : "L",
+            TargetHoldingAnswerColumn = sourcePair ? "H" : "",
+            TargetEBOeAnswerColumn = sourcePair ? "I" : "",
+        };
+
+        var errors = c.Validate();
+
+        if (sourcePair)
+            errors.Should().Equal(
+                "SourceHoldingAnswerColumn must not be empty.",
+                "SourceEBOeAnswerColumn must not be empty.");
+        else
+            errors.Should().Equal(
+                "TargetHoldingAnswerColumn must not be empty.",
+                "TargetEBOeAnswerColumn must not be empty.");
+        errors.Should().NotContain(e => e.Contains("must be distinct"));
+    }
+
+    // ── F5 (review N2c). CollisionsWith ignores blank letters on both sides ───
+
+    [Fact]
+    public void CollisionsWith_BlankLetters_AreIgnored()
+    {
+        var c = new RlqEDInjectConfig
+        {
+            CurrentConfigFilename = "a.json",
+            PreviousConfigFilename = "b.json",
+            SourceHoldingAnswerColumn = "",
+            SourceEBOeAnswerColumn = "L",
+            TargetHoldingAnswerColumn = "H",
+            TargetEBOeAnswerColumn = "",
+        };
+
+        var previous = new RlqV01Config
+        {
+            QuestionNumberColumn = "C",
+            TextColumn = "D",
+            GuidanceColumn = "",
+            RequestedTypeColumn = "F",
+            PreviousAnswerColumn = "G",
+            AnswerColumn = "J",
+            RequestedExplanationColumn = "M",
+            PreviousExplanationColumn = "N",
+            CurrentExplanationColumn = "O",
+            MaterialChangeColumn = "P",
+            ProvidedByColumn = "S",
+            XrefIdColumn = "U",
+        };
+
+        var current = new RlqV02Config
+        {
+            QuestionNumberColumn = "C",
+            TextColumn = "D",
+            GuidanceColumn = "E",
+            RequestedTypeColumn = "F",
+            PreviousAnswerColumn = "G",
+            AnswerColumn = "J",
+            RequestedExplanationColumn = "M",
+            PreviousExplanationColumn = "N",
+            CurrentExplanationColumn = "O",
+            MaterialChangeColumn = "P",
+            HowExplanationColumn = "",
+            ProvidedByColumn = "T",
+            XrefIdColumn = "V",
+        };
+
+        c.CollisionsWith(previous, current).Should().BeEmpty();
+    }
 }

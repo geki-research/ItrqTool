@@ -715,4 +715,51 @@ public sealed class RlqEDInjectMapperTests
         messages[0].Text.Should().Be(
             "[answer] " + Standard(Agree(Cur(), Prev(answer: "Yes")), src, tgt).messages.Single().Text);
     }
+
+    // ── F1 (review N1). per-question message order: drift → answer → Holding → EBOe → explanation ──
+
+    [Fact]
+    public void MessageOrder_DriftThenAnswerHoldingEBOeThenExplanations()
+    {
+        // Every arm skips (fraction into WholeNumber → Error); explanation counts differ (2 vs 1).
+        var arms = new ArmMaps(
+            new()
+            {
+                [RlqEDAnswerArm.Answer] = Src("Decimal", 3.5, "3.5"),
+                [RlqEDAnswerArm.Holding] = Src("Decimal", 3.5, "3.5"),
+                [RlqEDAnswerArm.EBOe] = Src("Decimal", 3.5, "3.5"),
+            },
+            new()
+            {
+                [RlqEDAnswerArm.Answer] = Tgt(TgtDv("WholeNumber")),
+                [RlqEDAnswerArm.Holding] = Tgt(TgtDv("WholeNumber")),
+                [RlqEDAnswerArm.EBOe] = Tgt(TgtDv("WholeNumber")),
+            });
+
+        var c = Cur(row: 10, expl: [Expl(null, 11)])
+            with { OriginalText = "New wording", QuestionText = "New wording" };
+        var p = Prev(row: 100, expl: [Expl("e1", 101), Expl("e2", 102)])
+            with { OriginalText = "Old wording", QuestionText = "Old wording" };
+
+        var (_, messages) = MapOne(
+            new CrossFormatMatch<RlqV02Question, RlqV01Question>(c, CrossYearOutcome.Agree, p, p, p, 0.72),
+            arms);
+
+        messages.Should().HaveCount(5);
+
+        messages[0].Severity.Should().Be(MessageSeverity.Warning);
+        messages[0].Text.Should().StartWith("Row 10 (xref RLQ-1.1): question text changed");
+
+        messages[1].Severity.Should().Be(MessageSeverity.Error);
+        messages[1].Text.Should().StartWith("[answer] Row 10 (xref RLQ-1.1): ");
+
+        messages[2].Severity.Should().Be(MessageSeverity.Error);
+        messages[2].Text.Should().StartWith("[answer (Holding)] Row 10 (xref RLQ-1.1): ");
+
+        messages[3].Severity.Should().Be(MessageSeverity.Error);
+        messages[3].Text.Should().StartWith("[answer (EBOe)] Row 10 (xref RLQ-1.1): ");
+
+        messages[4].Severity.Should().Be(MessageSeverity.Warning);
+        messages[4].Text.Should().StartWith("Row 10 (xref RLQ-1.1): explanation row count mismatch (source 2, target 1)");
+    }
 }
