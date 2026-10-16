@@ -1,0 +1,48 @@
+{
+  "hierarchicalPath": "rlq-ed-inject-trial",
+  "name": "RLQ ED Inject Trial (v01 → v02)",
+  "tasks": [
+    {
+      "id": "load-previous-response",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "rlq_previous_response.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/rlq-ed-inject/rlq_ed_previous_response.xlsx"
+      }
+    },
+    {
+      "id": "load-current-template",
+      "type": "StaticFileSource",
+      "inputs": {},
+      "outputs": { "output": "rlq_current_template.xlsx" },
+      "parameters": {
+        "sourcePath": "trial-workbooks/rlq-ed-inject/rlq_ed_current_template.xlsx"
+      }
+    },
+    {
+      "id": "inject",
+      "type": "RiskLevelQuestionInjectED_v01_to_v02",
+      "inputs": {
+        "previousResponse": "load-previous-response.output",
+        "currentTemplate": "load-current-template.output"
+      },
+      "outputs": { "output": "injected.xlsx" },
+      "parameters": {
+        "configurationFullFilename": "configs/rlq-ed-inject-config.json"
+      }
+    },
+    {
+      "id": "sink",
+      "type": "StaticFileSink",
+      "inputs": {
+        "input": "inject.output"
+      },
+      "outputs": {},
+      "parameters": {
+        "destinationFolder": "inject-output/rlq-ed-inject",
+        "destinationFileName": "rlq_ed_injected_current.xlsx"
+      }
+    }
+  ]
+}
