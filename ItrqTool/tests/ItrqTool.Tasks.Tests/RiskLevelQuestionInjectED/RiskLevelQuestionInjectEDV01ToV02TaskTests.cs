@@ -19,7 +19,10 @@ namespace ItrqTool.Tasks.Tests.RiskLevelQuestionInjectED;
 /// </summary>
 public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
 {
-    private const string Sheet = "IT Risk Level Questions";
+    // Distinct per workbook (fixture data only; the real ED assets use one name for both), so a
+    // read of one workbook with the other workbook's sheet name is caught by the fake.
+    private const string PreviousSheet = "ED v01 sheet";
+    private const string CurrentSheet = "ED v02 sheet";
 
     // ── fake reader ───────────────────────────────────────────────────────────
 
@@ -49,10 +52,16 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
             => Cells.TryGetValue(address, out var c) ? c : new ExcelCellStructure(null, null, null, null);
     }
 
-    private sealed class FakeReader(Dictionary<string, Workbook> byPath) : IExcelStructureReader
+    // Sheet-aware: every ReadRows / ReadCells call must name the sheet expected for that path.
+    // A mismatch throws (the task turns it into an Error) AND is recorded in `violations`, which
+    // the fixture re-raises on Dispose so the cause surfaces as the test failure.
+    private sealed class FakeReader(
+        Dictionary<string, Workbook> byPath,
+        Dictionary<string, string> sheetByPath,
+        List<string> violations) : IExcelStructureReader
     {
         public IReadOnlyList<ExcelRowStructure> ReadRows(string filePath, string sheetName)
-            => byPath[filePath].Cells
+            => CheckSheet(filePath, sheetName).Cells
                 .Select(kv => (Addr: Split(kv.Key), Cell: kv.Value))
                 .GroupBy(x => x.Addr.Row)
                 .OrderBy(g => g.Key)
@@ -63,13 +72,14 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
         public IReadOnlyDictionary<string, ExcelCellStructure> ReadCells(
             string filePath, string sheetName, IReadOnlyList<string> a1Ranges)
         {
+            var workbook = CheckSheet(filePath, sheetName);
             var result = new Dictionary<string, ExcelCellStructure>(StringComparer.OrdinalIgnoreCase);
             foreach (var range in a1Ranges)
             {
                 var parts = range.Split(':');
                 var (c1, r1) = Split(parts[0]);
                 var (c2, r2) = Split(parts.Length > 1 ? parts[1] : parts[0]);
-                foreach (var (addr, cell) in byPath[filePath].Cells)
+                foreach (var (addr, cell) in workbook.Cells)
                 {
                     var (c, r) = Split(addr);
                     if (string.Compare(c, c1, StringComparison.OrdinalIgnoreCase) >= 0 &&
@@ -83,7 +93,19 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
 
         public IReadOnlyList<string>? ResolveDefinedNameValues(string filePath, string sheetName, string name) => null;
 
-        public IReadOnlyList<string> GetWorksheetNames(string filePath) => [Sheet];
+        public IReadOnlyList<string> GetWorksheetNames(string filePath) => [sheetByPath[filePath]];
+
+        private Workbook CheckSheet(string filePath, string sheetName)
+        {
+            var expected = sheetByPath[filePath];
+            if (sheetName != expected)
+            {
+                var message = $"unexpected sheet '{sheetName}' for {Path.GetFileName(filePath)} (expected '{expected}')";
+                violations.Add(message);
+                throw new InvalidOperationException(message);
+            }
+            return byPath[filePath];
+        }
 
         private static (string Col, int Row) Split(string address)
         {
@@ -110,6 +132,7 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
         public IWorksheetStructureMediator Mediator { get; } = Substitute.For<IWorksheetStructureMediator>();
         public IExcelTemplateWriter Writer { get; } = Substitute.For<IExcelTemplateWriter>();
         public IReadOnlyList<CellWriteEntry>? Written { get; private set; }
+        public List<string> SheetViolations { get; } = [];
 
         public Fixture()
         {
@@ -149,7 +172,7 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
                   "RequestedExplanationColumn": "M", "PreviousExplanationColumn": "N",
                   "CurrentExplanationColumn": "O", "MaterialChangeColumn": "P",
                   "ProvidedByColumn": "S", "XrefIdColumn": "U",
-                  "SheetName": "{{Sheet}}",
+                  "SheetName": "{{PreviousSheet}}",
                   "SectionRows": ["3:4-10"],
                   "DeviationThreshold": 0.25,
                   "SeverityOverrides": {}
@@ -164,7 +187,7 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
                       "RequestedExplanationColumn": "M", "PreviousExplanationColumn": "N",
                       "CurrentExplanationColumn": "O", "MaterialChangeColumn": "P",
                       "HowExplanationColumn": "Q", "ProvidedByColumn": "T", "XrefIdColumn": "V",
-                      "SheetName": "{{Sheet}}",
+                      "SheetName": "{{CurrentSheet}}",
                       "SectionRows": ["3:4-10"],
                       "DeviationThreshold": 0.25,
                       "MaterialChangeExplanationTriggers": ["Yes"],
@@ -190,11 +213,18 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
         }
 
         public RiskLevelQuestionInjectEDV01ToV02Task Task()
-            => new(new FakeReader(new Dictionary<string, Workbook>(StringComparer.OrdinalIgnoreCase)
-            {
-                [PreviousPath] = Previous,
-                [CurrentPath] = Current,
-            }), Writer, Mediator);
+            => new(new FakeReader(
+                new Dictionary<string, Workbook>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [PreviousPath] = Previous,
+                    [CurrentPath] = Current,
+                },
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [PreviousPath] = PreviousSheet,
+                    [CurrentPath] = CurrentSheet,
+                },
+                SheetViolations), Writer, Mediator);
 
         public TaskExecutionContext Ctx(
             string? configPath = null,
@@ -221,6 +251,11 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
         public void Dispose()
         {
             try { Directory.Delete(Dir, recursive: true); } catch (IOException) { }
+
+            // A wrong-sheet read is a test failure even where the test's own assertions would not
+            // notice it (the task converts the reader's exception into an Error message).
+            if (SheetViolations.Count > 0)
+                throw new InvalidOperationException(string.Join("; ", SheetViolations));
         }
     }
 
@@ -288,6 +323,21 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
         result.Messages.Should().ContainSingle().Which.Text.Should().Be(
             "Referenced config file(s) not found: CurrentConfigFilename: " +
             Path.Combine(f.Dir, "rlq-ed-v02-validation-config.json"));
+    }
+
+    [Fact]
+    public async Task ReferencedPreviousConfigNotFound_FailsNamingTheEdFilename()
+    {
+        using var f = new Fixture();
+        f.WriteConfigs();
+        File.Delete(Path.Combine(f.Dir, "rlq-ed-v01-validation-config.json"));
+
+        var result = await f.Task().ExecuteAsync(f.Ctx(), CancellationToken.None);
+
+        result.Succeeded.Should().BeFalse();
+        result.Messages.Should().ContainSingle().Which.Text.Should().Be(
+            "Referenced config file(s) not found: PreviousConfigFilename: " +
+            Path.Combine(f.Dir, "rlq-ed-v01-validation-config.json"));
     }
 
     // ── T6. invalid ED config (A3 pair) → Configuration error ─────────────────
@@ -395,7 +445,7 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02TaskTests
         var result = await f.Task().ExecuteAsync(f.Ctx(), CancellationToken.None);
 
         result.Succeeded.Should().BeTrue();
-        f.Writer.Received(1).Populate(f.CurrentPath, Sheet, Arg.Any<IReadOnlyList<CellWriteEntry>>(), f.OutputPath);
+        f.Writer.Received(1).Populate(f.CurrentPath, CurrentSheet, Arg.Any<IReadOnlyList<CellWriteEntry>>(), f.OutputPath);
         f.Written.Should().BeEquivalentTo(new[]
         {
             new CellWriteEntry(4, "G", "3", 3.0),

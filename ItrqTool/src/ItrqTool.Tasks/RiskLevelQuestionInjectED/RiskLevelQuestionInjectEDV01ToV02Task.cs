@@ -228,7 +228,7 @@ public sealed class RiskLevelQuestionInjectEDV01ToV02Task : IWorkflowTask
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            ctx.Logger.LogError(ex, "RLQ inject (v01→v02) failed: {Message}", ex.Message);
+            ctx.Logger.LogError(ex, "RLQ ED inject (v01→v02) failed: {Message}", ex.Message);
             messages.Add(new(MessageSeverity.Error, ex.Message, DateTimeOffset.Now));
             return new TaskResult(Succeeded: false, messages, sw.Elapsed);
         }
