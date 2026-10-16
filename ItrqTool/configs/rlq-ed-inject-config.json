@@ -1,0 +1,10 @@
+{
+  "CurrentConfigFilename": "rlq-ed-v02-columns-config.json",
+  "PreviousConfigFilename": "rlq-ed-v01-columns-config.json",
+  "SourceHoldingAnswerColumn": "K",
+  "SourceEBOeAnswerColumn": "L",
+  "TargetHoldingAnswerColumn": "H",
+  "TargetEBOeAnswerColumn": "I",
+  "TargetHoldingDvColumn": "K",
+  "TargetEBOeDvColumn": "L"
+}
